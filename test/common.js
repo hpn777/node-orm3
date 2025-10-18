@@ -34,7 +34,7 @@ common.hasConfig = function (proto) {
     return 'not-found';
   }
 
-  return (config.hasOwnProperty(proto) ? 'found' : 'not-defined');
+  return (Object.prototype.hasOwnProperty.call(config, proto) ? 'found' : 'not-defined');
 };
 
 common.parseConnectionString = function (connString) {
