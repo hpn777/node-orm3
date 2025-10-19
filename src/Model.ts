@@ -185,7 +185,7 @@ export default function Model(opts: ModelOptions): ModelType {
       OneAssociation.autoFetch(instance, one_associations as any, associationOptions, () => {
         ManyAssociation.autoFetch(instance, many_associations as any, associationOptions, () => {
           ExtendAssociation.autoFetch(instance, extend_associations as any, associationOptions, () => {
-            Hook.wait(instance as any, (opts as any).hooks?.afterAutoFetch, (err?: Error) => {
+            Hook.wait(instance as any, modelHooks.afterAutoFetch, (err?: Error) => {
               if (err) {
                 return cb(err);
               }

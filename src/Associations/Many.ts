@@ -211,10 +211,16 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
         if (err) return cb(err);
         if (_.isEmpty(Instances)) return cb(null, false);
 
+        const rawModelId = association.model?.id;
+        const modelKeyFields = Array.isArray(rawModelId)
+          ? rawModelId
+          : rawModelId
+            ? [rawModelId]
+            : Object.keys(association.model?.properties || {});
+        const comparisonKeys = modelKeyFields.length > 0 ? modelKeyFields : ['id'];
+
         const mapKeysToString = (item: any): string => {
-          return _.map(association.model.keys, (k) => {
-            return item[k];
-          }).join(',');
+          return comparisonKeys.map((k: string) => String(item?.[k])).join(',');
         };
 
         const foundItemsIDs = _.chain(foundItems).map(mapKeysToString).uniq().value();

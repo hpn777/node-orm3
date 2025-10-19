@@ -279,11 +279,9 @@ Driver.prototype.valueToProperty = function (this: any, value: any, property: Pr
       break;
     case "date":
       if (typeof value == 'string') {
-        if (value.indexOf('Z', value.length - 1) === -1) {
-          value = new Date(value + 'Z');
-        } else {
-          value = new Date(value);
-        }
+        const hasTrailingZ = value.indexOf('Z', value.length - 1) !== -1;
+
+        value = new Date(hasTrailingZ ? value : value + 'Z');
 
         if (this.config.timezone && this.config.timezone != 'local') {
           var tz = convertTimezone(this.config.timezone);
@@ -292,9 +290,10 @@ Driver.prototype.valueToProperty = function (this: any, value: any, property: Pr
             // shift UTC to timezone
             value.setTime(value.getTime() - (tz * 60000));
           }
-        }else {
-          // shift local to UTC
-          value.setTime(value.getTime() + (value.getTimezoneOffset() * 60000));
+        } else if (hasTrailingZ) {
+          // align to current local timezone offset
+          const localOffsetMinutes = (new Date()).getTimezoneOffset();
+          value.setTime(value.getTime() + (localOffsetMinutes * 60000));
         }
       }
       break;
