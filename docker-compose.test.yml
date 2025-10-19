@@ -1,0 +1,69 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.3
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: orm_test
+      MYSQL_ROOT_HOST: "%"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-pexample"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: orm_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d orm_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
+    networks:
+      default:
+        aliases:
+          - redshift
+
+  mongodb:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_DATABASE: orm_test
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"]
+      interval: 5s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
+
+  test-runner:
+    image: node:24
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    environment:
+      MYSQL_DB_URL: mysql://root:example@mysql:3306/orm_test
+      POSTGRES_DB_URL: postgres://postgres:example@postgres:5432/orm_test
+      REDSHIFT_DB_URL: redshift://postgres:example@redshift:5432/orm_test
+      MONGODB_DB_URL: mongodb://mongodb:27017/orm_test
+      CI: "1"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    command: >-
+      bash -lc "npm ci && npm run build && make test"
+
+networks:
+  default:
+    name: orm3-test-net

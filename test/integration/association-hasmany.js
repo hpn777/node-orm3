@@ -13,6 +13,14 @@ describe("hasMany", function () {
   before(function(done) {
     helper.connect(function (connection) {
       db = connection;
+      if (db.driver && db.driver.opts) {
+        db.driver.opts.debug = true;
+      }
+      if (db.driver && db.driver.db && typeof db.driver.db.on === 'function') {
+        db.driver.db.on('trace', function (sql) {
+          require('fs').appendFileSync('/tmp/sqlite-trace.log', sql + '\n');
+        });
+      }
       done();
     });
   });

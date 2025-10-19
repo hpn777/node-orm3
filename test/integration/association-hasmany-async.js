@@ -156,9 +156,9 @@ describe("hasMany", function () {
       it("should allow chaining count()", function () {
         return Person.findAsync({})
           .then(function (people) {
-            return [people[1].getPetsAsync(), people[2].getPetsAsync(), people[3].getPetsAsync()];
+            return Promise.all([people[1].getPetsAsync(), people[2].getPetsAsync(), people[3].getPetsAsync()]);
           })
-          .spread(function (count1, count2, count3) {
+          .then(function ([count1, count2, count3]) {
             should.strictEqual(count1.length, 2);
             should.strictEqual(count2.length, 1);
             should.strictEqual(count3.length, 0);
@@ -172,9 +172,9 @@ describe("hasMany", function () {
       it("should return true if instance has associated item", function () {
         return Pet.findAsync({ name: "Mutt" })
           .then(function (pets) {
-            return [pets, Person.find({ name: "Jane" }).firstAsync()];
+            return Promise.all([pets, Person.find({ name: "Jane" }).firstAsync()]);
           })
-          .spread(function (pets, Jane) {
+          .then(function ([pets, Jane]) {
             return Jane.hasPetsAsync(pets[0]);
           })
           .then(function (has_pets) {
@@ -185,9 +185,9 @@ describe("hasMany", function () {
       it("should return false if any passed instances are not associated", function () {
         return Pet.findAsync()
           .then(function (pets) {
-            return [pets, Person.find({ name: "Jane" }).firstAsync()];
+            return Promise.all([pets, Person.find({ name: "Jane" }).firstAsync()]);
           })
-          .spread(function (pets, Jane) {
+          .then(function ([pets, Jane]) {
             return Jane.hasPetsAsync(pets);
           })
           .then(function (has_pets) {
@@ -201,24 +201,24 @@ describe("hasMany", function () {
             .then(function (pets) {
               should.equal(pets.length, 2);
 
-              return [pets, Person.find({ name: "John" }).firstAsync()];
+              return Promise.all([pets, Person.find({ name: "John" }).firstAsync()]);
             })
-            .spread(function (pets, John) {
-              return [John, pets, John.hasPetsAsync(pets)];
+            .then(function ([pets, John]) {
+              return Promise.all([John, pets, John.hasPetsAsync(pets)]);
             })
-            .spread(function (John, pets, hasPets) {
+            .then(function ([John, pets, hasPets]) {
               should.equal(hasPets, true);
 
-              return [
+              return Promise.all([
                 John,
                 pets,
                 db.driver.execQueryAsync(
                   "INSERT INTO person_pets (person_id, pets_id) VALUES (?,?), (?,?)",
                   [John.id, pets[0].id, John.id, pets[1].id]
                 )
-              ];
+              ]);
             })
-            .spread(function (John, pets) {
+            .then(function ([John, pets]) {
               return John.hasPetsAsync(pets);
             })
             .then(function (hasPets) {
@@ -231,24 +231,24 @@ describe("hasMany", function () {
             .then(function (pets) {
               should.equal(pets.length, 2);
 
-              return [pets, Person.find({ name: "John" }).firstAsync()];
+              return Promise.all([pets, Person.find({ name: "John" }).firstAsync()]);
             })
-            .spread(function (pets, John) {
-              return [ John, pets, John.hasPetsAsync(pets)];
+            .then(function ([pets, John]) {
+              return Promise.all([ John, pets, John.hasPetsAsync(pets)]);
             })
-            .spread(function (John, pets, hasPets) {
+            .then(function ([John, pets, hasPets]) {
               should.equal(hasPets, true);
 
-              return [
+              return Promise.all([
                 John,
                 pets,
                 db.driver.execQueryAsync(
                   "INSERT INTO person_pets (person_id, pets_id) VALUES (?,?), (?,?)",
                   [John.id, pets[0].id, John.id, pets[1].id]
                 )
-              ];
+              ]);
             })
-            .spread(function (John, pets) {
+            .then(function ([John, pets]) {
               return John.hasPetsAsync(pets);
             })
             .then(function (hasPets) {
@@ -264,12 +264,12 @@ describe("hasMany", function () {
       it("should accept arguments in different orders", function () {
         return Pet.findAsync({ name: "Mutt" })
           .then(function (pets) {
-            return [pets, Person.findAsync({ name: "John" })];
+            return Promise.all([pets, Person.findAsync({ name: "John" })]);
           })
-          .spread(function (pets, people) {
-            return [people, people[0].removePetsAsync(pets[0])];
+          .then(function ([pets, people]) {
+            return Promise.all([people, people[0].removePetsAsync(pets[0])]);
           })
-          .spread(function (people) {
+          .then(function ([people]) {
             return people[0].getPetsAsync();
           })
           .then(function (pets) {
@@ -282,12 +282,12 @@ describe("hasMany", function () {
       it("should remove specific associations if passed", function () {
         return Pet.findAsync({ name: "Mutt" })
           .then(function (pets) {
-            return [pets, Person.findAsync({ name: "John" })];
+            return Promise.all([pets, Person.findAsync({ name: "John" })]);
           })
-          .spread(function (pets, people) {
-            return [people, people[0].removePetsAsync(pets[0])];
+          .then(function ([pets, people]) {
+            return Promise.all([people, people[0].removePetsAsync(pets[0])]);
           })
-          .spread(function (people) {
+          .then(function ([people]) {
             return people[0].getPetsAsync();
           })
           .then(function (pets) {
@@ -300,9 +300,9 @@ describe("hasMany", function () {
       it("should remove all associations if none passed", function () {
         return Person.find({ name: "John" }).firstAsync()
           .then(function (John) {
-            return [John, John.removePetsAsync()];
+            return Promise.all([John, John.removePetsAsync()]);
           })
-          .spread(function (John) {
+          .then(function ([John]) {
             return John.getPetsAsync();
           })
           .then(function (pets) {
@@ -320,12 +320,12 @@ describe("hasMany", function () {
         it("might add duplicates (promise-based)", function () {
           return Pet.findAsync({ name: "Mutt" })
             .then(function (pets) {
-              return [pets, Person.findAsync({ name: "Jane" })];
+              return Promise.all([pets, Person.findAsync({ name: "Jane" })]);
             })
-            .spread(function (pets, people) {
-              return [people, people[0].addPetsAsync(pets[0])];
+            .then(function ([pets, people]) {
+              return Promise.all([people, people[0].addPetsAsync(pets[0])]);
             })
-            .spread(function (people) {
+            .then(function ([people]) {
               return people[0].getPetsAsync("name");
             })
             .then(function (pets) {
@@ -340,20 +340,20 @@ describe("hasMany", function () {
       it("should keep associations and add new ones", function () {
         return Pet.find({ name: "Deco" }).firstAsync()
           .then(function (Deco) {
-            return [Deco, Person.find({ name: "Jane" }).firstAsync()];
+            return Promise.all([Deco, Person.find({ name: "Jane" }).firstAsync()]);
           })
-          .spread(function (Deco, Jane) {
-            return [Jane, Deco, Jane.getPetsAsync()]
+          .then(function ([Deco, Jane]) {
+            return Promise.all([Jane, Deco, Jane.getPetsAsync()])
           })
-          .spread(function (Jane, Deco, janesPets) {
+          .then(function ([Jane, Deco, janesPets]) {
             var petsAtStart = janesPets.length;
 
-            return [petsAtStart, Jane, Jane.addPetsAsync(Deco)];
+            return Promise.all([petsAtStart, Jane, Jane.addPetsAsync(Deco)]);
           })
-          .spread(function (petsAtStart, Jane) {
-            return [petsAtStart, Jane.getPetsAsync("name")];
+          .then(function ([petsAtStart, Jane]) {
+            return Promise.all([petsAtStart, Jane.getPetsAsync("name")]);
           })
-          .spread(function (petsAtStart, pets) {
+          .then(function ([petsAtStart, pets]) {
             should(Array.isArray(pets));
             pets.length.should.equal(petsAtStart + 1);
             pets[0].name.should.equal("Deco");
@@ -364,12 +364,12 @@ describe("hasMany", function () {
       it("should accept several arguments as associations (promise-based)", function () {
         return Pet.findAsync()
           .then(function (pets) {
-            return [pets, Person.find({ name: "Justin" }).firstAsync()];
+            return Promise.all([pets, Person.find({ name: "Justin" }).firstAsync()]);
           })
-          .spread(function (pets, Justin) {
-            return [Justin, Justin.addPetsAsync(pets[0], pets[1])];
+          .then(function ([pets, Justin]) {
+            return Promise.all([Justin, Justin.addPetsAsync(pets[0], pets[1])]);
           })
-          .spread(function (Justin) {
+          .then(function ([Justin]) {
             return Justin.getPetsAsync();
           })
           .then(function (pets) {
@@ -381,20 +381,20 @@ describe("hasMany", function () {
       it("should accept array as list of associations (promise-based)", function () {
         return Pet.createAsync([{ name: 'Ruff' }, { name: 'Spotty' }])
           .then(function (pets) {
-            return [pets, Person.find({ name: "Justin" }).firstAsync()];
+            return Promise.all([pets, Person.find({ name: "Justin" }).firstAsync()]);
           })
-          .spread(function (pets, Justin) {
-            return [pets, Justin, Justin.getPetsAsync()];
+          .then(function ([pets, Justin]) {
+            return Promise.all([pets, Justin, Justin.getPetsAsync()]);
           })
-          .spread(function (pets, Justin, justinsPets) {
+          .then(function ([pets, Justin, justinsPets]) {
             var petCount = justinsPets.length;
 
-            return [Justin, petCount, Justin.addPetsAsync(pets)];
+            return Promise.all([Justin, petCount, Justin.addPetsAsync(pets)]);
           })
-          .spread(function (Justin, petCount) {
-            return [petCount, Justin.getPetsAsync()];
+          .then(function ([Justin, petCount]) {
+            return Promise.all([petCount, Justin.getPetsAsync()]);
           })
-          .spread(function (petCount, justinsPets) {
+          .then(function ([petCount, justinsPets]) {
             should(Array.isArray(justinsPets));
             // Mongo doesn't like adding duplicates here, so we add new ones.
             should.equal(justinsPets.length, petCount + 2);
@@ -408,12 +408,12 @@ describe("hasMany", function () {
       it("should accept several arguments as associations", function () {
         return Pet.findAsync()
           .then(function (pets) {
-            return [pets, Person.find({ name: "Justin" }).firstAsync()];
+            return Promise.all([pets, Person.find({ name: "Justin" }).firstAsync()]);
           })
-          .spread(function (pets, Justin) {
-            return [Justin, Justin.setPetsAsync(pets[0], pets[1])]
+          .then(function ([pets, Justin]) {
+            return Promise.all([Justin, Justin.setPetsAsync(pets[0], pets[1])])
           })
-          .spread(function (Justin) {
+          .then(function ([Justin]) {
             return Justin.getPetsAsync();
           })
           .then(function (pets) {
@@ -425,15 +425,15 @@ describe("hasMany", function () {
       it("should accept an array of associations", function () {
         return Pet.findAsync()
           .then(function (pets) {
-            return [pets, Person.find({ name: "Justin" }).firstAsync()];
+            return Promise.all([pets, Person.find({ name: "Justin" }).firstAsync()]);
           })
-          .spread(function (pets, Justin) {
-            return [pets, Justin, Justin.setPetsAsync(pets)];
+          .then(function ([pets, Justin]) {
+            return Promise.all([pets, Justin, Justin.setPetsAsync(pets)]);
           })
-          .spread(function (pets, Justin) {
-            return [pets, Justin.getPetsAsync()];
+          .then(function ([pets, Justin]) {
+            return Promise.all([pets, Justin.getPetsAsync()]);
           })
-          .spread(function (pets, all_pets) {
+          .then(function ([pets, all_pets]) {
             should(Array.isArray(all_pets));
             all_pets.length.should.equal(pets.length);
           });
@@ -442,14 +442,14 @@ describe("hasMany", function () {
       it("should remove all associations if an empty array is passed", function () {
         return Person.find({ name: "Justin" }).firstAsync()
           .then(function (Justin) {
-            return [Justin, Justin.getPetsAsync()];
+            return Promise.all([Justin, Justin.getPetsAsync()]);
           })
-          .spread(function (Justin, pets) {
+          .then(function ([Justin, pets]) {
             should.equal(pets.length, 4);
 
-            return [Justin, Justin.setPetsAsync([])];
+            return Promise.all([Justin, Justin.setPetsAsync([])]);
           })
-          .spread(function (Justin) {
+          .then(function ([Justin]) {
             return Justin.getPetsAsync();
           })
           .then(function (pets) {
@@ -462,22 +462,22 @@ describe("hasMany", function () {
           .then(function (pets) {
             var Deco = pets[0];
 
-            return [Deco, Person.find({ name: "Jane" }).firstAsync()];
+            return Promise.all([Deco, Person.find({ name: "Jane" }).firstAsync()]);
           })
-          .spread(function (Deco, Jane) {
-            return [Jane, Deco, Jane.getPetsAsync()];
+          .then(function ([Deco, Jane]) {
+            return Promise.all([Jane, Deco, Jane.getPetsAsync()]);
           })
-          .spread(function (Jane, Deco, pets) {
+          .then(function ([Jane, Deco, pets]) {
             should(Array.isArray(pets));
             pets.length.should.equal(1);
             pets[0].name.should.equal("Mutt");
 
-            return [Jane, Deco, Jane.setPetsAsync(Deco)];
+            return Promise.all([Jane, Deco, Jane.setPetsAsync(Deco)]);
           })
-          .spread(function (Jane, Deco) {
-            return [Deco, Jane.getPetsAsync()];
+          .then(function ([Jane, Deco]) {
+            return Promise.all([Deco, Jane.getPetsAsync()]);
           })
-          .spread(function (Deco, pets) {
+          .then(function ([Deco, pets]) {
             should(Array.isArray(pets));
             pets.length.should.equal(1);
             pets[0].name.should.equal(Deco.name);
@@ -519,12 +519,12 @@ describe("hasMany", function () {
           .then(function (pets) {
             should.equal(pets.length, 4);
 
-            return [pets, Person.createAsync({ name: 'Paul' })];
+            return Promise.all([pets, Person.createAsync({ name: 'Paul' })]);
           })
-          .spread(function (pets) {
-            return [pets, Person.oneAsync({ name: 'Paul' })];
+          .then(function ([pets]) {
+            return Promise.all([pets, Person.oneAsync({ name: 'Paul' })]);
           })
-          .spread(function (pets, paul) {
+          .then(function ([pets, paul]) {
             should.equal(paul.pets.length, 0);
 
             return paul.setPetsAsync(pets);

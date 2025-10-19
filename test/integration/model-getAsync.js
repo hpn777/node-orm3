@@ -1,5 +1,4 @@
 var should   = require('should');
-var Promise  = require('bluebird');
 var helper   = require('../support/spec_helper');
 var common   = require('../common');
 var ORM      = require('../../');
@@ -115,9 +114,9 @@ describe("Model.getAsync()", function () {
         return Person.getAsync(John[Person.id])
           .then(function (John1) {
             John1.name = "James";
-            return [John1, Person.getAsync(John[Person.id])];
+            return Promise.all([John1, Person.getAsync(John[Person.id])]);
           })
-          .spread(function (John1, John2) {
+          .then(function ([John1, John2]) {
             John1[Person.id].should.equal(John2[Person.id]);
             John2.name.should.equal("James");
           });
@@ -131,9 +130,9 @@ describe("Model.getAsync()", function () {
     it("should return different objects", function () {
       return Person.getAsync(John[Person.id])
         .then(function (John1) {
-          return [John1, Person.getAsync(John[Person.id])];
+          return Promise.all([John1, Person.getAsync(John[Person.id])]);
         })
-        .spread(function (John1, John2) {
+        .then(function ([John1, John2]) {
           John1[Person.id].should.equal(John2[Person.id]);
           John1.should.not.equal(John2);
         });
@@ -146,12 +145,12 @@ describe("Model.getAsync()", function () {
     it("should return same objects after 0.2 sec", function () {
       return Person.getAsync(John[Person.id])
         .then(function (John1) {
-          return [John1, Promise.delay(200)];
+          return Promise.all([John1, new Promise(resolve => setTimeout(resolve, 200))]);
         })
-        .spread(function (John1) {
-          return [John1, Person.getAsync(John[Person.id])];
+        .then(function ([John1]) {
+          return Promise.all([John1, Person.getAsync(John[Person.id])]);
         })
-        .spread(function (John1, John2) {
+        .then(function ([John1, John2]) {
           John1[Person.id].should.equal(John2[Person.id]);
           John1.should.equal(John2);
         });
@@ -160,12 +159,12 @@ describe("Model.getAsync()", function () {
     it("should return different objects after 0.7 sec", function () {
       return Person.getAsync(John[Person.id])
         .then(function (John1) {
-          return [John1, Promise.delay(700)];
+          return Promise.all([John1, new Promise(resolve => setTimeout(resolve, 700))]);
         })
-        .spread(function (John1) {
-          return [John1, Person.getAsync(John[Person.id])];
+        .then(function ([John1]) {
+          return Promise.all([John1, Person.getAsync(John[Person.id])]);
         })
-        .spread(function (John1, John2) {
+        .then(function ([John1, John2]) {
           John1.should.not.equal(John2);
         });
     });

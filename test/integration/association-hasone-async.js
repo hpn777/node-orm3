@@ -106,9 +106,9 @@ describe("hasOne", function() {
       return Leaf.oneAsync({ size: 14 })
         .then(function (leaf) {
           should.exist(leaf);
-          return [leaf, leaf.hasTreeAsync()];
+          return Promise.all([leaf, leaf.hasTreeAsync()]);
         })
-        .spread(function (leaf, has) {
+        .then(function ([leaf, has]) {
           should.equal(has, true);
           return leaf.hasStalkAsync();
 				})
@@ -122,17 +122,17 @@ describe("hasOne", function() {
         .oneAsync({ length: 20 })
         .then(function (stalk) {
           should.exist(stalk);
-          return [stalk, Leaf.oneAsync({ size: 14 })];
+          return Promise.all([stalk, Leaf.oneAsync({ size: 14 })]);
         })
-        .spread(function (stalk, leaf) {
+        .then(function ([stalk, leaf]) {
           should.exist(leaf);
           should.not.exist(leaf.stalkId);
-          return [stalk, leaf.setStalkAsync(stalk)];
+          return Promise.all([stalk, leaf.setStalkAsync(stalk)]);
         })
         .then(function (stalk) {
-          return [stalk, Leaf.oneAsync({ size: 14 })];
+          return Promise.all([stalk, Leaf.oneAsync({ size: 14 })]);
         })
-        .spread(function (stalk, leafOne) {
+        .then(function ([stalk, leafOne]) {
           should.equal(leafOne.stalkId, stalk[0][Stalk.id]);
         });
     });

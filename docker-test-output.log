@@ -1,0 +1,463 @@
+
+> orm3@9.0.0 test:docker
+> ./scripts/test-docker.sh
+
+time="2025-10-18T19:55:44+01:00" level=warning msg="/home/hypnos/HPN_Soft/node-orm3/docker-compose.test.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Network orm3-test-net  Creating
+ Network orm3-test-net  Created
+ Container orm3-test-mongodb-1  Creating
+ Container orm3-test-mysql-1  Creating
+ Container orm3-test-postgres-1  Creating
+ Container orm3-test-mysql-1  Created
+ Container orm3-test-postgres-1  Created
+ Container orm3-test-mongodb-1  Created
+ Container orm3-test-test-runner-1  Creating
+ Container orm3-test-test-runner-1  Created
+Attaching to mongodb-1, mysql-1, postgres-1, test-runner-1
+mysql-1  | 2025-10-18 18:55:45+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.3.0-1.el8 started.
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.533+00:00"},"s":"I",  "c":"NETWORK",  "id":4915701, "ctx":"main","msg":"Initialized wire specification","attr":{"spec":{"incomingExternalClient":{"minWireVersion":0,"maxWireVersion":21},"incomingInternalClient":{"minWireVersion":0,"maxWireVersion":21},"outgoing":{"minWireVersion":6,"maxWireVersion":21},"isInternalClient":true}}}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.533+00:00"},"s":"I",  "c":"CONTROL",  "id":23285,   "ctx":"main","msg":"Automatically disabling TLS 1.0, to force-enable TLS 1.0 specify --sslDisabledProtocols 'none'"}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.534+00:00"},"s":"I",  "c":"NETWORK",  "id":4648601, "ctx":"main","msg":"Implicit TCP FastOpen unavailable. If TCP FastOpen is required, set tcpFastOpenServer, tcpFastOpenClient, and tcpFastOpenQueueSize."}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.537+00:00"},"s":"I",  "c":"REPL",     "id":5123008, "ctx":"main","msg":"Successfully registered PrimaryOnlyService","attr":{"service":"TenantMigrationDonorService","namespace":"config.tenantMigrationDonors"}}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.537+00:00"},"s":"I",  "c":"REPL",     "id":5123008, "ctx":"main","msg":"Successfully registered PrimaryOnlyService","attr":{"service":"TenantMigrationRecipientService","namespace":"config.tenantMigrationRecipients"}}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.537+00:00"},"s":"I",  "c":"CONTROL",  "id":5945603, "ctx":"main","msg":"Multi threading initialized"}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.537+00:00"},"s":"I",  "c":"TENANT_M", "id":7091600, "ctx":"main","msg":"Starting TenantMigrationAccessBlockerRegistry"}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.538+00:00"},"s":"I",  "c":"CONTROL",  "id":4615611, "ctx":"initandlisten","msg":"MongoDB starting","attr":{"pid":1,"port":27017,"dbPath":"/data/db","architecture":"64-bit","host":"20f4e057b287"}}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.538+00:00"},"s":"I",  "c":"CONTROL",  "id":23403,   "ctx":"initandlisten","msg":"Build Info","attr":{"buildInfo":{"version":"7.0.25","gitVersion":"96dce3da49b8d2e9e0d328048cb56930eb1bdb2b","openSSLVersion":"OpenSSL 3.0.2 15 Mar 2022","modules":[],"allocator":"tcmalloc","environment":{"distmod":"ubuntu2204","distarch":"x86_64","target_arch":"x86_64"}}}}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.538+00:00"},"s":"I",  "c":"CONTROL",  "id":51765,   "ctx":"initandlisten","msg":"Operating System","attr":{"os":{"name":"Ubuntu","version":"22.04"}}}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.538+00:00"},"s":"I",  "c":"CONTROL",  "id":21951,   "ctx":"initandlisten","msg":"Options set by command line","attr":{"options":{"net":{"bindIp":"*"}}}}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.546+00:00"},"s":"I",  "c":"STORAGE",  "id":22297,   "ctx":"initandlisten","msg":"Using the XFS filesystem is strongly recommended with the WiredTiger storage engine. See http://dochub.mongodb.org/core/prodnotes-filesystem","tags":["startupWarnings"]}
+mongodb-1  | {"t":{"$date":"2025-10-18T18:55:45.546+00:00"},"s":"I",  "c":"STORAGE",  "id":22315,   "ctx":"initandlisten","msg":"Opening WiredTiger","attr":{"config":"create,cache_size=30949M,session_max=33000,eviction=(threads_min=4,threads_max=4),config_base=false,statistics=(fast),log=(enabled=true,remove=true,path=journal,compressor=snappy),builtin_extension_config=(zstd=(compression_level=6)),file_manager=(close_idle_time=600,close_scan_interval=10,close_handle_minimum=2000),statistics_log=(wait=0),json_output=(error,message),verbose=[recovery_progress:1,checkpoint_progress:1,compact_progress:1,backup:0,checkpoint:0,compact:0,evict:0,history_store:0,recovery:0,rts:0,salvage:0,tiered:0,timestamp:0,transaction:0,verify:0,log:0],"}}
+postgres-1  | The files belonging to this database system will be owned by user "postgres".
+postgres-1  | This user must also own the server process.
+postgres-1  | 
+postgres-1  | The database cluster will be initialized with locale "en_US.utf8".
+postgres-1  | The default database encoding has accordingly been set to "UTF8".
+postgres-1  | The default text search configuration will be set to "english".
+postgres-1  | 
+postgres-1  | Data page checksums are disabled.
+postgres-1  | 
+postgres-1  | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+postgres-1  | creating subdirectories ... ok
+postgres-1  | selecting dynamic shared memory implementation ... posix
+postgres-1  | selecting default max_connections ... 100
+postgres-1  | selecting default shared_buffers ... 128MB
+postgres-1  | selecting default time zone ... Etc/UTC
+postgres-1  | creating configuration files ... ok
+mysql-1     | 2025-10-18 18:55:45+00:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1     | 2025-10-18 18:55:45+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.3.0-1.el8 started.
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.040+00:00"},"s":"I",  "c":"WTRECOV",  "id":22430,   "ctx":"initandlisten","msg":"WiredTiger message","attr":{"message":{"ts_sec":1760813746,"ts_usec":40244,"thread":"1:0x7f49b9e4ec80","session_name":"txn-recover","category":"WT_VERB_RECOVERY_PROGRESS","category_id":30,"verbose_level":"DEBUG_1","verbose_level_id":1,"msg":"recovery log replay has successfully finished and ran for 0 milliseconds"}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.040+00:00"},"s":"I",  "c":"WTRECOV",  "id":22430,   "ctx":"initandlisten","msg":"WiredTiger message","attr":{"message":{"ts_sec":1760813746,"ts_usec":40511,"thread":"1:0x7f49b9e4ec80","session_name":"txn-recover","category":"WT_VERB_RECOVERY_PROGRESS","category_id":30,"verbose_level":"DEBUG_1","verbose_level_id":1,"msg":"Set global recovery timestamp: (0, 0)"}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.040+00:00"},"s":"I",  "c":"WTRECOV",  "id":22430,   "ctx":"initandlisten","msg":"WiredTiger message","attr":{"message":{"ts_sec":1760813746,"ts_usec":40568,"thread":"1:0x7f49b9e4ec80","session_name":"txn-recover","category":"WT_VERB_RECOVERY_PROGRESS","category_id":30,"verbose_level":"DEBUG_1","verbose_level_id":1,"msg":"Set global oldest timestamp: (0, 0)"}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.040+00:00"},"s":"I",  "c":"WTRECOV",  "id":22430,   "ctx":"initandlisten","msg":"WiredTiger message","attr":{"message":{"ts_sec":1760813746,"ts_usec":40649,"thread":"1:0x7f49b9e4ec80","session_name":"txn-recover","category":"WT_VERB_RECOVERY_PROGRESS","category_id":30,"verbose_level":"DEBUG_1","verbose_level_id":1,"msg":"recovery was completed successfully and took 1ms, including 0ms for the log replay, 0ms for the rollback to stable, and 0ms for the checkpoint."}}}
+postgres-1  | running bootstrap script ... ok
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.066+00:00"},"s":"I",  "c":"STORAGE",  "id":4795906, "ctx":"initandlisten","msg":"WiredTiger opened","attr":{"durationMillis":520}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.066+00:00"},"s":"I",  "c":"RECOVERY", "id":23987,   "ctx":"initandlisten","msg":"WiredTiger recoveryTimestamp","attr":{"recoveryTimestamp":{"$timestamp":{"t":0,"i":0}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.137+00:00"},"s":"W",  "c":"CONTROL",  "id":22120,   "ctx":"initandlisten","msg":"Access control is not enabled for the database. Read and write access to data and configuration is unrestricted","tags":["startupWarnings"]}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.138+00:00"},"s":"W",  "c":"CONTROL",  "id":5123300, "ctx":"initandlisten","msg":"vm.max_map_count is too low","attr":{"currentValue":1048576,"recommendedMinimum":2000000,"maxConns":1000000},"tags":["startupWarnings"]}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.139+00:00"},"s":"I",  "c":"STORAGE",  "id":20320,   "ctx":"initandlisten","msg":"createCollection","attr":{"namespace":"admin.system.version","uuidDisposition":"provided","uuid":{"uuid":{"$uuid":"8bf0d211-71b3-4dfd-94cb-f66a0cfe16c7"}},"options":{"uuid":{"$uuid":"8bf0d211-71b3-4dfd-94cb-f66a0cfe16c7"}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.179+00:00"},"s":"I",  "c":"INDEX",    "id":20345,   "ctx":"initandlisten","msg":"Index build: done building","attr":{"buildUUID":null,"collectionUUID":{"uuid":{"$uuid":"8bf0d211-71b3-4dfd-94cb-f66a0cfe16c7"}},"namespace":"admin.system.version","index":"_id_","ident":"index-1-1521548629413371734","collectionIdent":"collection-0-1521548629413371734","commitTimestamp":null}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.180+00:00"},"s":"I",  "c":"REPL",     "id":20459,   "ctx":"initandlisten","msg":"Setting featureCompatibilityVersion","attr":{"newVersion":"7.0"}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.180+00:00"},"s":"I",  "c":"REPL",     "id":5853300, "ctx":"initandlisten","msg":"current featureCompatibilityVersion value","attr":{"featureCompatibilityVersion":"7.0","context":"setFCV"}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.180+00:00"},"s":"I",  "c":"NETWORK",  "id":4915702, "ctx":"initandlisten","msg":"Updated wire specification","attr":{"oldSpec":{"incomingExternalClient":{"minWireVersion":0,"maxWireVersion":21},"incomingInternalClient":{"minWireVersion":0,"maxWireVersion":21},"outgoing":{"minWireVersion":6,"maxWireVersion":21},"isInternalClient":true},"newSpec":{"incomingExternalClient":{"minWireVersion":0,"maxWireVersion":21},"incomingInternalClient":{"minWireVersion":21,"maxWireVersion":21},"outgoing":{"minWireVersion":21,"maxWireVersion":21},"isInternalClient":true}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.180+00:00"},"s":"I",  "c":"NETWORK",  "id":4915702, "ctx":"initandlisten","msg":"Updated wire specification","attr":{"oldSpec":{"incomingExternalClient":{"minWireVersion":0,"maxWireVersion":21},"incomingInternalClient":{"minWireVersion":21,"maxWireVersion":21},"outgoing":{"minWireVersion":21,"maxWireVersion":21},"isInternalClient":true},"newSpec":{"incomingExternalClient":{"minWireVersion":0,"maxWireVersion":21},"incomingInternalClient":{"minWireVersion":21,"maxWireVersion":21},"outgoing":{"minWireVersion":21,"maxWireVersion":21},"isInternalClient":true}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.180+00:00"},"s":"I",  "c":"REPL",     "id":5853300, "ctx":"initandlisten","msg":"current featureCompatibilityVersion value","attr":{"featureCompatibilityVersion":"7.0","context":"startup"}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.180+00:00"},"s":"I",  "c":"STORAGE",  "id":5071100, "ctx":"initandlisten","msg":"Clearing temp directory"}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.180+00:00"},"s":"I",  "c":"CONTROL",  "id":6608200, "ctx":"initandlisten","msg":"Initializing cluster server parameters from disk"}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.181+00:00"},"s":"I",  "c":"CONTROL",  "id":20536,   "ctx":"initandlisten","msg":"Flow Control is enabled on this deployment"}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.183+00:00"},"s":"I",  "c":"FTDC",     "id":20625,   "ctx":"initandlisten","msg":"Initializing full-time diagnostic data capture","attr":{"dataDirectory":"/data/db/diagnostic.data"}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.188+00:00"},"s":"I",  "c":"STORAGE",  "id":20320,   "ctx":"initandlisten","msg":"createCollection","attr":{"namespace":"local.startup_log","uuidDisposition":"generated","uuid":{"uuid":{"$uuid":"aad80415-a1a9-47bd-b4d4-bf57f5d0abb6"}},"options":{"capped":true,"size":10485760}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.237+00:00"},"s":"I",  "c":"INDEX",    "id":20345,   "ctx":"initandlisten","msg":"Index build: done building","attr":{"buildUUID":null,"collectionUUID":{"uuid":{"$uuid":"aad80415-a1a9-47bd-b4d4-bf57f5d0abb6"}},"namespace":"local.startup_log","index":"_id_","ident":"index-3-1521548629413371734","collectionIdent":"collection-2-1521548629413371734","commitTimestamp":null}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.237+00:00"},"s":"I",  "c":"REPL",     "id":6015317, "ctx":"initandlisten","msg":"Setting new configuration state","attr":{"newState":"ConfigReplicationDisabled","oldState":"ConfigPreStart"}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.238+00:00"},"s":"I",  "c":"STORAGE",  "id":22262,   "ctx":"initandlisten","msg":"Timestamp monitor starting"}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.240+00:00"},"s":"I",  "c":"NETWORK",  "id":23015,   "ctx":"listener","msg":"Listening on","attr":{"address":"/tmp/mongodb-27017.sock"}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.240+00:00"},"s":"I",  "c":"CONTROL",  "id":20712,   "ctx":"LogicalSessionCacheReap","msg":"Sessions collection is not set up; waiting until next sessions reap interval","attr":{"error":"NamespaceNotFound: config.system.sessions does not exist"}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.240+00:00"},"s":"I",  "c":"NETWORK",  "id":23015,   "ctx":"listener","msg":"Listening on","attr":{"address":"0.0.0.0"}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.240+00:00"},"s":"I",  "c":"NETWORK",  "id":23016,   "ctx":"listener","msg":"Waiting for connections","attr":{"port":27017,"ssl":"off"}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.240+00:00"},"s":"I",  "c":"STORAGE",  "id":20320,   "ctx":"LogicalSessionCacheRefresh","msg":"createCollection","attr":{"namespace":"config.system.sessions","uuidDisposition":"generated","uuid":{"uuid":{"$uuid":"9c88ee76-6184-40ef-867f-7c23dcc9a51b"}},"options":{}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.240+00:00"},"s":"I",  "c":"CONTROL",  "id":8423403, "ctx":"initandlisten","msg":"mongod startup complete","attr":{"Summary of time elapsed":{"Startup from clean shutdown?":true,"Statistics":{"Transport layer setup":"0 ms","Run initial syncer crash recovery":"0 ms","Create storage engine lock file in the data directory":"0 ms","Get metadata describing storage engine":"0 ms","Create storage engine":"572 ms","Write current PID to file":"0 ms","Write a new metadata for storage engine":"10 ms","Initialize FCV before rebuilding indexes":"0 ms","Drop abandoned idents and get back indexes that need to be rebuilt or builds that need to be restarted":"0 ms","Rebuild indexes for collections":"0 ms","Load cluster parameters from disk for a standalone":"0 ms","Build user and roles graph":"0 ms","Set up the background thread pool responsible for waiting for opTimes to be majority committed":"0 ms","Initialize information needed to make a mongod instance shard aware":"0 ms","Start up the replication coordinator":"0 ms","Start transport layer":"0 ms","_initAndListen total elapsed time":"702 ms"}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.283+00:00"},"s":"I",  "c":"REPL",     "id":7360102, "ctx":"LogicalSessionCacheRefresh","msg":"Added oplog entry for create to transaction","attr":{"namespace":"config.$cmd","uuid":{"uuid":{"$uuid":"9c88ee76-6184-40ef-867f-7c23dcc9a51b"}},"object":{"create":"system.sessions","idIndex":{"v":2,"key":{"_id":1},"name":"_id_"}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.283+00:00"},"s":"I",  "c":"REPL",     "id":7360100, "ctx":"LogicalSessionCacheRefresh","msg":"Added oplog entry for createIndexes to transaction","attr":{"namespace":"config.$cmd","uuid":{"uuid":{"$uuid":"9c88ee76-6184-40ef-867f-7c23dcc9a51b"}},"object":{"createIndexes":"system.sessions","v":2,"key":{"lastUse":1},"name":"lsidTTLIndex","expireAfterSeconds":1800}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.304+00:00"},"s":"I",  "c":"INDEX",    "id":20345,   "ctx":"LogicalSessionCacheRefresh","msg":"Index build: done building","attr":{"buildUUID":null,"collectionUUID":{"uuid":{"$uuid":"9c88ee76-6184-40ef-867f-7c23dcc9a51b"}},"namespace":"config.system.sessions","index":"_id_","ident":"index-5-1521548629413371734","collectionIdent":"collection-4-1521548629413371734","commitTimestamp":null}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:46.304+00:00"},"s":"I",  "c":"INDEX",    "id":20345,   "ctx":"LogicalSessionCacheRefresh","msg":"Index build: done building","attr":{"buildUUID":null,"collectionUUID":{"uuid":{"$uuid":"9c88ee76-6184-40ef-867f-7c23dcc9a51b"}},"namespace":"config.system.sessions","index":"lsidTTLIndex","ident":"index-6-1521548629413371734","collectionIdent":"collection-4-1521548629413371734","commitTimestamp":null}}
+mysql-1     | 2025-10-18 18:55:46+00:00 [Note] [Entrypoint]: Initializing database files
+mysql-1     | 2025-10-18T18:55:46.496617Z 0 [System] [MY-015017] [Server] MySQL Server Initialization - start.
+mysql-1     | 2025-10-18T18:55:46.501822Z 0 [Warning] [MY-010918] [Server] 'default_authentication_plugin' is deprecated and will be removed in a future release. Please use authentication_policy instead.
+mysql-1     | 2025-10-18T18:55:46.501879Z 0 [System] [MY-013169] [Server] /usr/sbin/mysqld (mysqld 8.3.0) initializing of server in progress as process 80
+mysql-1     | 2025-10-18T18:55:46.531630Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.
+postgres-1  | performing post-bootstrap initialization ... ok
+mysql-1     | 2025-10-18T18:55:47.732127Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.
+postgres-1  | syncing data to disk ... ok
+postgres-1  | 
+postgres-1  | 
+postgres-1  | Success. You can now start the database server using:
+postgres-1  | 
+postgres-1  |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+postgres-1  | 
+postgres-1  | initdb: warning: enabling "trust" authentication for local connections
+postgres-1  | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+postgres-1  | waiting for server to start....2025-10-18 18:55:48.892 UTC [48] LOG:  starting PostgreSQL 16.10 (Debian 16.10-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+postgres-1  | 2025-10-18 18:55:48.901 UTC [48] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1  | 2025-10-18 18:55:48.934 UTC [51] LOG:  database system was shut down at 2025-10-18 18:55:47 UTC
+postgres-1  | 2025-10-18 18:55:48.954 UTC [48] LOG:  database system is ready to accept connections
+postgres-1  |  done
+postgres-1  | server started
+postgres-1  | CREATE DATABASE
+postgres-1  | 
+postgres-1  | 
+postgres-1  | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+postgres-1  | 
+postgres-1  | waiting for server to shut down....2025-10-18 18:55:49.351 UTC [48] LOG:  received fast shutdown request
+postgres-1  | 2025-10-18 18:55:49.359 UTC [48] LOG:  aborting any active transactions
+postgres-1  | 2025-10-18 18:55:49.363 UTC [48] LOG:  background worker "logical replication launcher" (PID 54) exited with exit code 1
+postgres-1  | 2025-10-18 18:55:49.367 UTC [49] LOG:  shutting down
+postgres-1  | 2025-10-18 18:55:49.374 UTC [49] LOG:  checkpoint starting: shutdown immediate
+postgres-1  | 2025-10-18 18:55:49.794 UTC [49] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.056 s, sync=0.324 s, total=0.428 s; sync files=301, longest=0.007 s, average=0.002 s; distance=4273 kB, estimate=4273 kB; lsn=0/191F0E0, redo lsn=0/191F0E0
+postgres-1  | 2025-10-18 18:55:49.805 UTC [48] LOG:  database system is shut down
+postgres-1  |  done
+postgres-1  | server stopped
+postgres-1  | 
+postgres-1  | PostgreSQL init process complete; ready for start up.
+postgres-1  | 
+postgres-1  | 2025-10-18 18:55:49.921 UTC [1] LOG:  starting PostgreSQL 16.10 (Debian 16.10-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+postgres-1  | 2025-10-18 18:55:49.921 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+postgres-1  | 2025-10-18 18:55:49.921 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+postgres-1  | 2025-10-18 18:55:49.942 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1  | 2025-10-18 18:55:49.963 UTC [64] LOG:  database system was shut down at 2025-10-18 18:55:49 UTC
+postgres-1  | 2025-10-18 18:55:49.979 UTC [1] LOG:  database system is ready to accept connections
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.167+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:48894","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"fbc62357-8fab-4301-a514-1d4a9835c3ab"}},"connectionId":1,"connectionCount":1}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.174+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn1","msg":"client metadata","attr":{"remote":"127.0.0.1:48894","client":"conn1","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.324+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:48910","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"3455f867-a7be-4c35-894a-4fcbb0edfae2"}},"connectionId":2,"connectionCount":2}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.324+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:48920","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"617a1334-a191-4e53-a6d8-aa7653dcab84"}},"connectionId":3,"connectionCount":3}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.330+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn2","msg":"client metadata","attr":{"remote":"127.0.0.1:48910","client":"conn2","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.331+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn3","msg":"client metadata","attr":{"remote":"127.0.0.1:48920","client":"conn3","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.337+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn2","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":7}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.338+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:48934","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"670b25f8-3e7e-4187-8a48-094c0b8b3bac"}},"connectionId":4,"connectionCount":4}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.349+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:48942","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"f3b98c79-f4c6-4f4f-857c-0fb37244701d"}},"connectionId":5,"connectionCount":5}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.351+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn4","msg":"client metadata","attr":{"remote":"127.0.0.1:48934","client":"conn4","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.361+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn5","msg":"client metadata","attr":{"remote":"127.0.0.1:48942","client":"conn5","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.363+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn4","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":12}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.366+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn5","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":5}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.434+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn2","msg":"Connection ended","attr":{"remote":"127.0.0.1:48910","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"3455f867-a7be-4c35-894a-4fcbb0edfae2"}},"connectionId":2,"connectionCount":4}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.434+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn1","msg":"Connection ended","attr":{"remote":"127.0.0.1:48894","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"fbc62357-8fab-4301-a514-1d4a9835c3ab"}},"connectionId":1,"connectionCount":3}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.434+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn4","msg":"Connection ended","attr":{"remote":"127.0.0.1:48934","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"670b25f8-3e7e-4187-8a48-094c0b8b3bac"}},"connectionId":4,"connectionCount":2}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.434+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn3","msg":"Connection ended","attr":{"remote":"127.0.0.1:48920","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"617a1334-a191-4e53-a6d8-aa7653dcab84"}},"connectionId":3,"connectionCount":1}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:51.434+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn5","msg":"Connection ended","attr":{"remote":"127.0.0.1:48942","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"f3b98c79-f4c6-4f4f-857c-0fb37244701d"}},"connectionId":5,"connectionCount":0}}
+mysql-1     | 2025-10-18T18:55:51.670570Z 6 [Warning] [MY-010453] [Server] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.
+mysql-1     | 2025-10-18T18:55:52.266262Z 6 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: ''mysql_native_password' is deprecated and will be removed in a future release. Please use caching_sha2_password instead'
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.157+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:48946","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"8bc1b508-a2d3-46c3-8d5e-b756726ac568"}},"connectionId":6,"connectionCount":1}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.164+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn6","msg":"client metadata","attr":{"remote":"127.0.0.1:48946","client":"conn6","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.314+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:48958","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"a6b69510-2e3d-4f0d-b58a-93ee25041015"}},"connectionId":7,"connectionCount":2}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.314+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:48974","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"08fa2276-f62a-476f-8bf5-9318cd01d3f4"}},"connectionId":8,"connectionCount":3}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.320+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn7","msg":"client metadata","attr":{"remote":"127.0.0.1:48958","client":"conn7","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.322+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn8","msg":"client metadata","attr":{"remote":"127.0.0.1:48974","client":"conn8","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.329+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn7","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":8}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.330+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:48978","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"fa84d84b-eb19-4880-9db9-28e9f9b822fc"}},"connectionId":9,"connectionCount":4}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.340+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:48980","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"08c297b7-f3be-441f-ac72-a61a92c7de9b"}},"connectionId":10,"connectionCount":5}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.342+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn9","msg":"client metadata","attr":{"remote":"127.0.0.1:48978","client":"conn9","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.350+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn10","msg":"client metadata","attr":{"remote":"127.0.0.1:48980","client":"conn10","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.353+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn9","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":10}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.355+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn10","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":4}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.419+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn7","msg":"Connection ended","attr":{"remote":"127.0.0.1:48958","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"a6b69510-2e3d-4f0d-b58a-93ee25041015"}},"connectionId":7,"connectionCount":4}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.419+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn10","msg":"Connection ended","attr":{"remote":"127.0.0.1:48980","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"08c297b7-f3be-441f-ac72-a61a92c7de9b"}},"connectionId":10,"connectionCount":3}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.420+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn9","msg":"Connection ended","attr":{"remote":"127.0.0.1:48978","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"fa84d84b-eb19-4880-9db9-28e9f9b822fc"}},"connectionId":9,"connectionCount":2}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.420+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn8","msg":"Connection ended","attr":{"remote":"127.0.0.1:48974","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"08fa2276-f62a-476f-8bf5-9318cd01d3f4"}},"connectionId":8,"connectionCount":1}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:55:57.420+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn6","msg":"Connection ended","attr":{"remote":"127.0.0.1:48946","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"8bc1b508-a2d3-46c3-8d5e-b756726ac568"}},"connectionId":6,"connectionCount":0}}
+mysql-1     | 2025-10-18T18:55:58.228878Z 0 [System] [MY-015018] [Server] MySQL Server Initialization - end.
+mysql-1     | 2025-10-18 18:55:58+00:00 [Note] [Entrypoint]: Database files initialized
+mysql-1     | 2025-10-18 18:55:58+00:00 [Note] [Entrypoint]: Starting temporary server
+mysql-1     | 2025-10-18T18:55:58.306226Z 0 [System] [MY-015015] [Server] MySQL Server - start.
+mysql-1     | 2025-10-18T18:55:58.734737Z 0 [Warning] [MY-010918] [Server] 'default_authentication_plugin' is deprecated and will be removed in a future release. Please use authentication_policy instead.
+mysql-1     | 2025-10-18T18:55:58.734822Z 0 [System] [MY-010116] [Server] /usr/sbin/mysqld (mysqld 8.3.0) starting as process 136
+mysql-1     | 2025-10-18T18:55:58.789048Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.
+mysql-1     | 2025-10-18T18:55:59.155374Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.
+mysql-1     | 2025-10-18T18:55:59.692506Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.
+mysql-1     | 2025-10-18T18:55:59.692559Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.
+mysql-1     | 2025-10-18T18:55:59.699598Z 0 [Warning] [MY-011810] [Server] Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users. Consider choosing a different directory.
+mysql-1     | 2025-10-18T18:55:59.741150Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Socket: /var/run/mysqld/mysqlx.sock
+mysql-1     | 2025-10-18T18:55:59.741473Z 0 [System] [MY-010931] [Server] /usr/sbin/mysqld: ready for connections. Version: '8.3.0'  socket: '/var/run/mysqld/mysqld.sock'  port: 0  MySQL Community Server - GPL.
+mysql-1     | 2025-10-18 18:55:59+00:00 [Note] [Entrypoint]: Temporary server started.
+mysql-1     | '/var/lib/mysql/mysql.sock' -> '/var/run/mysqld/mysqld.sock'
+mysql-1     | 2025-10-18T18:55:59.853999Z 8 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: ''mysql_native_password' is deprecated and will be removed in a future release. Please use caching_sha2_password instead'
+mysql-1     | Warning: Unable to load '/usr/share/zoneinfo/iso3166.tab' as time zone. Skipping it.
+mysql-1     | Warning: Unable to load '/usr/share/zoneinfo/leap-seconds.list' as time zone. Skipping it.
+mysql-1     | Warning: Unable to load '/usr/share/zoneinfo/leapseconds' as time zone. Skipping it.
+mysql-1     | Warning: Unable to load '/usr/share/zoneinfo/tzdata.zi' as time zone. Skipping it.
+mysql-1     | Warning: Unable to load '/usr/share/zoneinfo/zone.tab' as time zone. Skipping it.
+mysql-1     | Warning: Unable to load '/usr/share/zoneinfo/zone1970.tab' as time zone. Skipping it.
+mysql-1     | 2025-10-18T18:56:02.977624Z 9 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: ''mysql_native_password' is deprecated and will be removed in a future release. Please use caching_sha2_password instead'
+mysql-1     | 2025-10-18T18:56:02.979573Z 9 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: ''mysql_native_password' is deprecated and will be removed in a future release. Please use caching_sha2_password instead'
+mysql-1     | 2025-10-18T18:56:02.996236Z 9 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: ''mysql_native_password' is deprecated and will be removed in a future release. Please use caching_sha2_password instead'
+mysql-1     | 2025-10-18 18:56:03+00:00 [Note] [Entrypoint]: Creating database orm_test
+mysql-1     | 2025-10-18T18:56:03.048502Z 10 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: ''mysql_native_password' is deprecated and will be removed in a future release. Please use caching_sha2_password instead'
+mysql-1     | 
+mysql-1     | 2025-10-18 18:56:03+00:00 [Note] [Entrypoint]: Stopping temporary server
+mysql-1     | 2025-10-18T18:56:03.088916Z 11 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: ''mysql_native_password' is deprecated and will be removed in a future release. Please use caching_sha2_password instead'
+mysql-1     | 2025-10-18T18:56:03.093659Z 11 [System] [MY-013172] [Server] Received SHUTDOWN from user root. Shutting down mysqld (Version: 8.3.0).
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.184+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:51218","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"29c029cb-017c-4dab-828c-78b0d44890a6"}},"connectionId":11,"connectionCount":1}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.196+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn11","msg":"client metadata","attr":{"remote":"127.0.0.1:51218","client":"conn11","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.369+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:51230","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"53f5838c-ba8f-4724-83ea-19c22491c0e5"}},"connectionId":12,"connectionCount":2}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.369+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:51238","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"e56bb5cd-4810-4850-9c81-86cdb20a1035"}},"connectionId":13,"connectionCount":3}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.375+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn12","msg":"client metadata","attr":{"remote":"127.0.0.1:51230","client":"conn12","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.377+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn13","msg":"client metadata","attr":{"remote":"127.0.0.1:51238","client":"conn13","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.384+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn12","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":9}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.386+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:51254","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"3d361289-f2ab-4bf1-b05b-80a3c266e998"}},"connectionId":14,"connectionCount":4}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.397+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:51268","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"6d01efe9-b29b-4369-b3ad-f1016bb941c4"}},"connectionId":15,"connectionCount":5}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.398+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn14","msg":"client metadata","attr":{"remote":"127.0.0.1:51254","client":"conn14","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.409+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn15","msg":"client metadata","attr":{"remote":"127.0.0.1:51268","client":"conn15","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.412+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn14","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":13}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.415+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn15","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":5}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.485+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn15","msg":"Connection ended","attr":{"remote":"127.0.0.1:51268","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"6d01efe9-b29b-4369-b3ad-f1016bb941c4"}},"connectionId":15,"connectionCount":4}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.485+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn14","msg":"Connection ended","attr":{"remote":"127.0.0.1:51254","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"3d361289-f2ab-4bf1-b05b-80a3c266e998"}},"connectionId":14,"connectionCount":3}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.485+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn12","msg":"Connection ended","attr":{"remote":"127.0.0.1:51230","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"53f5838c-ba8f-4724-83ea-19c22491c0e5"}},"connectionId":12,"connectionCount":2}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.486+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn13","msg":"Connection ended","attr":{"remote":"127.0.0.1:51238","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"e56bb5cd-4810-4850-9c81-86cdb20a1035"}},"connectionId":13,"connectionCount":1}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:03.487+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn11","msg":"Connection ended","attr":{"remote":"127.0.0.1:51218","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"29c029cb-017c-4dab-828c-78b0d44890a6"}},"connectionId":11,"connectionCount":0}}
+mysql-1     | 2025-10-18T18:56:05.225080Z 0 [System] [MY-010910] [Server] /usr/sbin/mysqld: Shutdown complete (mysqld 8.3.0)  MySQL Community Server - GPL.
+mysql-1     | 2025-10-18T18:56:05.225111Z 0 [System] [MY-015016] [Server] MySQL Server - end.
+mysql-1     | 2025-10-18 18:56:06+00:00 [Note] [Entrypoint]: Temporary server stopped
+mysql-1     | 
+mysql-1     | 2025-10-18 18:56:06+00:00 [Note] [Entrypoint]: MySQL init process done. Ready for start up.
+mysql-1     | 
+mysql-1     | 2025-10-18T18:56:06.127223Z 0 [System] [MY-015015] [Server] MySQL Server - start.
+mysql-1     | 2025-10-18T18:56:06.534971Z 0 [Warning] [MY-010918] [Server] 'default_authentication_plugin' is deprecated and will be removed in a future release. Please use authentication_policy instead.
+mysql-1     | 2025-10-18T18:56:06.535013Z 0 [System] [MY-010116] [Server] /usr/sbin/mysqld (mysqld 8.3.0) starting as process 1
+mysql-1     | 2025-10-18T18:56:06.557721Z 1 [System] [MY-013576] [InnoDB] InnoDB initialization has started.
+mysql-1     | 2025-10-18T18:56:06.940954Z 1 [System] [MY-013577] [InnoDB] InnoDB initialization has ended.
+mysql-1     | 2025-10-18T18:56:07.446470Z 0 [Warning] [MY-010068] [Server] CA certificate ca.pem is self signed.
+mysql-1     | 2025-10-18T18:56:07.446518Z 0 [System] [MY-013602] [Server] Channel mysql_main configured to support TLS. Encrypted connections are now supported for this channel.
+mysql-1     | 2025-10-18T18:56:07.453296Z 0 [Warning] [MY-011810] [Server] Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users. Consider choosing a different directory.
+mysql-1     | 2025-10-18T18:56:07.479194Z 0 [System] [MY-011323] [Server] X Plugin ready for connections. Bind-address: '::' port: 33060, socket: /var/run/mysqld/mysqlx.sock
+mysql-1     | 2025-10-18T18:56:07.479253Z 0 [System] [MY-010931] [Server] /usr/sbin/mysqld: ready for connections. Version: '8.3.0'  socket: '/var/run/mysqld/mysqld.sock'  port: 3306  MySQL Community Server - GPL.
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.163+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:51278","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"e51f795d-f116-4daa-91f6-39bcdcbc7c54"}},"connectionId":16,"connectionCount":1}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.173+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn16","msg":"client metadata","attr":{"remote":"127.0.0.1:51278","client":"conn16","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.311+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:51290","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"c417cf3a-e342-4b77-bac9-a919e230feec"}},"connectionId":17,"connectionCount":2}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.312+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:51296","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"7a59068a-ab32-46a1-8c15-1bf46f02b673"}},"connectionId":18,"connectionCount":3}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.316+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn17","msg":"client metadata","attr":{"remote":"127.0.0.1:51290","client":"conn17","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.318+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn18","msg":"client metadata","attr":{"remote":"127.0.0.1:51296","client":"conn18","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.324+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn17","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":7}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.325+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:51312","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"35c5d6e4-c240-4b50-b48a-750c53e71e56"}},"connectionId":19,"connectionCount":4}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.332+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:51322","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"f2ee38c8-8407-41c6-8f47-0e3ca980e34f"}},"connectionId":20,"connectionCount":5}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.334+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn19","msg":"client metadata","attr":{"remote":"127.0.0.1:51312","client":"conn19","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.341+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn20","msg":"client metadata","attr":{"remote":"127.0.0.1:51322","client":"conn20","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.343+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn19","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":9}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.346+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn20","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":5}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.404+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn19","msg":"Connection ended","attr":{"remote":"127.0.0.1:51312","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"35c5d6e4-c240-4b50-b48a-750c53e71e56"}},"connectionId":19,"connectionCount":4}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.404+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn17","msg":"Connection ended","attr":{"remote":"127.0.0.1:51290","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"c417cf3a-e342-4b77-bac9-a919e230feec"}},"connectionId":17,"connectionCount":3}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.405+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn20","msg":"Connection ended","attr":{"remote":"127.0.0.1:51322","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"f2ee38c8-8407-41c6-8f47-0e3ca980e34f"}},"connectionId":20,"connectionCount":2}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.405+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn16","msg":"Connection ended","attr":{"remote":"127.0.0.1:51278","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"e51f795d-f116-4daa-91f6-39bcdcbc7c54"}},"connectionId":16,"connectionCount":1}}
+mongodb-1   | {"t":{"$date":"2025-10-18T18:56:09.405+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn18","msg":"Connection ended","attr":{"remote":"127.0.0.1:51296","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"7a59068a-ab32-46a1-8c15-1bf46f02b673"}},"connectionId":18,"connectionCount":0}}
+mysql-1     | 2025-10-18T18:56:10.970927Z 8 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: ''mysql_native_password' is deprecated and will be removed in a future release. Please use caching_sha2_password instead'
+test-runner-1  | npm warn EBADENGINE Unsupported engine {
+test-runner-1  | npm warn EBADENGINE   package: '@isaacs/balanced-match@4.0.1',
+test-runner-1  | npm warn EBADENGINE   required: { node: '20 || >=22' },
+test-runner-1  | npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+test-runner-1  | npm warn EBADENGINE }
+test-runner-1  | npm warn EBADENGINE Unsupported engine {
+test-runner-1  | npm warn EBADENGINE   package: '@isaacs/brace-expansion@5.0.0',
+test-runner-1  | npm warn EBADENGINE   required: { node: '20 || >=22' },
+test-runner-1  | npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+test-runner-1  | npm warn EBADENGINE }
+test-runner-1  | npm warn EBADENGINE Unsupported engine {
+test-runner-1  | npm warn EBADENGINE   package: 'glob@11.0.3',
+test-runner-1  | npm warn EBADENGINE   required: { node: '20 || >=22' },
+test-runner-1  | npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+test-runner-1  | npm warn EBADENGINE }
+test-runner-1  | npm warn EBADENGINE Unsupported engine {
+test-runner-1  | npm warn EBADENGINE   package: 'jackspeak@4.1.1',
+test-runner-1  | npm warn EBADENGINE   required: { node: '20 || >=22' },
+test-runner-1  | npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+test-runner-1  | npm warn EBADENGINE }
+test-runner-1  | npm warn EBADENGINE Unsupported engine {
+test-runner-1  | npm warn EBADENGINE   package: 'minimatch@10.0.3',
+test-runner-1  | npm warn EBADENGINE   required: { node: '20 || >=22' },
+test-runner-1  | npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+test-runner-1  | npm warn EBADENGINE }
+test-runner-1  | npm warn EBADENGINE Unsupported engine {
+test-runner-1  | npm warn EBADENGINE   package: 'path-scurry@2.0.0',
+test-runner-1  | npm warn EBADENGINE   required: { node: '20 || >=22' },
+test-runner-1  | npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+test-runner-1  | npm warn EBADENGINE }
+test-runner-1  | npm warn EBADENGINE Unsupported engine {
+test-runner-1  | npm warn EBADENGINE   package: 'lru-cache@11.2.2',
+test-runner-1  | npm warn EBADENGINE   required: { node: '20 || >=22' },
+test-runner-1  | npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+test-runner-1  | npm warn EBADENGINE }
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.278+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:49358","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"542edd09-bf6c-48ae-9ae5-59d4663bdeda"}},"connectionId":21,"connectionCount":1}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.288+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn21","msg":"client metadata","attr":{"remote":"127.0.0.1:49358","client":"conn21","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.439+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:49360","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"493cded4-5667-4d28-9ad9-3f7be0b1b9fa"}},"connectionId":22,"connectionCount":2}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.440+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:49362","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"9dc2390d-bae6-41c9-bb7f-425caf887722"}},"connectionId":23,"connectionCount":3}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.446+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn22","msg":"client metadata","attr":{"remote":"127.0.0.1:49360","client":"conn22","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.448+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn23","msg":"client metadata","attr":{"remote":"127.0.0.1:49362","client":"conn23","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.454+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn22","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":8}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.455+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:49366","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"fe2fa39c-8802-4e81-997c-bdabe4ccc56d"}},"connectionId":24,"connectionCount":4}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.465+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:49376","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"34768a35-fcf0-434f-9c58-a0b122afca2f"}},"connectionId":25,"connectionCount":5}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.467+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn24","msg":"client metadata","attr":{"remote":"127.0.0.1:49366","client":"conn24","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.475+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn25","msg":"client metadata","attr":{"remote":"127.0.0.1:49376","client":"conn25","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.478+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn24","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":11}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.481+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn25","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":5}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.551+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn25","msg":"Connection ended","attr":{"remote":"127.0.0.1:49376","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"34768a35-fcf0-434f-9c58-a0b122afca2f"}},"connectionId":25,"connectionCount":4}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.552+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn23","msg":"Connection ended","attr":{"remote":"127.0.0.1:49362","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"9dc2390d-bae6-41c9-bb7f-425caf887722"}},"connectionId":23,"connectionCount":3}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.552+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn24","msg":"Connection ended","attr":{"remote":"127.0.0.1:49366","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"fe2fa39c-8802-4e81-997c-bdabe4ccc56d"}},"connectionId":24,"connectionCount":2}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.552+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn21","msg":"Connection ended","attr":{"remote":"127.0.0.1:49358","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"542edd09-bf6c-48ae-9ae5-59d4663bdeda"}},"connectionId":21,"connectionCount":1}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:15.552+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn22","msg":"Connection ended","attr":{"remote":"127.0.0.1:49360","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"493cded4-5667-4d28-9ad9-3f7be0b1b9fa"}},"connectionId":22,"connectionCount":0}}
+test-runner-1  | npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+mysql-1        | 2025-10-18T18:56:16.102898Z 9 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: ''mysql_native_password' is deprecated and will be removed in a future release. Please use caching_sha2_password instead'
+test-runner-1  | npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+test-runner-1  | npm warn deprecated @npmcli/move-file@1.1.2: This functionality has been moved to @npmcli/fs
+test-runner-1  | npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+test-runner-1  | npm warn deprecated are-we-there-yet@3.0.1: This package is no longer supported.
+test-runner-1  | npm warn deprecated npmlog@6.0.2: This package is no longer supported.
+test-runner-1  | npm warn deprecated glob@8.1.0: Glob versions prior to v9 are no longer supported
+test-runner-1  | npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+test-runner-1  | npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+test-runner-1  | npm warn deprecated gauge@4.0.4: This package is no longer supported.
+test-runner-1  | 
+test-runner-1  | added 309 packages, and audited 310 packages in 8s
+test-runner-1  | 
+test-runner-1  | 48 packages are looking for funding
+test-runner-1  |   run `npm fund` for details
+test-runner-1  | 
+test-runner-1  | found 0 vulnerabilities
+test-runner-1  | 
+test-runner-1  | > orm3@9.0.0 build
+test-runner-1  | > tsc || true
+test-runner-1  | 
+mysql-1        | 2025-10-18T18:56:21.247882Z 10 [Warning] [MY-013360] [Server] Plugin mysql_native_password reported: ''mysql_native_password' is deprecated and will be removed in a future release. Please use caching_sha2_password instead'
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.403+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:58942","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"bf726d64-bd0d-4da1-a31c-21f963211b26"}},"connectionId":26,"connectionCount":1}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.411+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn26","msg":"client metadata","attr":{"remote":"127.0.0.1:58942","client":"conn26","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.592+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:58950","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"2fe9b329-d6fb-4008-8021-01110ce62d5f"}},"connectionId":27,"connectionCount":2}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.592+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:58962","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"6975df55-3ca9-4f00-aa46-25d61afe3ff9"}},"connectionId":28,"connectionCount":3}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.600+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn27","msg":"client metadata","attr":{"remote":"127.0.0.1:58950","client":"conn27","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.604+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn28","msg":"client metadata","attr":{"remote":"127.0.0.1:58962","client":"conn28","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.613+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn27","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":12}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.614+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:58972","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"98119d3a-825e-4c8a-91c7-f0291c2ba49b"}},"connectionId":29,"connectionCount":4}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.628+00:00"},"s":"I",  "c":"NETWORK",  "id":22943,   "ctx":"listener","msg":"Connection accepted","attr":{"remote":"127.0.0.1:58982","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"b145ecaa-e7dc-4695-996c-fcb3822407b7"}},"connectionId":30,"connectionCount":5}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.631+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn29","msg":"client metadata","attr":{"remote":"127.0.0.1:58972","client":"conn29","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.644+00:00"},"s":"I",  "c":"NETWORK",  "id":51800,   "ctx":"conn30","msg":"client metadata","attr":{"remote":"127.0.0.1:58982","client":"conn30","negotiatedCompressors":[],"doc":{"application":{"name":"mongosh 2.5.8"},"driver":{"name":"nodejs|mongosh","version":"6.19.0|2.5.8"},"platform":"Node.js v20.19.5, LE","os":{"name":"linux","architecture":"x64","version":"3.10.0-327.22.2.el7.x86_64","type":"Linux"},"env":{"container":{"runtime":"docker"}}}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.647+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn29","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":15}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.665+00:00"},"s":"I",  "c":"NETWORK",  "id":6788700, "ctx":"conn30","msg":"Received first command on ingress connection since session start or auth handshake","attr":{"elapsedMillis":21}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.718+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn30","msg":"Connection ended","attr":{"remote":"127.0.0.1:58982","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"b145ecaa-e7dc-4695-996c-fcb3822407b7"}},"connectionId":30,"connectionCount":4}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.719+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn29","msg":"Connection ended","attr":{"remote":"127.0.0.1:58972","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"98119d3a-825e-4c8a-91c7-f0291c2ba49b"}},"connectionId":29,"connectionCount":3}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.719+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn27","msg":"Connection ended","attr":{"remote":"127.0.0.1:58950","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"2fe9b329-d6fb-4008-8021-01110ce62d5f"}},"connectionId":27,"connectionCount":2}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.719+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn26","msg":"Connection ended","attr":{"remote":"127.0.0.1:58942","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"bf726d64-bd0d-4da1-a31c-21f963211b26"}},"connectionId":26,"connectionCount":1}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:21.720+00:00"},"s":"I",  "c":"NETWORK",  "id":22944,   "ctx":"conn28","msg":"Connection ended","attr":{"remote":"127.0.0.1:58962","isLoadBalanced":false,"uuid":{"uuid":{"$uuid":"6975df55-3ca9-4f00-aa46-25d61afe3ff9"}},"connectionId":28,"connectionCount":0}}
+test-runner-1  | ORM_PROTOCOL=mysql    node test/run
+test-runner-1  | [1;34m[i] [0;34mTesting [1;34mmysql://root:example@mysql/orm_test?[0;34m[0m
+test-runner-1  | node:internal/modules/cjs/loader:1143
+test-runner-1  |   throw err;
+test-runner-1  |   ^
+test-runner-1  | 
+test-runner-1  | Error: Cannot find module '../../lib/Error'
+test-runner-1  | Require stack:
+test-runner-1  | - /workspace/test/integration/error_spec.js
+test-runner-1  | - /workspace/node_modules/mocha/lib/mocha.js
+test-runner-1  | - /workspace/node_modules/mocha/index.js
+test-runner-1  | - /workspace/test/run.js
+test-runner-1  |     at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+test-runner-1  |     at Module._load (node:internal/modules/cjs/loader:981:27)
+test-runner-1  |     at Module.require (node:internal/modules/cjs/loader:1231:19)
+test-runner-1  |     at require (node:internal/modules/helpers:177:18)
+test-runner-1  |     at Object.<anonymous> (/workspace/test/integration/error_spec.js:2:16)
+test-runner-1  |     at Module._compile (node:internal/modules/cjs/loader:1364:14)
+test-runner-1  |     at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+test-runner-1  |     at Module.load (node:internal/modules/cjs/loader:1203:32)
+test-runner-1  |     at Module._load (node:internal/modules/cjs/loader:1019:12)
+test-runner-1  |     at Module.require (node:internal/modules/cjs/loader:1231:19)
+test-runner-1  |     at require (node:internal/modules/helpers:177:18)
+test-runner-1  |     at /workspace/node_modules/mocha/lib/mocha.js:416:36
+test-runner-1  |     at Array.forEach (<anonymous>)
+test-runner-1  |     at Mocha.loadFiles (/workspace/node_modules/mocha/lib/mocha.js:413:14)
+test-runner-1  |     at Mocha.run (/workspace/node_modules/mocha/lib/mocha.js:988:10)
+test-runner-1  |     at runTests (/workspace/test/run.js:48:9) {
+test-runner-1  |   code: 'MODULE_NOT_FOUND',
+test-runner-1  |   requireStack: [
+test-runner-1  |     '/workspace/test/integration/error_spec.js',
+test-runner-1  |     '/workspace/node_modules/mocha/lib/mocha.js',
+test-runner-1  |     '/workspace/node_modules/mocha/index.js',
+test-runner-1  |     '/workspace/test/run.js'
+test-runner-1  |   ]
+test-runner-1  | }
+test-runner-1  | 
+test-runner-1  | Node.js v18.20.8
+test-runner-1  | make: *** [Makefile:2: test] Error 1
+[Ktest-runner-1 exited with code 2
+[31m[1mAborting on container exit...[0m
+ Container orm3-test-test-runner-1  Stopping
+ Container orm3-test-test-runner-1  Stopped
+ Container orm3-test-mongodb-1  Stopping
+ Container orm3-test-mysql-1  Stopping
+ Container orm3-test-postgres-1  Stopping
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.239+00:00"},"s":"I",  "c":"CONTROL",  "id":23377,   "ctx":"SignalHandler","msg":"Received signal","attr":{"signal":15,"error":"Terminated"}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.240+00:00"},"s":"I",  "c":"CONTROL",  "id":23378,   "ctx":"SignalHandler","msg":"Signal was sent by kill(2)","attr":{"pid":0,"uid":0}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.240+00:00"},"s":"I",  "c":"CONTROL",  "id":23381,   "ctx":"SignalHandler","msg":"will terminate after current cmd ends"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.240+00:00"},"s":"I",  "c":"REPL",     "id":4784900, "ctx":"SignalHandler","msg":"Stepping down the ReplicationCoordinator for shutdown","attr":{"waitTimeMillis":15000}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.240+00:00"},"s":"I",  "c":"REPL",     "id":4794602, "ctx":"SignalHandler","msg":"Attempting to enter quiesce mode"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.240+00:00"},"s":"I",  "c":"-",        "id":6371601, "ctx":"SignalHandler","msg":"Shutting down the FLE Crud thread pool"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.240+00:00"},"s":"I",  "c":"COMMAND",  "id":4784901, "ctx":"SignalHandler","msg":"Shutting down the MirrorMaestro"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.240+00:00"},"s":"I",  "c":"SHARDING", "id":4784902, "ctx":"SignalHandler","msg":"Shutting down the WaitForMajorityService"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.240+00:00"},"s":"I",  "c":"CONTROL",  "id":4784903, "ctx":"SignalHandler","msg":"Shutting down the LogicalSessionCache"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.241+00:00"},"s":"I",  "c":"NETWORK",  "id":20562,   "ctx":"SignalHandler","msg":"Shutdown: going to close listening sockets"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"NETWORK",  "id":23017,   "ctx":"listener","msg":"removing socket file","attr":{"path":"/tmp/mongodb-27017.sock"}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"NETWORK",  "id":4784905, "ctx":"SignalHandler","msg":"Shutting down the global connection pool"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"CONTROL",  "id":4784906, "ctx":"SignalHandler","msg":"Shutting down the FlowControlTicketholder"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"-",        "id":20520,   "ctx":"SignalHandler","msg":"Stopping further Flow Control ticket acquisitions."}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"CONTROL",  "id":4784908, "ctx":"SignalHandler","msg":"Shutting down the PeriodicThreadToAbortExpiredTransactions"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"REPL",     "id":4784909, "ctx":"SignalHandler","msg":"Shutting down the ReplicationCoordinator"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"SHARDING", "id":4784910, "ctx":"SignalHandler","msg":"Shutting down the ShardingInitializationMongoD"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"REPL",     "id":4784911, "ctx":"SignalHandler","msg":"Enqueuing the ReplicationStateTransitionLock for shutdown"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"-",        "id":4784912, "ctx":"SignalHandler","msg":"Killing all operations for shutdown"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"-",        "id":4695300, "ctx":"SignalHandler","msg":"Interrupted all currently running operations","attr":{"opsKilled":3}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"TENANT_M", "id":5093807, "ctx":"SignalHandler","msg":"Shutting down all TenantMigrationAccessBlockers on global shutdown"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"ASIO",     "id":22582,   "ctx":"TenantMigrationBlockerNet","msg":"Killing all outstanding egress activity."}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"ASIO",     "id":6529201, "ctx":"SignalHandler","msg":"Network interface redundant shutdown","attr":{"state":"Stopped"}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"ASIO",     "id":22582,   "ctx":"SignalHandler","msg":"Killing all outstanding egress activity."}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"COMMAND",  "id":4784913, "ctx":"SignalHandler","msg":"Shutting down all open transactions"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"REPL",     "id":4784914, "ctx":"SignalHandler","msg":"Acquiring the ReplicationStateTransitionLock for shutdown"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"INDEX",    "id":4784915, "ctx":"SignalHandler","msg":"Shutting down the IndexBuildsCoordinator"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"NETWORK",  "id":4784918, "ctx":"SignalHandler","msg":"Shutting down the ReplicaSetMonitor"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.242+00:00"},"s":"I",  "c":"SHARDING", "id":4784921, "ctx":"SignalHandler","msg":"Shutting down the MigrationUtilExecutor"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"ASIO",     "id":22582,   "ctx":"MigrationUtil-TaskExecutor","msg":"Killing all outstanding egress activity."}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"COMMAND",  "id":4784923, "ctx":"SignalHandler","msg":"Shutting down the ServiceEntryPoint"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"CONTROL",  "id":4784927, "ctx":"SignalHandler","msg":"Shutting down the HealthLog"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"CONTROL",  "id":4784928, "ctx":"SignalHandler","msg":"Shutting down the TTL monitor"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"INDEX",    "id":3684100, "ctx":"SignalHandler","msg":"Shutting down TTL collection monitor thread"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"INDEX",    "id":3684101, "ctx":"SignalHandler","msg":"Finished shutting down TTL collection monitor thread"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"CONTROL",  "id":6278511, "ctx":"SignalHandler","msg":"Shutting down the Change Stream Expired Pre-images Remover"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"CONTROL",  "id":4784929, "ctx":"SignalHandler","msg":"Acquiring the global lock for shutdown"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"CONTROL",  "id":4784930, "ctx":"SignalHandler","msg":"Shutting down the storage engine"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"STORAGE",  "id":22320,   "ctx":"SignalHandler","msg":"Shutting down journal flusher thread"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"STORAGE",  "id":22321,   "ctx":"SignalHandler","msg":"Finished shutting down journal flusher thread"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"STORAGE",  "id":22322,   "ctx":"SignalHandler","msg":"Shutting down checkpoint thread"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"STORAGE",  "id":22323,   "ctx":"SignalHandler","msg":"Finished shutting down checkpoint thread"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.243+00:00"},"s":"I",  "c":"STORAGE",  "id":22261,   "ctx":"SignalHandler","msg":"Timestamp monitor shutting down"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.244+00:00"},"s":"I",  "c":"STORAGE",  "id":20282,   "ctx":"SignalHandler","msg":"Deregistering all the collections"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.244+00:00"},"s":"I",  "c":"STORAGE",  "id":22317,   "ctx":"SignalHandler","msg":"WiredTigerKVEngine shutting down"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.244+00:00"},"s":"I",  "c":"STORAGE",  "id":22318,   "ctx":"SignalHandler","msg":"Shutting down session sweeper thread"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.244+00:00"},"s":"I",  "c":"STORAGE",  "id":22319,   "ctx":"SignalHandler","msg":"Finished shutting down session sweeper thread"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.246+00:00"},"s":"I",  "c":"STORAGE",  "id":4795902, "ctx":"SignalHandler","msg":"Closing WiredTiger","attr":{"closeConfig":"leak_memory=true,use_timestamp=false,"}}
+mysql-1        | 2025-10-18T18:56:25.247240Z 0 [System] [MY-013172] [Server] Received SHUTDOWN from user <via user signal>. Shutting down mysqld (Version: 8.3.0).
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.249+00:00"},"s":"I",  "c":"WTCHKPT",  "id":22430,   "ctx":"SignalHandler","msg":"WiredTiger message","attr":{"message":{"ts_sec":1760813785,"ts_usec":249624,"thread":"1:0x7f49b9e4d640","session_name":"close_ckpt","category":"WT_VERB_CHECKPOINT_PROGRESS","category_id":6,"verbose_level":"DEBUG_1","verbose_level_id":1,"msg":"saving checkpoint snapshot min: 34, snapshot max: 34 snapshot count: 0, oldest timestamp: (0, 0) , meta checkpoint timestamp: (0, 0) base write gen: 1"}}}
+postgres-1     | 2025-10-18 18:56:25.250 UTC [1] LOG:  received fast shutdown request
+postgres-1     | 2025-10-18 18:56:25.257 UTC [1] LOG:  aborting any active transactions
+postgres-1     | 2025-10-18 18:56:25.261 UTC [1] LOG:  background worker "logical replication launcher" (PID 67) exited with exit code 1
+postgres-1     | 2025-10-18 18:56:25.262 UTC [62] LOG:  shutting down
+postgres-1     | 2025-10-18 18:56:25.267 UTC [62] LOG:  checkpoint starting: shutdown immediate
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.332+00:00"},"s":"I",  "c":"WTRECOV",  "id":22430,   "ctx":"SignalHandler","msg":"WiredTiger message","attr":{"message":{"ts_sec":1760813785,"ts_usec":332184,"thread":"1:0x7f49b9e4d640","session_name":"WT_CONNECTION.close","category":"WT_VERB_RECOVERY_PROGRESS","category_id":30,"verbose_level":"DEBUG_1","verbose_level_id":1,"msg":"shutdown checkpoint has successfully finished and ran for 85 milliseconds"}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.332+00:00"},"s":"I",  "c":"WTRECOV",  "id":22430,   "ctx":"SignalHandler","msg":"WiredTiger message","attr":{"message":{"ts_sec":1760813785,"ts_usec":332761,"thread":"1:0x7f49b9e4d640","session_name":"WT_CONNECTION.close","category":"WT_VERB_RECOVERY_PROGRESS","category_id":30,"verbose_level":"DEBUG_1","verbose_level_id":1,"msg":"shutdown was completed successfully and took 86ms, including 0ms for the rollback to stable, and 85ms for the checkpoint."}}}
+postgres-1     | 2025-10-18 18:56:25.333 UTC [62] LOG:  checkpoint complete: wrote 4 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.016 s, sync=0.011 s, total=0.072 s; sync files=3, longest=0.006 s, average=0.004 s; distance=0 kB, estimate=0 kB; lsn=0/191F190, redo lsn=0/191F190
+postgres-1     | 2025-10-18 18:56:25.343 UTC [1] LOG:  database system is shut down
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.362+00:00"},"s":"I",  "c":"STORAGE",  "id":4795901, "ctx":"SignalHandler","msg":"WiredTiger closed","attr":{"durationMillis":116}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.362+00:00"},"s":"I",  "c":"STORAGE",  "id":22279,   "ctx":"SignalHandler","msg":"shutdown: removing fs lock..."}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.363+00:00"},"s":"I",  "c":"-",        "id":4784931, "ctx":"SignalHandler","msg":"Dropping the scope cache for shutdown"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.363+00:00"},"s":"I",  "c":"FTDC",     "id":20626,   "ctx":"SignalHandler","msg":"Shutting down full-time diagnostic data capture"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.375+00:00"},"s":"I",  "c":"CONTROL",  "id":20565,   "ctx":"SignalHandler","msg":"Now exiting"}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.375+00:00"},"s":"I",  "c":"CONTROL",  "id":8423404, "ctx":"SignalHandler","msg":"mongod shutdown complete","attr":{"Summary of time elapsed":{"Statistics":{"Enter terminal shutdown":"0 ms","Step down the replication coordinator for shutdown":"0 ms","Time spent in quiesce mode":"0 ms","Shut down FLE Crud subsystem":"0 ms","Shut down MirrorMaestro":"0 ms","Shut down WaitForMajorityService":"0 ms","Shut down the logical session cache":"1 ms","Shut down the transport layer":"1 ms","Shut down the global connection pool":"0 ms","Shut down the flow control ticket holder":"0 ms","Kill all operations for shutdown":"0 ms","Shut down all tenant migration access blockers on global shutdown":"0 ms","Shut down all open transactions":"0 ms","Acquire the RSTL for shutdown":"0 ms","Shut down the IndexBuildsCoordinator and wait for index builds to finish":"0 ms","Shut down the replica set monitor":"0 ms","Shut down the migration util executor":"1 ms","Shut down the health log":"0 ms","Shut down the TTL monitor":"0 ms","Shut down expired pre-images and documents removers":"0 ms","Shut down the storage engine":"120 ms","Wait for the oplog cap maintainer thread to stop":"0 ms","Shut down full-time data capture":"9 ms","shutdownTask total elapsed time":"135 ms"}}}}
+mongodb-1      | {"t":{"$date":"2025-10-18T18:56:25.376+00:00"},"s":"I",  "c":"CONTROL",  "id":23138,   "ctx":"SignalHandler","msg":"Shutting down","attr":{"exitCode":0}}
+ Container orm3-test-postgres-1  Stopped
+[Kpostgres-1 exited with code 0
+ Container orm3-test-mongodb-1  Stopped
+[Kmongodb-1 exited with code 0
+mysql-1        | 2025-10-18T18:56:26.757604Z 0 [System] [MY-010910] [Server] /usr/sbin/mysqld: Shutdown complete (mysqld 8.3.0)  MySQL Community Server - GPL.
+mysql-1        | 2025-10-18T18:56:26.757647Z 0 [System] [MY-015016] [Server] MySQL Server - end.
+ Container orm3-test-mysql-1  Stopped
+

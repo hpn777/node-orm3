@@ -424,9 +424,9 @@ describe("Model instance", function() {
         return person1.saveAsync().then(function () {
           return Person.createAsync({ height: 170 })
             .then(function (person2) {
-              return [person2, Person.getAsync(person1[Person.id])];
+              return Promise.all([person2, Person.getAsync(person1[Person.id])]);
             })
-            .spread(function (person2, item) {
+            .then(function ([person2, item]) {
               should.equal(item.height, 190);
               return Person.getAsync(person2[Person.id]);
             })

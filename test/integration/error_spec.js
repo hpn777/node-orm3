@@ -1,5 +1,5 @@
 var should   = require('should');
-var ORMError = require('../../lib/Error');
+var ORMError = require('../../dist/Error');
 var path     = require('path');
 
 describe("Error", function () {

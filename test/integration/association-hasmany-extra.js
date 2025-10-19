@@ -83,21 +83,21 @@ describe("hasMany extra properties", function() {
         name    : "John"
       }])
         .then(function (people) {
-          return [people, Pet.createAsync([{
+          return Promise.all([people, Pet.createAsync([{
             name : "Deco"
           }, {
             name : "Mutt"
-          }])];
+          }])]);
         })
-        .spread(function (people, pets) {
+        .then(function ([people, pets]) {
           var data = { adopted: true };
 
-          return [pets, data, people[0].addPetsAsync(pets, { since : new Date(), data: data })];
+          return Promise.all([pets, data, people[0].addPetsAsync(pets, { since : new Date(), data: data })]);
         })
-        .spread(function (pets, data) {
-          return [pets, data, Person.find({ name: "John" }, { autoFetch : true }).firstAsync()];
+        .then(function ([pets, data]) {
+          return Promise.all([pets, data, Person.find({ name: "John" }, { autoFetch : true }).firstAsync()]);
         })
-        .spread(function (pets, data, John) {
+        .then(function ([pets, data, John]) {
           John.should.have.property("pets");
           should(Array.isArray(pets));
 

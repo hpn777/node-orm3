@@ -232,9 +232,9 @@ describe("Model.saveAsync()", function() {
             should.exist(hagar.parent);
 
             hagar.parent.name = 'Olga2';
-            return [hagar, hagar.saveAsync({name: 'Hagar2'}, { saveAssociations: false })];
+            return Promise.all([hagar, hagar.saveAsync({name: 'Hagar2'}, { saveAssociations: false })]);
           })
-          .spread(function (hagar) {
+          .then(function ([hagar]) {
             should.equal(afterSaveCalled, true);
 
             return Person.getAsync(hagar.parent.id);
@@ -247,9 +247,9 @@ describe("Model.saveAsync()", function() {
       it("off should not save associations or itself if there are no changes", function () {
         return Person.oneAsync({ name: 'Hagar' })
           .then(function (hagar) {
-            return [hagar, hagar.saveAsync({}, { saveAssociations: false })];
+            return Promise.all([hagar, hagar.saveAsync({}, { saveAssociations: false })]);
           })
-          .spread(function (hagar) {
+          .then(function ([hagar]) {
             should.equal(afterSaveCalled, false);
             return Person.getAsync(hagar.parent.id);
           })
@@ -264,12 +264,12 @@ describe("Model.saveAsync()", function() {
             should.exist(hagar.parent);
 
             hagar.parent.name = 'Olga2';
-            return [hagar, hagar.saveAsync({name: 'Hagar2'})];
+            return Promise.all([hagar, hagar.saveAsync({name: 'Hagar2'})]);
           })
-          .spread(function (hagar) {
-            return [hagar, Person.getAsync(hagar.parent.id)];
+          .then(function ([hagar]) {
+            return Promise.all([hagar, Person.getAsync(hagar.parent.id)]);
           })
-          .spread(function (hagar, olga) {
+          .then(function ([hagar, olga]) {
             should.equal(olga.name, 'Olga2');
 
             return Person.getAsync(hagar.id);
@@ -285,12 +285,12 @@ describe("Model.saveAsync()", function() {
             should.exist(hagar.parent);
 
             hagar.parent.name = 'Olga2';
-            return [hagar, hagar.saveAsync({name: 'Hagar2'}, { saveAssociations: true })];
+            return Promise.all([hagar, hagar.saveAsync({name: 'Hagar2'}, { saveAssociations: true })]);
           })
-          .spread(function (hagar) {
-            return [hagar, Person.getAsync(hagar.parent.id)];
+          .then(function ([hagar]) {
+            return Promise.all([hagar, Person.getAsync(hagar.parent.id)]);
           })
-          .spread(function (hagar, olga) {
+          .then(function ([hagar, olga]) {
             should.equal(olga.name, 'Olga2');
 
             return Person.getAsync(hagar.id);
@@ -338,12 +338,12 @@ describe("Model.saveAsync()", function() {
             should.exist(hagar.parent);
 
             hagar.parent.name = 'Olga2';
-            return [hagar, hagar.saveAsync({ name: 'Hagar2' })];
+            return Promise.all([hagar, hagar.saveAsync({ name: 'Hagar2' })]);
           })
-          .spread(function (hagar) {
-            return [hagar, Person.getAsync(hagar.parent.id)];
+          .then(function ([hagar]) {
+            return Promise.all([hagar, Person.getAsync(hagar.parent.id)]);
           })
-          .spread(function (hagar, olga) {
+          .then(function ([hagar, olga]) {
             should.equal(olga.name, 'Olga');
 
             return Person.getAsync(hagar.id);
@@ -359,9 +359,9 @@ describe("Model.saveAsync()", function() {
             should.exist(hagar.parent);
 
             hagar.parent.name = 'Olga2';
-            return [hagar, hagar.saveAsync({ name: 'Hagar2' }, { saveAssociations: false })];
+            return Promise.all([hagar, hagar.saveAsync({ name: 'Hagar2' }, { saveAssociations: false })]);
           })
-          .spread(function (hagar) {
+          .then(function ([hagar]) {
             should.equal(afterSaveCalled, true);
 
             return Person.getAsync(hagar.parent.id);
@@ -377,12 +377,12 @@ describe("Model.saveAsync()", function() {
             should.exist(hagar.parent);
 
             hagar.parent.name = 'Olga2';
-            return [hagar, hagar.saveAsync({ name: 'Hagar2' }, { saveAssociations: true })];
+            return Promise.all([hagar, hagar.saveAsync({ name: 'Hagar2' }, { saveAssociations: true })]);
           })
-          .spread(function (hagar) {
-            return [hagar, Person.getAsync(hagar.parent.id)];
+          .then(function ([hagar]) {
+            return Promise.all([hagar, Person.getAsync(hagar.parent.id)]);
           })
-          .spread(function (hagar, olga) {
+          .then(function ([hagar, olga]) {
             should.equal(olga.name, 'Olga2');
 
             return Person.getAsync(hagar.id);

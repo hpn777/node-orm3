@@ -113,9 +113,9 @@ describe("hasOne promise-based methods", function() {
           pets.should.not.have.property("owner");
 
           // But we should be able to see if its there
-          return [pets, pets.hasOwnerAsync()];
+          return Promise.all([pets, pets.hasOwnerAsync()]);
         })
-        .spread(function(pets, hasOwner) {
+        .then(function([pets, hasOwner]) {
           should.equal(hasOwner, true);
           // ...and then get it
           return pets.getOwnerAsync();
@@ -139,9 +139,9 @@ describe("hasOne promise-based methods", function() {
           pets.should.not.have.property("owner");
 
           // But we should be able to see if its there
-          return [pets, pets.hasOwnerAsync()];
+          return Promise.all([pets, pets.hasOwnerAsync()]);
         })
-        .spread(function(pets, hasOwner) {
+        .then(function([pets, hasOwner]) {
           should.equal(hasOwner, true);
           
           // ...and then get it

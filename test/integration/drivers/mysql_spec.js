@@ -1,6 +1,6 @@
 var _      = require('lodash');
 var should = require('should');
-var Driver = require('../../../lib/Drivers/DML/mysql').Driver;
+var Driver = require('../../../dist/Drivers/DML/mysql').Driver;
 var helper = require('../../support/spec_helper');
 var common = require('../../common');
 

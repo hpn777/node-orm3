@@ -1,7 +1,6 @@
 var should   = require('should');
 var helper   = require('../support/spec_helper');
 var async    = require('async');
-var Promise  = require('bluebird');
 
 describe("HookPromise", function() {
   var db = null;

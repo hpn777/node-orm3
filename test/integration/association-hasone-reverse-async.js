@@ -84,19 +84,19 @@ describe("hasOne Async", function () {
         return Person
           .findAsync({ name: "John Doe" })
           .then(function (John) {
-            return [John, Pet.findAsync({ name: "Deco" })];
+            return Promise.all([John, Pet.findAsync({ name: "Deco" })]);
           })
-          .spread(function (John, deco) {
-            return [John[0], deco[0], deco[0].hasOwnersAsync()];
+          .then(function ([John, deco]) {
+            return Promise.all([John[0], deco[0], deco[0].hasOwnersAsync()]);
           })
-          .spread(function (John, deco, has_owner) {
+          .then(function ([John, deco, has_owner]) {
             has_owner.should.equal(false);
-            return [deco.setOwnersAsync(John), deco];
+            return Promise.all([deco.setOwnersAsync(John), deco]);
           })
-          .spread(function (John, deco) {
-            return [John, deco.getOwnersAsync()];
+          .then(function ([John, deco]) {
+            return Promise.all([John, deco.getOwnersAsync()]);
           })
-          .spread(function (John, JohnCopy) {
+          .then(function ([John, JohnCopy]) {
             should(Array.isArray(JohnCopy));
             John.should.eql(JohnCopy[0]);
           });
@@ -108,19 +108,19 @@ describe("hasOne Async", function () {
       return Person
         .findAsync({ name: ["John Doe", "Jane Doe"] })
         .then(function (owners) {
-          return [owners, Pet.findAsync({ name: "Fido" })];
+          return Promise.all([owners, Pet.findAsync({ name: "Fido" })]);
         })
-        .spread(function (owners, Fido) {
-          return [Fido[0], owners, Fido[0].hasOwnersAsync()];
+        .then(function ([owners, Fido]) {
+          return Promise.all([Fido[0], owners, Fido[0].hasOwnersAsync()]);
         })
-        .spread(function (Fido, owners, has_owner) {
+        .then(function ([Fido, owners, has_owner]) {
           has_owner.should.equal(false);
-          return [Fido, owners, Fido.setOwnersAsync(owners)];
+          return Promise.all([Fido, owners, Fido.setOwnersAsync(owners)]);
         })
-        .spread(function (Fido, owners) {
-          return [owners, Fido.getOwnersAsync()];
+        .then(function ([Fido, owners]) {
+          return Promise.all([owners, Fido.getOwnersAsync()]);
         })
-        .spread(function (owners, ownersCopy) {
+        .then(function ([owners, ownersCopy]) {
           should(Array.isArray(owners));
           owners.length.should.equal(2);
           // Don't know which order they'll be in.
@@ -145,21 +145,21 @@ describe("hasOne Async", function () {
         .then(function (persons) {
           var John = persons[0];
           should.exist(John);
-          return [John, Pet.findAsync({ name: "Deco" })];
+          return Promise.all([John, Pet.findAsync({ name: "Deco" })]);
         })
-        .spread(function (John, Deco) {
+        .then(function ([John, Deco]) {
           var Deco = Deco[0];
           should.exist(Deco);
-          return [John, Deco, Deco.hasOwnersAsync()];
+          return Promise.all([John, Deco, Deco.hasOwnersAsync()]);
         })
-        .spread(function (John, Deco, has_owner) {
+        .then(function ([John, Deco, has_owner]) {
           has_owner.should.equal(false);
-          return [John, Deco, Deco.setOwnersAsync(John)];
+          return Promise.all([John, Deco, Deco.setOwnersAsync(John)]);
         })
-        .spread(function (John, Deco) {
-          return [John, Person.findAsync({ pet_id: Deco[Pet.id] })];
+        .then(function ([John, Deco]) {
+          return Promise.all([John, Person.findAsync({ pet_id: Deco[Pet.id] })]);
         })
-        .spread(function (John, owner) {
+        .then(function ([John, owner]) {
           should.exist(owner);
           should.equal(owner[0].name, John.name);
         });
@@ -171,21 +171,21 @@ describe("hasOne Async", function () {
         .then(function (John) {
           var John = John[0];
           should.exist(John);
-          return [John, Pet.findAsync({ name: "Deco" })];
+          return Promise.all([John, Pet.findAsync({ name: "Deco" })]);
         })
-        .spread(function (John, Deco) {
+        .then(function ([John, Deco]) {
           var Deco = Deco[0];
           should.exist(Deco);
-          return [John, Deco, Deco.hasOwnersAsync()];
+          return Promise.all([John, Deco, Deco.hasOwnersAsync()]);
         })
-        .spread(function (John, Deco, has_owner) {
+        .then(function ([John, Deco, has_owner]) {
           has_owner.should.equal(false);
-          return [John, Deco, Deco.setOwnersAsync(John)];
+          return Promise.all([John, Deco, Deco.setOwnersAsync(John)]);
         })
-        .spread(function (John, Deco) {
-          return [John, Person.findAsync({ pet: Deco })];
+        .then(function ([John, Deco]) {
+          return Promise.all([John, Person.findAsync({ pet: Deco })]);
         })
-        .spread(function(John, owner){
+        .then(function([John, owner]){
           should.exist(owner[0]);
           should.equal(owner[0].name, John.name);
         });
@@ -195,21 +195,21 @@ describe("hasOne Async", function () {
       return Person.findAsync({ name: "John Doe" })
         .then(function (John) {
           should.exist(John);
-          return [John, Pet.allAsync()];
+          return Promise.all([John, Pet.allAsync()]);
         })
-        .spread(function (John, pets) {
+        .then(function ([John, pets]) {
           should.exist(pets);
           should.equal(pets.length, 2);
-          return [John[0], pets, pets[0].hasOwnersAsync()];
+          return Promise.all([John[0], pets, pets[0].hasOwnersAsync()]);
         })
-        .spread(function (John, pets, has_owner) {
+        .then(function ([John, pets, has_owner]) {
           has_owner.should.equal(false);
-          return [John, pets, pets[0].setOwnersAsync(John)];
+          return Promise.all([John, pets, pets[0].setOwnersAsync(John)]);
         })
-        .spread(function (John, pets) {
-          return [John, Person.findAsync({ pet: pets })];
+        .then(function ([John, pets]) {
+          return Promise.all([John, Person.findAsync({ pet: pets })]);
         })
-        .spread(function (John, owners) {
+        .then(function ([John, owners]) {
           should.exist(owners[0]);
           owners.length.should.equal(1);
           should.equal(owners[0].name, John.name);

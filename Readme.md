@@ -32,6 +32,27 @@ If you want you can run tests locally:
 npm test
 ```
 
+### Running the full test matrix with Docker
+
+The integration suite expects MySQL, PostgreSQL/Redshift, SQLite, and MongoDB
+instances. To avoid installing them locally you can launch disposable
+containers and execute `make test` inside an ephemeral Node runner:
+
+```sh
+npm run test:docker
+```
+
+The helper script will build dependencies, run the full matrix, and tear down
+all containers when it finishes. If you want to inspect the databases after a
+run, keep them alive by setting `SKIP_DOCKER_CLEANUP=1`:
+
+```sh
+SKIP_DOCKER_CLEANUP=1 npm run test:docker
+```
+
+The Compose stack exposes the services on the default ports (`3306`, `5432`,
+`27017`) so you can connect with local tooling while the tests run.
+
 ## DBMS Support
 
 - MySQL & MariaDB
@@ -878,8 +899,8 @@ Pet(2).getOwners(...);
 
 ## Promise support
 
-ORM supports Promises via [bluebird](http://bluebirdjs.com/docs/api-reference.html).
-Most methods which accept a callback have a Promise version whith a `Async` postfix.
+ORM supports native Promises (built into Node.js).
+Most methods which accept a callback have a Promise version with an `Async` postfix.
 Eg:
 ```js
 orm.connectAsync().then().catch();

@@ -95,9 +95,9 @@ describe("Model.extendsTo()", function() {
       Person.find()
         .firstAsync()
         .then(function (John) {
-          return [John, John.removeAddressAsync()];
+          return Promise.all([John, John.removeAddressAsync()]);
         })
-        .spread(function(John) {
+        .then(function([John]) {
           return John.getAddressAsync();
         })
         .catch(function(err) {
@@ -126,9 +126,9 @@ describe("Model.extendsTo()", function() {
     it("should remove any previous extension", function () { // TODO: fix Model.find to async
       return Person.find().firstAsync()
         .then(function (John) {
-          return [John, PersonAddress.find({ number: 123 }).countAsync()];
+          return Promise.all([John, PersonAddress.find({ number: 123 }).countAsync()]);
         })
-        .spread(function (John, count) {
+        .then(function ([John, count]) {
           count.should.equal(1);
 
           var addr = new PersonAddress({
@@ -136,12 +136,12 @@ describe("Model.extendsTo()", function() {
             number : 4
           });
 
-          return [John, addr, John.setAddressAsync(addr)];
+          return Promise.all([John, addr, John.setAddressAsync(addr)]);
         })
-        .spread(function (John, addr) {
-          return [addr, John.getAddressAsync()];
+        .then(function ([John, addr]) {
+          return Promise.all([addr, John.getAddressAsync()]);
         })
-        .spread(function (addr, Address) {
+        .then(function ([addr, Address]) {
           Address.should.be.a.Object();
           should.equal(Array.isArray(Address), false);
           Address.should.have.property("street", addr.street);
@@ -159,9 +159,9 @@ describe("Model.extendsTo()", function() {
     it("should remove any extension", function () {
       return Person.find().firstAsync()
         .then(function (John) {
-          return [John, PersonAddress.find({ number: 123 }).countAsync()];
+          return Promise.all([John, PersonAddress.find({ number: 123 }).countAsync()]);
         })
-        .spread(function (John, count) {
+        .then(function ([John, count]) {
           count.should.equal(1);
 
           return John.removeAddressAsync();

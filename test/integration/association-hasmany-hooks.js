@@ -141,11 +141,11 @@ describe("hasMany hooks", function() {
         name    : "John"
       })
         .then(function (John) {
-          return [John, Pet.createAsync({
+          return Promise.all([John, Pet.createAsync({
             name : "Deco"
-          })];
+          })]);
         })
-        .spread(function (John, Deco) {
+        .then(function ([John, Deco]) {
           return John.addPetsAsync(Deco);
         })
         .then(function () {
@@ -172,11 +172,11 @@ describe("hasMany hooks", function() {
         name    : "John"
       })
         .then(function (John) {
-          return [John, Pet.createAsync({
+          return Promise.all([John, Pet.createAsync({
             name : "Deco"
-          })];
+          })]);
         })
-        .spread(function (John, Deco) {
+        .then(function ([John, Deco]) {
           return John.addPetsAsync(Deco);
         })
         .catch(function(err) {

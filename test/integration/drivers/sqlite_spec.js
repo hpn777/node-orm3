@@ -1,6 +1,6 @@
 var _      = require('lodash');
 var should = require('should');
-var Driver = require('../../../lib/Drivers/DML/sqlite').Driver;
+var Driver = require('../../../dist/Drivers/DML/sqlite').Driver;
 var helper = require('../../support/spec_helper');
 var common = require('../../common');
 
