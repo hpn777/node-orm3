@@ -1,17 +1,22 @@
-## Object Relational Mapping
+> **Note:** The legacy Makefile-based test orchestration has been removed. All test commands are now managed via npm scripts in `package.json`. See the Test Script Reference above for details.
+## Test Script Reference
 
-[![Build Status](https://api.travis-ci.org/dresende/node-orm2.svg?branch=master)](http://travis-ci.org/dresende/node-orm2)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fdresende%2Fnode-orm2.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fdresende%2Fnode-orm2?ref=badge_shield)
-[![](https://badge.fury.io/js/orm.svg)](https://npmjs.org/package/orm)
-[![](https://gemnasium.com/dresende/node-orm2.svg)](https://gemnasium.com/dresende/node-orm2)
-[![Flattr this git repo](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=dresende&url=https://github.com/dresende/node-orm2&title=ORM&language=&tags=github&category=software)
+The following npm scripts are available for running tests:
 
-## This package is not actively maintained
+| Script                  | Description                                 |
+|-------------------------|---------------------------------------------|
+| npm test                | Run all tests locally (SQLite)              |
+| npm run test:sqlite     | Run tests with SQLite                       |
+| npm run test:mysql      | Run tests with MySQL/MariaDB                |
+| npm run test:postgres  | Run tests with PostgreSQL                   |
+| npm run test:redshift  | Run tests with Amazon Redshift              |
+| npm run test:mongodb   | Run tests with MongoDB                      |
+| npm run test:docker:mysql     | Run MySQL/MariaDB tests in Docker      |
+| npm run test:docker:postgres | Run PostgreSQL tests in Docker          |
+| npm run test:docker:redshift | Run Redshift tests in Docker            |
+| npm run test:docker:mongodb  | Run MongoDB tests in Docker             |
 
-If you're starting a new project, consider using one of the following instead as they have a more active community:
-* https://github.com/typeorm/typeorm
-* https://github.com/sequelize/sequelize
-
+See `package.json` for the full list and details.
 
 ## Install
 
@@ -25,33 +30,52 @@ Supported: 4.0 +
 
 If using Nodejs >= 14 & Postgres, you must use `pg` driver >= 8.1. v7 doesn't work correctly (tests time out).
 
-Tests are run on [Travis CI](https://travis-ci.org/)
-If you want you can run tests locally:
+
+## Running Tests
+
+Tests are run on [Travis CI](https://travis-ci.org/).
+
+### Local Tests (SQLite)
+
+To run the test suite locally using SQLite:
 
 ```sh
 npm test
 ```
 
-### Running the full test matrix with Docker
-
-The integration suite expects MySQL, PostgreSQL/Redshift, SQLite, and MongoDB
-instances. To avoid installing them locally you can launch disposable
-containers and execute `make test` inside an ephemeral Node runner:
+Or explicitly:
 
 ```sh
-npm run test:docker
+npm run test:sqlite
 ```
 
-The helper script will build dependencies, run the full matrix, and tear down
-all containers when it finishes. If you want to inspect the databases after a
-run, keep them alive by setting `SKIP_DOCKER_CLEANUP=1`:
+### DBMS-specific Local Tests
+
+You can run tests for a specific database locally (requires the DB running and accessible):
+  npm run test:docker:mysql      # MySQL/MariaDB (Docker)
+  npm run test:docker:postgres  # PostgreSQL (Docker)
+  npm run test:docker:redshift  # Amazon Redshift (Docker)
+  npm run test:docker:mongodb   # MongoDB (Docker)
+```
+
+### Full Integration Test Matrix with Docker
+
+The integration suite expects MySQL, PostgreSQL/Redshift, SQLite, and MongoDB instances. To avoid installing them locally, you can launch disposable containers and execute tests inside an ephemeral Node runner:
 
 ```sh
-SKIP_DOCKER_CLEANUP=1 npm run test:docker
+npm run test:docker:mysql      # MySQL/MariaDB (Docker)
+npm run test:docker:postgres  # PostgreSQL (Docker)
+npm run test:docker:redshift  # Amazon Redshift (Docker)
+npm run test:docker:mongodb   # MongoDB (Docker)
 ```
 
-The Compose stack exposes the services on the default ports (`3306`, `5432`,
-`27017`) so you can connect with local tooling while the tests run.
+Each command will build dependencies, run the tests, and tear down containers when finished. If you want to inspect the databases after a run, keep them alive by setting `SKIP_DOCKER_CLEANUP=1`:
+
+```sh
+SKIP_DOCKER_CLEANUP=1 npm run test:docker:mysql
+```
+
+The Compose stack exposes the services on the default ports (`3306`, `5432`, `27017`) so you can connect with local tooling while the tests run.
 
 ## DBMS Support
 
@@ -67,7 +91,7 @@ The Compose stack exposes the services on the default ports (`3306`, `5432`,
 - Create Model associations, find, check, create and remove
 - Define custom validations (several builtin validations, check instance properties before saving - see [enforce](http://github.com/dresende/node-enforce) for details)
 - Model instance caching and integrity (table rows fetched twice are the same object, changes to one change all)
-- Plugins: [MySQL FTS](http://dresende.github.io/node-orm-mysql-fts) , [Pagination](http://dresende.github.io/node-orm-paging) , [Transaction](http://dresende.github.io/node-orm-transaction), [Timestamps](http://github.com/SPARTAN563/node-orm-timestamps), [Migrations](https://github.com/locomote/node-migrate-orm2)
+- Plugins: [MySQL FTS](http://dresende.github.io/node-orm-mysql-fts) , [Pagination](http://dresende.github.io/node-orm-paging) , [Transaction](http://dresende.github.io/node-orm-transaction), [Timestamps](http://github.com/SPARTAN563/node-orm-timestamps)
 
 ## Introduction
 
@@ -159,31 +183,11 @@ assets public folder(s).**
 
 See `examples/anontxt` for an example express based app.
 
-## Documentation
-
-Documentation is moving to the [wiki](https://github.com/dresende/node-orm2/wiki/).
-
-## Settings
-
-See information in the [wiki](https://github.com/dresende/node-orm2/wiki/Settings).
-
-## Connecting
-
-See information in the [wiki](https://github.com/dresende/node-orm2/wiki/Connecting-to-Database).
-
 ## Models
 
 A Model is an abstraction over one or more database tables. Models support associations (more below). The name of the model is assumed to match the table name.
 
 Models support behaviours for accessing and manipulating table data.
-
-## Defining Models
-
-See information in the [wiki](https://github.com/dresende/node-orm2/wiki/Defining-Models).
-
-### Properties
-
-See information in the [wiki](https://github.com/dresende/node-orm2/wiki/Model-Properties).
 
 ### Instance Methods
 
@@ -262,17 +266,9 @@ module.exports = function (db, cb) {
 };
 ```
 
-## Synchronizing Models
-
-See information in the [wiki](https://github.com/dresende/node-orm2/wiki/Syncing-and-dropping-models).
-
-## Dropping Models
-
-See information in the [wiki](https://github.com/dresende/node-orm2/wiki/Syncing-and-dropping-models).
-
 ## Advanced Options
 
-ORM2 allows you some advanced tweaks on your Model definitions. You can configure these via settings or in the call to `define` when you setup the Model.
+ORM3 allows you some advanced tweaks on your Model definitions. You can configure these via settings or in the call to `define` when you setup the Model.
 
 For example, each Model instance has a unique ID in the database. This table column is added automatically, and called "id" by default.<br/>
 If you define your own `key: true` column, "id" will not be added:
@@ -310,10 +306,6 @@ Other options:
 - `autoFetch`      : (default: `false`) Set it to `true` to fetch associations when fetching an instance from the database;
 - `autoFetchLimit` : (default: `1`) If `autoFetch` is enabled this defines how many hoops (associations of associations)
   you want it to automatically fetch.
-
-## Hooks
-
-See information in the [wiki](https://github.com/dresende/node-orm2/wiki/Model-Hooks).
 
 ## Finding Items
 
@@ -636,10 +628,6 @@ Person.get(1, function (err, John) {
 });
 ```
 
-## Validations
-
-See information in the [wiki](https://github.com/dresende/node-orm2/wiki/Model-Validations).
-
 ## Associations
 
 An association is a relation between one or more tables.
@@ -928,6 +916,3 @@ require('orm').addAdapter('cassandra', CassandraAdapter);
 
 See [the documentation for creating adapters](./Adapters.md) for more details.
 
-
-## License
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fdresende%2Fnode-orm2.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fdresende%2Fnode-orm2?ref=badge_large)
