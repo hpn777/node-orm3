@@ -5,11 +5,11 @@
 import * as _ from 'lodash';
 import * as path from 'path';
 import pathIsAbsolute from 'path-is-absolute';
-import { Property } from './types';
+import { Property } from './types/Core';
 
 interface OneAssociation {
   name: string;
-  model: any;
+  model: Model;
   field: Record<string, any>;
 }
 
@@ -17,7 +17,7 @@ interface Model {
   uid?: string;
   id: string[];
   properties: Record<string, Property>;
-  settings: any;
+  settings: Record<string, any>;
 }
 
 /**

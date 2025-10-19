@@ -5,6 +5,7 @@ const QueryLib = require('sql-query');
 import * as shared from './_shared';
 import * as utils from './_utils';
 import * as DDL from '../DDL/SQL';
+import type { IDriver, DriverSettings, DriverDefineOptions } from '../../types/Driver';
 
 interface DriverConfig {
   timezone?: string;
@@ -381,6 +382,34 @@ Driver.prototype.propertyToValue = function (value: any, property: any): any {
       }
   }
   return value;
+};
+
+// ==================== IDriver Implementation ====================
+
+/**
+ * Get driver settings
+ */
+Driver.prototype.getSettings = function (this: any): DriverSettings {
+  return {
+    dataTypes: this.query.dataTypes || {},
+    escapeId: (name: string) => this.query.escapeId(name),
+    escapeVal: (val: unknown) => this.query.escape(val)
+  };
+};
+
+/**
+ * Define a model in the database
+ */
+Driver.prototype.define = function (this: any, definition: DriverDefineOptions): void {
+  // TODO: Implement explicit model definition if needed
+  // Currently handled through sync() in DDL
+};
+
+/**
+ * Get current database connection
+ */
+Driver.prototype.getConnection = function (this: any): unknown {
+  return this.db;
 };
 
 utils.promisifyFunctions(Driver.prototype, ['ping', 'find', 'count', 'insert', 'update', 'remove', 'clear']);

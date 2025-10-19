@@ -10,6 +10,7 @@ import * as Property from '../Property';
 import * as ORMError from '../Error';
 import * as util from '../Utilities';
 import { promisify } from 'util';
+import type { HookMap, AssociationType } from '../types/Core';
 
 const ACCESSOR_METHODS = ["hasAccessor", "getAccessor", "setAccessor", "delAccessor", "addAccessor"];
 
@@ -111,13 +112,13 @@ export function prepare(db: any, Model: any, associations: any[]): void {
   };
 }
 
-export function extend(Model: any, Instance: any, Driver: any, associations: any[], opts: any, createInstance: Function): void {
+export function extend(Model: any, Instance: any, Driver: any, associations: any[], opts: Record<string, unknown>, createInstance: (...args: any[]) => any): void {
   for (let i = 0; i < associations.length; i++) {
     extendInstance(Model, Instance, Driver, associations[i], opts, createInstance);
   }
 }
 
-export function autoFetch(Instance: any, associations: any[], opts: any, cb: Function): void {
+export function autoFetch(Instance: any, associations: any[], opts: Record<string, unknown>, cb: (err?: Error, result?: any) => void): void {
   if (associations.length === 0) {
     return cb();
   }

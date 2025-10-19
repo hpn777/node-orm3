@@ -10,13 +10,13 @@ function ucfirst(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-function conditionAssign(instance: any, model: any): Record<string, any> {
+function conditionAssign(instance: Record<string, any>, model: any): Record<string, any> {
   const conditions: Record<string, any> = {};
   conditions[model.id] = instance[model.id];
   return conditions;
 }
 
-function addLazyLoadProperty(name: string, Instance: any, Model: any, property: string): void {
+function addLazyLoadProperty(name: string, Instance: Record<string, any>, Model: any, property: string): void {
   const method = ucfirst(name);
   const promiseFunctionPostfix = Model.settings.get('promiseFunctionPostfix');
   
@@ -38,8 +38,8 @@ function addLazyLoadProperty(name: string, Instance: any, Model: any, property: 
   Object.defineProperty(Instance, functionNames.get.callback, {
     value: function (this: any, cb: (err: Error | null, data?: any) => void) {
       const conditions = conditionAssign(Instance, Model);
-      
-      Model.find(conditions, { identityCache: false }).only(Model.id.concat(property)).first((err: Error | null, item: any) => {
+
+      Model.find(conditions, { identityCache: false }).only(Model.id.concat(property)).first((err: Error | null, item: Record<string, any> | null) => {
         return cb(err, item ? item[property] : null);
       });
 
@@ -51,8 +51,8 @@ function addLazyLoadProperty(name: string, Instance: any, Model: any, property: 
   Object.defineProperty(Instance, functionNames.remove.callback, {
     value: function (this: any, cb: (err: Error | null) => void) {
       const conditions = conditionAssign(Instance, Model);
-      
-      Model.find(conditions, { identityCache: false }).only(Model.id.concat(property)).first((err: Error | null, item: any) => {
+
+      Model.find(conditions, { identityCache: false }).only(Model.id.concat(property)).first((err: Error | null, item: Record<string, any> | null) => {
         if (err) return cb(err);
         if (!item) return cb(null);
 
@@ -68,8 +68,8 @@ function addLazyLoadProperty(name: string, Instance: any, Model: any, property: 
   Object.defineProperty(Instance, functionNames.set.callback, {
     value: function (this: any, data: any, cb: (err: Error | null) => void) {
       const conditions = conditionAssign(Instance, Model);
-      
-      Model.find(conditions, { identityCache: false }).first((err: Error | null, item: any) => {
+
+      Model.find(conditions, { identityCache: false }).first((err: Error | null, item: Record<string, any> | null) => {
         if (err) return cb(err);
         if (!item) return cb(null);
 

@@ -7,24 +7,36 @@ import * as async from 'async';
 import { promisify } from 'util';
 import * as Utilities from './Utilities';
 import ChainInstance from './ChainInstance';
-import DeprecatedPromise from './DeprecatedPromise';
+import { IDriver } from './types/Driver';
+import {
+  QueryConditions,
+  PropertyDefinition,
+  AssociationDefinition
+} from './types/Core';
+import type { Instance } from './types/Core';
 
 export interface ChainFindOptions {
   table: string;
-  driver: any;
+  driver: IDriver & { eagerQuery?: Function; config?: { protocol: string } };
   properties: Record<string, any>;
-  keyProperties: any[];
+  keyProperties: PropertyDefinition[];
   keys: string[];
-  newInstance: Function;
-  associations?: any[];
-  conditions?: Record<string, any>;
+  newInstance: (data: Record<string, unknown>, cb: (err: Error | null, instance?: Instance) => void) => void;
+  associations?: AssociationDefinition[];
+  conditions?: QueryConditions & { __sql?: any[] };
   only?: string[];
   limit?: number;
   offset?: number;
-  order?: any[];
-  merge?: any;
-  exists?: any[];
-  __eager?: any[];
+  order?: Array<[string, string | any[]]>;
+  merge?: Record<string, unknown>;
+  exists?: Array<{
+    table: string;
+    link?: [string[], string[]];
+    select?: string;
+    where?: Record<string, unknown>;
+    conditions?: Record<string, unknown>;
+  }>;
+  __eager?: AssociationDefinition[];
 }
 
 export function ChainFind(Model: any, opts: ChainFindOptions): any {
@@ -35,20 +47,20 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
   };
 
   const prepareOrder = (): any[] => {
-    return Utilities.transformOrderPropertyNames(opts.order || [], opts.properties);
+    return Utilities.transformOrderPropertyNames((opts.order || []) as any, opts.properties);
   };
 
   const chainRun = (done: (err: Error | null, items?: any[]) => void): void => {
     const conditions = Utilities.transformPropertyNames(opts.conditions || {}, opts.properties);
-    const order = Utilities.transformOrderPropertyNames(opts.order || [], opts.properties);
+    const order = Utilities.transformOrderPropertyNames((opts.order || []) as any, opts.properties);
 
-    opts.driver.find(opts.only, opts.table, conditions, {
+    opts.driver.find(opts.only || [], opts.table, conditions, {
       limit: opts.limit,
-      order: order,
+      order: order as any,
       merge: opts.merge,
       offset: opts.offset,
-      exists: opts.exists
-    }, (err: Error | null, dataItems: any[]) => {
+      exists: opts.exists as any
+    }, (err: Error | null, dataItems?: any) => {
       if (err) return done(err);
       if (dataItems.length === 0) return done(null, []);
 
@@ -66,7 +78,7 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
 
         async.eachSeries(opts.__eager || [],
           (association: any, cb: (err?: Error | null) => void) => {
-            opts.driver.eagerQuery(association, opts, keys, (err: Error | null, instances: any[]) => {
+            opts.driver.eagerQuery!(association, opts, keys, (err: Error | null, instances: any[]) => {
               if (err) return cb(err);
 
               for (const instance of instances) {
@@ -92,8 +104,6 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
       });
     });
   };
-
-  let promise: any = null;
 
   const chain: any = {
     find(...args: any[]): any {
@@ -174,7 +184,7 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
     },
 
     count(cb: (err: Error | null, count?: number) => void): any {
-      opts.driver.count(opts.table, prepareConditions(), {
+      (opts.driver.count as any)(opts.table, prepareConditions(), {
         merge: opts.merge
       }, (err: Error | null, data?: any[]) => {
         if (err || !data || data.length === 0) {
@@ -186,14 +196,14 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
     },
 
     remove(cb: (err: Error | null) => void): any {
-      const keys = _.map(opts.keyProperties, 'mapsTo');
+      const keys = _.map(opts.keyProperties, 'mapsTo') as string[];
 
       opts.driver.find(keys, opts.table, prepareConditions(), {
         limit: opts.limit,
-        order: prepareOrder(),
+        order: prepareOrder() as any,
         merge: opts.merge,
         offset: opts.offset,
-        exists: opts.exists
+        exists: opts.exists as any
       }, (err: Error | null, data?: any[]) => {
         if (err) return cb(err);
         if (!data || data.length === 0) return cb(null);
@@ -201,7 +211,7 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
         const conditions: any = { or: [] };
 
         for (let i = 0; i < data.length; i++) {
-          const or: any = {};
+          const or: Record<string, unknown> = {};
           for (let j = 0; j < opts.keys.length; j++) {
             or[keys[j]] = data[i][keys[j]];
           }
@@ -234,34 +244,16 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
       return this;
     },
 
-    success(cb: Function): any {
-      console.warn("ChainFind.success() function is deprecated & will be removed in a future version");
-      if (!promise) {
-        promise = new (DeprecatedPromise as any)();
-        promise.handle(this.all);
-      }
-      return promise.success(cb);
-    },
-
-    fail(cb: Function): any {
-      if (!promise) {
-        promise = new (DeprecatedPromise as any)();
-        promise.handle(this.all);
-      }
-      console.warn("ChainFind.fail() function is deprecated & will be removed in a future version");
-      return promise.fail(cb);
-    },
-
     eager(...args: any[]): any {
       const associations = _.flatten(args);
 
-      if (opts.driver.config.protocol === "mongodb:") {
+      if (opts.driver.config?.protocol === "mongodb:") {
         throw new Error("MongoDB does not currently support eager loading");
       }
 
-      opts.__eager = _.filter(opts.associations, (association: any) => {
+      opts.__eager = _.filter(opts.associations || [], (association: any) => {
         return ~associations.indexOf(association.name);
-      });
+      }) as AssociationDefinition[];
 
       return this;
     }

@@ -16,14 +16,17 @@ import Settings from './Settings';
 import Singleton from './Singleton';
 import * as Utilities from './Utilities';
 import Validators from './Validators';
+import type { Plugin, ConnectionConfig } from './types/Core';
 
 const Query = require('sql-query');
-import { ORMInterface, ModelOptions, ConnectionOptions, Plugin, ConnectCallback } from './types';
+import { ORMInterface, ModelOptions, ConnectionOptions, Plugin as LegacyPlugin, ConnectCallback } from './types/Core';
 
 const OPTS_TYPE_STRING = 'string';
 const OPTS_TYPE_OBJ = 'object';
 
-// Deprecated, use enforce
+/**
+ * @deprecated Use the `enforce` package directly instead
+ */
 export const validators = Validators;
 
 // specific to ORM, not in enforce for now

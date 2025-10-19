@@ -25,7 +25,8 @@ import {
   QueryConditions,
   FindOptions,
   AggregateOptions
-} from './types';
+} from './types/Core';
+import type { HookMap } from './types/Core';
 
 const AvailableHooks = [
   "beforeCreate",
@@ -60,7 +61,7 @@ export default function Model(opts: ModelOptions): ModelType {
   const allProperties: { [key: string]: PropertyDefinition } = {};
   const keyProperties: PropertyDefinition[] = [];
 
-  const modelHooks: { [key: string]: Function | undefined } = {};
+  const modelHooks: Record<string, any> = {};
 
   // Initialize hooks from options
   if (opts.hooks) {
@@ -654,7 +655,7 @@ export default function Model(opts: ModelOptions): ModelType {
       offset: options.offset,
       properties: allProperties,
       keyProperties: keyProperties,
-      newInstance: function (data: InstanceData, cb: Function) {
+      newInstance: function (data: InstanceData, cb: (err: Error | null, instance?: InstanceType) => void) {
         Utilities.renameDatastoreFieldsToPropertyNames(data, fieldToPropertyMap as any);
 
         const keys = Array.isArray(opts.keys) ? opts.keys : [opts.keys!];
@@ -836,7 +837,7 @@ export default function Model(opts: ModelOptions): ModelType {
       conditions = Utilities.checkConditions(conditions, one_associations as any);
     }
 
-    opts.driver.count(opts.table, conditions, {}, function (err: Error | null, data?: any[]) {
+    (opts.driver.count as any)(opts.table, conditions, {}, function (err: Error | null, data?: any[]) {
       if (err || !data || data.length === 0) {
         return cb(err);
       }

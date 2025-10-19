@@ -4,7 +4,7 @@
 
 import * as _ from 'lodash';
 import { ORMError } from './Error';
-import { Property as PropertyType, PropertyDefinition } from './types';
+import { Property as PropertyType, PropertyDefinition } from './types/Core';
 
 const KNOWN_TYPES = [
   "text", "number", "integer", "boolean", "date", "enum", "object",

@@ -7,6 +7,7 @@ import * as async from 'async';
 import * as util from '../Utilities';
 import * as ORMError from '../Error';
 import { promisify } from 'util';
+import type { HookMap, AssociationType } from '../types/Core';
 
 const Accessors: Record<string, string> = { "get": "get", "set": "set", "has": "has", "del": "remove" };
 const ACCESSOR_METHODS = ["hasAccessor", "getAccessor", "setAccessor", "delAccessor"];
@@ -15,7 +16,7 @@ export function prepare(Model: any, associations: any[]): void {
   Model.hasOne = function (...args: any[]): any {
     let assocName: string;
     let assocTemplateName: string;
-    let association: any = {
+    let association: Record<string, any> = {
       name: Model.table,
       model: Model,
       reversed: false,
@@ -135,7 +136,7 @@ export function extend(Model: any, Instance: any, Driver: any, associations: any
   }
 }
 
-export function autoFetch(Instance: any, associations: any[], opts: any, cb: Function): void {
+export function autoFetch(Instance: any, associations: any[], opts: Record<string, unknown>, cb: (err?: Error, result?: any) => void): void {
   if (associations.length === 0) {
     return cb();
   }

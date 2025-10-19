@@ -3,9 +3,9 @@
  */
 
 import * as _ from 'lodash';
-import { SettingsContainer } from './types';
+import { SettingsContainer } from './types/Core';
 
-const default_settings: SettingsContainer = {
+const default_settings = {
   properties: {
     primary_key: "id",
     association_key: "{name}_{field}",

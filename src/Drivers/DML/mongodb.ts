@@ -1,7 +1,8 @@
 import * as Utilities from "../../Utilities";
 const mongodb = require("mongodb");
 import * as _ from "lodash";
-import { PropertyDefinition } from "../../types";
+import { PropertyDefinition } from "../../types/Core";
+import type { IDriver, DriverSettings, DriverDefineOptions } from "../../types/Driver";
 
 export { Driver };
 
@@ -439,6 +440,34 @@ function convertToDBVal(key: string, value: any, timezone: string): any {
 
   return value;
 }
+
+// ==================== IDriver Implementation ====================
+
+/**
+ * Get driver settings
+ */
+Driver.prototype.getSettings = function (this: any): DriverSettings {
+  return {
+    dataTypes: {},
+    escapeId: (name: string) => name,
+    escapeVal: (val: unknown) => String(val)
+  };
+};
+
+/**
+ * Define a model in the database
+ */
+Driver.prototype.define = function (this: any, definition: DriverDefineOptions): void {
+  // TODO: Implement explicit model definition if needed
+  // MongoDB is schemaless, so this is mostly a placeholder
+};
+
+/**
+ * Get current database connection
+ */
+Driver.prototype.getConnection = function (this: any): unknown {
+  return this.db;
+};
 
 ['ping', 'find', 'count', 'insert', 'update', 'remove', 'clear',].forEach(function (fnName: string) {
   (Driver.prototype as any)[fnName + 'Async'] = (Promise as any).promisify((Driver.prototype as any)[fnName]);

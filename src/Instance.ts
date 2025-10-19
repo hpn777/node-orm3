@@ -7,35 +7,36 @@ import * as Property from './Property';
 import * as Hook from './Hook';
 import enforce from './shims/enforce';
 import { promisify } from 'util';
+import type { InstanceData, HookMap, PropertyDefinition } from './types/Core';
 
 export interface InstanceOptions {
-  data?: Record<string, any>;
-  extra?: Record<string, any>;
+  data?: InstanceData;
+  extra?: any;
   keys?: string | string[];
   is_new?: boolean;
   changes?: string[];
   extrachanges?: string[];
-  associations?: Record<string, any>;
-  originalKeyValues?: Record<string, any>;
-  keyProperties: any[];
+  associations?: Record<string, unknown>;
+  originalKeyValues?: Record<string, unknown>;
+  keyProperties: PropertyDefinition[];
   table: string;
-  driver: any;
-  hooks: Record<string, Function | undefined>;
-  validations: Record<string, any[]>;
-  one_associations: any[];
-  many_associations: any[];
+  driver: any;  // TODO: phase 3 - implement IDriver interface
+  hooks: HookMap;
+  validations: Record<string, unknown[]>;
+  one_associations: any[];  // TODO: phase 3 - typed associations
+  many_associations: any[];  // TODO: phase 3 - typed associations
   methods: Record<string, Function>;
   autoSave?: boolean;
   autoFetch?: boolean;
   autoFetchLimit?: number;
   cascadeRemove?: boolean;
   extra_info?: {
-    id: any[];
+    id: (string | number)[];
     id_prop: string[];
     assoc_prop: string[];
     table: string;
   };
-  setupAssociations: (instance: any, opts?: {
+  setupAssociations: (instance: Record<string, unknown>, opts?: {
     autoFetch?: boolean;
     autoFetchLimit?: number;
     cascadeRemove?: boolean;
@@ -371,7 +372,7 @@ export function Instance(Model: any, opts: InstanceOptions): any {
       const assocVal = instance[assoc.name];
 
       if (!Array.isArray(assocVal)) return;
-      if (!opts.associations![assoc.name].changed) return;
+      if (!((opts.associations as any)![assoc.name]).changed) return;
 
       for (j = 0; j < assocVal.length; j++) {
         if (!assocVal[j].isInstance) {
@@ -811,7 +812,7 @@ export function Instance(Model: any, opts: InstanceOptions): any {
   for (i = 0; i < opts.keyProperties.length; i++) {
     const prop = opts.keyProperties[i];
 
-    if (!(prop.name in opts.data!)) {
+    if (!(prop.name! in opts.data!)) {
       opts.changes = Object.keys(opts.data!);
       break;
     }

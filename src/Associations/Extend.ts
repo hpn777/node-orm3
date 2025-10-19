@@ -7,6 +7,7 @@ import * as ORMError from '../Error';
 import * as Singleton from '../Singleton';
 import * as util from '../Utilities';
 import { promisify } from 'util';
+import type { AssociationType } from '../types/Core';
 
 const ACCESSOR_METHODS = ["hasAccessor", "getAccessor", "setAccessor", "delAccessor"];
 
@@ -15,7 +16,7 @@ export function prepare(db: any, Model: any, associations: any[]): void {
     opts = opts || {};
 
     const assocName = opts.name || ucfirst(name);
-    const association: any = {
+    const association: Record<string, any> = {
       name: name,
       table: opts.table || (Model.table + '_' + name),
       reversed: opts.reversed,
@@ -90,13 +91,13 @@ export function prepare(db: any, Model: any, associations: any[]): void {
   };
 }
 
-export function extend(Model: any, Instance: any, Driver: any, associations: any[], opts: any): void {
+export function extend(Model: any, Instance: any, Driver: any, associations: any[], opts: Record<string, unknown>): void {
   for (let i = 0; i < associations.length; i++) {
     extendInstance(Model, Instance, Driver, associations[i], opts);
   }
 }
 
-export function autoFetch(Instance: any, associations: any[], opts: any, cb: Function): void {
+export function autoFetch(Instance: any, associations: any[], opts: Record<string, unknown>, cb: (err?: Error) => void): void {
   if (associations.length === 0) {
     return cb();
   }
@@ -115,11 +116,11 @@ export function autoFetch(Instance: any, associations: any[], opts: any, cb: Fun
   }
 }
 
-function extendInstance(Model: any, Instance: any, Driver: any, association: any, opts: any): void {
+function extendInstance(Model: any, Instance: any, Driver: any, association: any, opts: Record<string, unknown>): void {
   const promiseFunctionPostfix = Model.settings.get('promiseFunctionPostfix');
 
   Object.defineProperty(Instance, association.hasAccessor, {
-    value: function (cb: Function): any {
+    value: function (cb: (err?: Error, result?: any) => void): any {
       if (!Instance[Model.id]) {
         cb(new ORMError.ORMError("Instance not saved, cannot get extension", 'NOT_DEFINED', { model: Model.table }));
       } else {
@@ -133,7 +134,7 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
   });
 
   Object.defineProperty(Instance, association.getAccessor, {
-    value: function (opts: any, cb?: Function): any {
+    value: function (opts: any, cb?: (err?: Error, result?: any) => void): any {
       if (typeof opts === "function") {
         cb = opts;
         opts = {};
@@ -159,7 +160,7 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
   });
 
   Object.defineProperty(Instance, association.setAccessor, {
-    value: function (Extension: any, cb: Function): any {
+    value: function (Extension: any, cb: (err?: Error, result?: any) => void): any {
       Instance.save((err?: Error) => {
         if (err) {
           return cb(err);
@@ -190,7 +191,7 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
   });
 
   Object.defineProperty(Instance, association.delAccessor, {
-    value: function (cb: Function): any {
+    value: function (cb: (err?: Error, result?: any) => void): any {
       const modelIds = Array.isArray(Model.id) ? Model.id : [Model.id];
       let hasAllIds = true;
       for (let i = 0; i < modelIds.length; i++) {
