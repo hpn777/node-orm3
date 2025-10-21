@@ -4,7 +4,7 @@ A powerful and flexible Object-Relational Mapping (ORM) library for Node.js that
 
 ## Features
 
-- **Multi-Database Support**: MySQL, MariaDB, PostgreSQL, Amazon Redshift, SQLite, and MongoDB
+- **Multi-Database Support**: MySQL, MariaDB, PostgreSQL, Amazon Redshift, and SQLite
 - **Model Definition**: Define models with validation, hooks, and custom methods
 - **Associations**: Support for hasOne, hasMany, and extendsTo relationships
 - **Advanced Querying**: Chainable query interface with filtering, sorting, and aggregation
@@ -83,11 +83,9 @@ The following npm scripts are available for running tests:
 | npm run test:mysql      | Run tests with MySQL/MariaDB                |
 | npm run test:postgres  | Run tests with PostgreSQL                   |
 | npm run test:redshift  | Run tests with Amazon Redshift              |
-| npm run test:mongodb   | Run tests with MongoDB                      |
 | npm run test:docker:mysql     | Run MySQL/MariaDB tests in Docker      |
 | npm run test:docker:postgres | Run PostgreSQL tests in Docker          |
 | npm run test:docker:redshift | Run Redshift tests in Docker            |
-| npm run test:docker:mongodb  | Run MongoDB tests in Docker             |
 
 See `package.json` for the full list and details.
 
@@ -102,11 +100,9 @@ The following npm scripts are available for running tests:
 | npm run test:mysql      | Run tests with MySQL/MariaDB                |
 | npm run test:postgres  | Run tests with PostgreSQL                   |
 | npm run test:redshift  | Run tests with Amazon Redshift              |
-| npm run test:mongodb   | Run tests with MongoDB                      |
 | npm run test:docker:mysql     | Run MySQL/MariaDB tests in Docker      |
 | npm run test:docker:postgres | Run PostgreSQL tests in Docker          |
 | npm run test:docker:redshift | Run Redshift tests in Docker            |
-| npm run test:docker:mongodb  | Run MongoDB tests in Docker             |
 
 See `package.json` for the full list and details.
 
@@ -147,18 +143,16 @@ You can run tests for a specific database locally (requires the DB running and a
 npm run test:docker:mysql      # MySQL/MariaDB (Docker)
 npm run test:docker:postgres   # PostgreSQL (Docker)
 npm run test:docker:redshift   # Amazon Redshift (Docker)
-npm run test:docker:mongodb    # MongoDB (Docker)
 ```
 
 ### Full Integration Test Matrix with Docker
 
-The integration suite expects MySQL, PostgreSQL/Redshift, SQLite, and MongoDB instances. To avoid installing them locally, you can launch disposable containers and execute tests inside an ephemeral Node runner:
+The integration suite expects MySQL, PostgreSQL/Redshift, and SQLite instances. To avoid installing them locally, you can launch disposable containers and execute tests inside an ephemeral Node runner:
 
 ```sh
 npm run test:docker:mysql      # MySQL/MariaDB (Docker)
 npm run test:docker:postgres   # PostgreSQL (Docker)
 npm run test:docker:redshift   # Amazon Redshift (Docker)
-npm run test:docker:mongodb    # MongoDB (Docker)
 ```
 
 Each command will build dependencies, run the tests, and tear down containers when finished. If you want to inspect the databases after a run, keep them alive by setting `SKIP_DOCKER_CLEANUP=1`:
@@ -177,7 +171,6 @@ ORM3 supports a wide range of databases:
 - **PostgreSQL**
 - **Amazon Redshift**
 - **SQLite**
-- **MongoDB** (beta)
 
 ## Core Capabilities
 
@@ -278,13 +271,12 @@ const Person = db.define('person', {
 	height : { type: 'integer' }
 });
 
-Person.tallerThan = function(height, callback) {
-	this.find({ height: orm.gt(height) }, callback);
+Person.tallerThan = async function(height) {
+	return await this.find({ height: orm.gt(height) });
 };
 
-Person.tallerThan(192, function(err, tallPeople) { 
-	console.log("Found", tallPeople.length, "people taller than 192cm");
-});
+const tallPeople = await Person.tallerThan(192);
+console.log("Found", tallPeople.length, "people taller than 192cm");
 ```
 
 ## Advanced Configuration
@@ -366,9 +358,8 @@ module.exports = function (db, cb) {
 Use `Model.get()` to fetch a specific record by ID:
 
 ```js
-Person.get(123, function (err, person) {
-	// person with id = 123
-});
+const person = await Person.get(123);
+// person with id = 123
 ```
 
 ### Find Records
@@ -479,54 +470,52 @@ Person.find({ age: 18 })
 
 Person.find({ age: 18 })
 	.only("name", "email")    // Include only these
-	.run(callback);
+	.run();
 ```
 
 **Advanced filtering:**
 
 ```js
-Person.find({ age: 18 })
+const people = await Person.find({ age: 18 })
 	.where("LOWER(surname) LIKE ?", ['dea%'])
-	.all(callback);
+	.all();
 
 // Multiple where clauses
-Person.find()
+const filtered = await Person.find()
 	.where("age > ?", [18])
 	.where("salary < ?", [50000])
-	.run(callback);
+	.run();
 ```
 
 **Ordering:**
 
 ```js
-Person.find()
+const ordered = await Person.find()
 	.order('-name')           // Descending
-	.run(callback);
+	.run();
 
-Person.find()
+const rawOrdered = await Person.find()
 	.orderRaw("?? DESC", ['age'])  // Raw SQL order
-	.run(callback);
+	.run();
 ```
 
 **Remove matching records:**
 
 ```js
-Person.find({ surname: "Doe" })
-	.remove(function (err) {
-		// All Does deleted
-	});
+await Person.find({ surname: "Doe" })
+	.remove();
+// All Does deleted
 ```
 
 **Batch operations:**
 
 ```js
-Person.find({ surname: "Doe" })
+await Person.find({ surname: "Doe" })
 	.each(function (person) {
 		person.surname = "Dean";
 	})
-	.save(function (err) {
-		// All updated
-	});
+	.save();
+// All updated
 ```
 
 ### Raw SQL Queries
@@ -632,9 +621,9 @@ A **many to one** relationship. An animal has one owner, but a person can own ma
 Animal.hasOne('owner', Person);
 // Creates 'owner_id' in Animal table
 
-animal.getOwner(callback);       // Get owner
-animal.setOwner(person, callback); // Set owner
-animal.hasOwner(callback);       // Check if owner exists
+await animal.getOwner();         // Get owner
+await animal.setOwner(person);   // Set owner
+await animal.hasOwner();         // Check if owner exists
 animal.removeOwner();            // Remove owner
 ```
 
@@ -643,8 +632,8 @@ animal.removeOwner();            // Remove owner
 ```js
 Animal.hasOne('owner', Person, { reverse: 'pets' });
 
-person.getPets(callback);        // Get all pets
-person.setPets([pet1, pet2], callback);
+await person.getPets();          // Get all pets
+await person.setPets([pet1, pet2]);
 ```
 
 **Chain find:**
@@ -669,26 +658,26 @@ Patient.hasMany('doctors', Doctor,
 	{ key: true, reverse: 'patients' }
 );
 
-patient.getDoctors(callback);
-patient.addDoctors([doc1, doc2], callback);
-patient.setDoctors([doc1], callback);     // Replace
-patient.removeDoctors([doc1], callback);
-patient.hasDoctors([doc1], callback);
+await patient.getDoctors();
+await patient.addDoctors([doc1, doc2]);
+await patient.setDoctors([doc1]);         // Replace
+await patient.removeDoctors([doc1]);
+await patient.hasDoctors([doc1]);
 ```
 
 **Add with extra data:**
 
 ```js
-patient.addDoctor(surgeon, { why: "appendix removal" }, callback);
+await patient.addDoctor(surgeon, { why: "appendix removal" });
 ```
 
 **Chain find:**
 
 ```js
-patient.getDoctors()
+const doctors = await patient.getDoctors()
 	.order("name")
 	.offset(1)
-	.run(callback);  // Returns ChainFind object
+	.run();  // Returns ChainFind object
 ```
 
 ### extendsTo (Table Extension)
@@ -702,8 +691,8 @@ const PersonAddress = Person.extendsTo("address", {
 	number: Number
 });
 
-person.getAddress(callback);
-person.setAddress(address, callback);
+await person.getAddress();
+await person.setAddress(address);
 ```
 
 A new table `person_address` is created with columns: `person_id`, `street`, `number`.
@@ -783,29 +772,27 @@ hooks: {
 }
 ```
 
-## Promise Support
+## Promise and Async/Await Support
 
-All callback-based methods have an `.Async` postfix version that returns a Promise:
+All ORM methods return Promises and support async/await:
 
 ```js
-orm.connectAsync("mysql://...")
-	.then(db => Person.getAsync(1))
-	.then(person => console.log(person.name))
-	.catch(err => console.error(err));
+const db = await orm.connect("mysql://...");
+const person = await Person.get(1);
+console.log(person.name);
 
-// Chain find also supports async
-Person.find({ age: 18 })
+// Chain find also supports async/await
+const people = await Person.find({ age: 18 })
 	.where("salary > ?", [50000])
-	.allAsync()
-	.then(people => console.log(people))
-	.catch(err => console.error(err));
+	.all();
+console.log(people);
 
 // Aggregation
-Person.aggregate({ surname: "Doe" })
+const [min, max] = await Person.aggregate({ surname: "Doe" })
 	.min("age")
 	.max("age")
-	.getAsync()
-	.then(([min, max]) => console.log(`Age: ${min} - ${max}`));
+	.get();
+console.log(`Age: ${min} - ${max}`);
 ```
 
 ## Custom Adapters

@@ -150,8 +150,6 @@ describe("Model.find() chaining - Async API", function() {
   });
 
   describe("orderRaw", function () {
-    if (common.protocol() == 'mongodb') return;
-
     before(setup());
 
     it("should allow ordering by SQL", async function () {
@@ -416,8 +414,6 @@ describe("Model.find() chaining - Async API", function() {
     before(setup2());
 
     it("should fetch listed associations in a single query", async function () {
-      if (db.driver.config.protocol == "mongodb:") return;
-
       var dogs = await Dog.find({ name: ["Fido", "Thumper"] }).eager("friends");
       dogs.should.be.an.Array();
       dogs.should.have.property("length", 2);
@@ -426,8 +422,6 @@ describe("Model.find() chaining - Async API", function() {
     });
 
     it("should support multiple associations", async function () {
-      if (db.driver.config.protocol == "mongodb:") return;
-
       var dogs = await Dog.find({ name: ["Fido", "Thumper"] }).eager("friends", "family");
       dogs.should.have.property("length", 2);
       dogs[0].friends.should.have.property("length", 2);
@@ -437,8 +431,6 @@ describe("Model.find() chaining - Async API", function() {
     });
 
     it("should accept array parameters", async function () {
-      if (db.driver.config.protocol == "mongodb:") return;
-
       var dogs = await Dog.find({ name: ["Fido", "Thumper"] }).eager(["friends", "family"]);
       dogs.should.have.property("length", 2);
       dogs[0].friends.should.have.property("length", 2);

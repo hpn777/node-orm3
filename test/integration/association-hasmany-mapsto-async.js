@@ -2,8 +2,6 @@ var should   = require('should');
 var helper   = require('../support/spec_helper');
 var common   = require('../common');
 
-if (common.protocol() == "mongodb") return;   // Can't do mapsTo testing on mongoDB ()
-
 describe("hasMany with MapsTo Async", function () {
   var db     = null;
   var Person = null;
@@ -139,8 +137,6 @@ describe("hasMany with MapsTo Async", function () {
         });
     });
 
-    if (common.protocol() == "mongodb") return;
-
     it("should allow chaining count()", function () {
       return Person.find({})
         .then(function (people) {
@@ -252,26 +248,24 @@ describe("hasMany with MapsTo Async", function () {
   describe("addAccessorAsync", function () {
     before(setup());
 
-    if (common.protocol() != "mongodb") {
-      it("might add duplicates", function () {
-        return Pet.find({ petName: "Mutt" })
-          .then(function (pets) {
-            return Promise.all([pets, Person.find({ firstName: "Jane" })]);
-          })
-          .then(function ([pets, people]) {
-            return Promise.all([people, people[0].addPetsAsync(pets[0])]);
-          })
-          .then(function ([people]) {
-            return people[0].getPetsAsync("petName");
-          })
-          .then(function (pets) {
-            should(Array.isArray(pets));
-            pets.length.should.equal(2);
-            pets[0].petName.should.equal("Mutt");
-            pets[1].petName.should.equal("Mutt");
-          });
-      });
-    }
+    it("might add duplicates", function () {
+      return Pet.find({ petName: "Mutt" })
+        .then(function (pets) {
+          return Promise.all([pets, Person.find({ firstName: "Jane" })]);
+        })
+        .then(function ([pets, people]) {
+          return Promise.all([people, people[0].addPetsAsync(pets[0])]);
+        })
+        .then(function ([people]) {
+          return people[0].getPetsAsync("petName");
+        })
+        .then(function (pets) {
+          should(Array.isArray(pets));
+          pets.length.should.equal(2);
+          pets[0].petName.should.equal("Mutt");
+          pets[1].petName.should.equal("Mutt");
+        });
+    });
 
     it("should keep associations and add new ones", function () {
       return Pet.find({ petName: "Deco" }).first()
@@ -330,7 +324,6 @@ describe("hasMany with MapsTo Async", function () {
         })
         .then(function ([petCount, justinsPets]) {
           should(Array.isArray(justinsPets));
-          // Mongo doesn't like adding duplicates here, so we add new ones.
           should.equal(justinsPets.length, petCount + 2);
         });
     });

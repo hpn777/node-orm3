@@ -32,17 +32,6 @@ services:
         aliases:
           - redshift
 
-  mongodb:
-    image: mongo:7
-    environment:
-      MONGO_INITDB_DATABASE: orm_test
-    healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"]
-      interval: 5s
-      timeout: 3s
-      retries: 40
-      start_period: 10s
-
   test-runner:
     image: node:24
     working_dir: /workspace
@@ -52,14 +41,11 @@ services:
       MYSQL_DB_URL: mysql://root:example@mysql:3306/orm_test
       POSTGRES_DB_URL: postgres://postgres:example@postgres:5432/orm_test
       REDSHIFT_DB_URL: redshift://postgres:example@redshift:5432/orm_test
-      MONGODB_DB_URL: mongodb://mongodb:27017/orm_test
       CI: "1"
     depends_on:
       mysql:
         condition: service_healthy
       postgres:
-        condition: service_healthy
-      mongodb:
         condition: service_healthy
     command: >-
       bash -lc "npm ci && npm run build && make test"

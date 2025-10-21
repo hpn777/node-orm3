@@ -377,10 +377,6 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
     eager(...args: any[]): any {
       const associations = _.flatten(args);
 
-      if (opts.driver.config?.protocol === "mongodb:") {
-        throw new Error("MongoDB does not currently support eager loading");
-      }
-
       opts.__eager = _.filter(opts.associations || [], (association: any) => {
         return ~associations.indexOf(association.name);
       }) as AssociationDefinition[];
