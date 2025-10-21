@@ -1,47 +1,37 @@
 /**
  * Core Type Definitions for node-orm3
  * 
- * Central type definitions for callbacks, hooks, validation, associations,
+ * Central type definitions for hooks, validation, associations,
  * queries, connections, and properties. This file replaces scattered `any`
  * types throughout the codebase.
+ * 
+ * All callback-based patterns have been converted to promise-based for async/await.
  */
-
-// ==================== Callback Types ====================
-
-/**
- * Standard error-first callback pattern
- */
-export type ErrorCallback = (err: Error | null) => void;
-
-/**
- * Generic callback result type - adapts to async/callback patterns
- */
-export type ResultCallback<_T> = (err: null | Error, data: unknown) => void;
-
-/**
- * Callback for void operations
- */
-export type VoidCallback = (err: Error | null) => void;
 
 // ==================== Hook Types ====================
 
 /**
- * Hook function that can be synchronous, callback-based, or promise-based
+ * Hook function that is promise-based
+ * Hooks should return a Promise that resolves when the hook is complete
  */
-export type HookFunction = (next?: ErrorCallback) => void | Promise<void>;
+export type HookFunction = () => Promise<void>;
 
 /**
  * Hook function with options parameter
  */
 export type HookFunctionWithOptions<T = unknown> = (
-  options: T,
-  next?: ErrorCallback
-) => void | Promise<void>;
+  options: T
+) => Promise<void>;
 
 /**
  * Registry of all available hooks for a model
  */
 export type HookMap = Record<string, HookFunction | undefined>;
+
+/**
+ * Hook callback for internal use (will be converted to promise-based)
+ */
+export type HookCallback = (err?: Error | null) => void;
 
 // ==================== Validation Types ====================
 
@@ -56,26 +46,16 @@ export interface ValidationError {
 }
 
 /**
- * Validator function signature
+ * Validator function signature - now promise-based
  */
 export type Validator<T = unknown> = (
-  value: T,
-  next: (err?: Error) => void
-) => void;
+  value: T
+) => Promise<void | Error>;
 
 /**
  * Validation result - either success (null) or array of errors
  */
 export type ValidationResult = ValidationError[] | null;
-
-/**
- * Custom validation rule definition
- */
-export interface ValidationRule {
-  name: string;
-  validator: Validator;
-  message?: string;
-}
 
 // ==================== Association Types ====================
 
@@ -236,17 +216,12 @@ export interface ORMInterface {
   plugins: Plugin[];
   use(plugin: string | Plugin, options?: any): any;
   define<T = any>(name: string, properties: Record<string, PropertyDefinition>, options?: ModelOptions<T>): Model<T>;
-  ping(cb: (err: Error | null) => void): any;
-  pingAsync(): Promise<void>;
-  close(cb: (err: Error | null) => void): any;
-  closeAsync(): Promise<void>;
-  load(file: string | string[], cb: (err: Error | null) => void): void;
-  loadAsync(file: string | string[]): Promise<void>;
-  sync(cb: (err: Error | null) => void): any;
-  syncAsync(): Promise<void>;
-  drop(cb: (err: Error | null) => void): any;
-  dropAsync(): Promise<void>;
-  serial(...chains: any[]): { get: (cb: (err: Error | null, results: any[]) => void) => void; getAsync: () => Promise<any[]>; };
+  ping(): Promise<void>;
+  close(): Promise<void>;
+  load(...files: string[]): Promise<void>;
+  sync(): Promise<void>;
+  drop(): Promise<void>;
+  serial(...chains: any[]): { get: () => Promise<any[]> };
 }
 
 // ==================== Settings Interface ====================
@@ -548,16 +523,11 @@ export interface Instance<T = InstanceData> {
   saved(): boolean;
   model(): Model<T>;
   [key: string]: unknown;
-  save(cb: (err: Error | null) => void): void;
-  save(data: Partial<T>, cb: (err: Error | null) => void): void;
-  save(data: Partial<T>, options: SaveOptions, cb: (err: Error | null) => void): void;
-  saveAsync(): Promise<void>;
-  saveAsync(data: Partial<T>): Promise<void>;
-  saveAsync(data: Partial<T>, options: SaveOptions): Promise<void>;
-  remove(cb: (err: Error | null) => void): void;
-  removeAsync(): Promise<void>;
-  validate(cb: (errors: Error[]) => void): void;
-  validateAsync(): Promise<Error[]>;
+  save(): Promise<void>;
+  save(data: Partial<T>): Promise<void>;
+  save(data: Partial<T>, options: SaveOptions): Promise<void>;
+  remove(): Promise<void>;
+  validate(): Promise<Error[]>;
   on(event: string, listener: (...args: any[]) => void): this;
   off(event: string, listener: (...args: any[]) => void): this;
   emit(event: string, ...args: any[]): boolean;
@@ -577,33 +547,17 @@ export interface Model<T = any> {
   id: string[];
   (...ids: unknown[]): Instance<T>;
   new (...ids: unknown[]): Instance<T>;
-  sync(cb: (err: Error | null) => void): void;
-  syncAsync(): Promise<void>;
-  drop(cb: (err: Error | null) => void): void;
-  dropAsync(): Promise<void>;
+  sync(): Promise<void>;
+  drop(): Promise<void>;
   find(conditions?: Record<string, unknown>): ChainFind<T>;
-  find(conditions: Record<string, unknown>, cb: (err: Error | null, instances: Instance<T>[]) => void): void;
-  find(conditions: Record<string, unknown>, options: FindOptions, cb: (err: Error | null, instances: Instance<T>[]) => void): void;
-  findAsync(conditions?: Record<string, unknown>, options?: FindOptions): Promise<Instance<T>[]>;
-  all(conditions: Record<string, unknown>, cb: (err: Error | null, instances: Instance<T>[]) => void): void;
-  all(conditions: Record<string, unknown>, options: FindOptions, cb: (err: Error | null, instances: Instance<T>[]) => void): void;
-  allAsync(conditions: Record<string, unknown>, options?: FindOptions): Promise<Instance<T>[]>;
-  one(conditions: Record<string, unknown>, cb: (err: Error | null, instance: Instance<T> | null) => void): void;
-  one(conditions: Record<string, unknown>, options: FindOptions, cb: (err: Error | null, instance: Instance<T> | null) => void): void;
-  oneAsync(conditions: Record<string, unknown>, options?: FindOptions): Promise<Instance<T> | null>;
-  get(...ids: unknown[]): Model<T>;
-  get(...ids: unknown[]): void;
-  getAsync(...ids: unknown[]): Promise<Instance<T> | null>;
-  count(cb: (err: Error | null, count: number) => void): void;
-  count(conditions: Record<string, unknown>, cb: (err: Error | null, count: number) => void): void;
-  countAsync(conditions?: Record<string, unknown>): Promise<number>;
-  exists(...ids: any[]): void;
-  existsAsync(...ids: any[]): Promise<boolean>;
-  create(data: Partial<T>, cb: (err: Error | null, instance: Instance<T>) => void): void;
-  create(data: Partial<T>[]): void;
-  createAsync(data: Partial<T> | Partial<T>[]): Promise<Instance<T> | Instance<T>[]>;
-  clear(cb: (err: Error | null) => void): void;
-  clearAsync(): Promise<void>;
+  find(conditions: Record<string, unknown>, options?: FindOptions): Promise<Instance<T>[]>;
+  all(conditions: Record<string, unknown>, options?: FindOptions): Promise<Instance<T>[]>;
+  one(conditions: Record<string, unknown>, options?: FindOptions): Promise<Instance<T> | null>;
+  get(...ids: unknown[]): Promise<Instance<T> | null>;
+  count(conditions?: Record<string, unknown>): Promise<number>;
+  exists(...ids: any[]): Promise<boolean>;
+  create(data: Partial<T> | Partial<T>[]): Promise<Instance<T> | Instance<T>[]>;
+  clear(): Promise<void>;
   aggregate(properties?: string[]): Aggregate<T>;
   aggregate(conditions: Record<string, any>, properties?: string[]): Aggregate<T>;
   hasOne(name: string, model: Model, options?: AssociationOptions): Model<T>;
@@ -635,16 +589,11 @@ export interface ChainFind<T = any> {
   skip(offset: number): ChainFind<T>;
   order(...order: string[]): ChainFind<T>;
   orderRaw(sql: string, args?: any[]): ChainFind<T>;
-  count(cb: (err: Error | null, count: number) => void): void;
-  countAsync(): Promise<number>;
-  remove(cb: (err: Error | null) => void): void;
-  removeAsync(): Promise<void>;
-  save(cb: (err: Error | null) => void): void;
-  saveAsync(): Promise<void>;
-  run(cb: (err: Error | null, instances: Instance<T>[]) => void): void;
-  runAsync(): Promise<Instance<T>[]>;
-  all(cb: (err: Error | null, instances: Instance<T>[]) => void): void;
-  allAsync(): Promise<Instance<T>[]>;
+  count(): Promise<number>;
+  remove(): Promise<void>;
+  save(): Promise<void>;
+  run(): Promise<Instance<T>[]>;
+  all(): Promise<Instance<T>[]>;
   eager(...associations: string[]): ChainFind<T>;
   each(cb: (instance: Instance<T>) => void): ChainFind<T>;
   each(): ChainFind<T>;
@@ -667,13 +616,6 @@ export interface Aggregate<T = any> {
   get(cb: (err: Error | null, results: any[]) => void): void;
   getAsync(): Promise<any[]>;
 }
-
-// ==================== Hook Callback ====================
-
-/**
- * Generic hook callback
- */
-export type HookCallback = (this: any, next?: () => void) => void;
 
 // ==================== Extended Association Options ====================
 

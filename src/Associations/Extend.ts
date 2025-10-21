@@ -6,7 +6,6 @@ import * as _ from 'lodash';
 import * as ORMError from '../Error';
 import * as Singleton from '../Singleton';
 import * as util from '../Utilities';
-import { promisify } from 'util';
 import type { AssociationType } from '../types/Core';
 
 const ACCESSOR_METHODS = ["hasAccessor", "getAccessor", "setAccessor", "delAccessor"];
@@ -81,10 +80,12 @@ export function prepare(db: any, Model: any, associations: any[]): void {
       };
       options.extra = [];
 
+      const chain = Model.find({}, options);
       if (typeof cb === "function") {
-        return Model.find({}, options, cb);
+        chain.run(cb);
+        return chain;
       }
-      return Model.find({}, options);
+      return chain;
     };
 
     return association.model;
@@ -119,132 +120,154 @@ export function autoFetch(Instance: any, associations: any[], opts: Record<strin
 function extendInstance(Model: any, Instance: any, Driver: any, association: any, opts: Record<string, unknown>): void {
   const promiseFunctionPostfix = Model.settings.get('promiseFunctionPostfix');
 
-  Object.defineProperty(Instance, association.hasAccessor, {
-    value: function (cb: (err?: Error, result?: any) => void): any {
-      if (!Instance[Model.id]) {
-        cb(new ORMError.ORMError("Instance not saved, cannot get extension", 'NOT_DEFINED', { model: Model.table }));
-      } else {
-        association.model.get(util.values(Instance, Model.id), (err?: Error, extension?: any) => {
-          return cb(err, !err && extension ? true : false);
-        });
+  const getModelIds = (): string[] => Array.isArray(Model.id) ? Model.id : [Model.id];
+
+  const ensurePersisted = (): string[] => {
+    const modelIds = getModelIds();
+    if (!util.hasValues(Instance, modelIds)) {
+      throw new ORMError.ORMError("Instance not saved, cannot get extension", 'NOT_DEFINED', { model: Model.table });
+    }
+    return modelIds;
+  };
+
+  const wrapCallback = <T>(promise: Promise<T>, callback?: (err?: Error | null, result?: T) => void, context?: any): any => {
+    if (typeof callback === 'function') {
+      promise.then(
+        (result) => callback.call(context, null, result),
+        (err) => callback.call(context, err || undefined as any)
+      );
+      return context || Instance;
+    }
+    return promise;
+  };
+
+  const removeExtensionsForInstance = async (modelIds: string[]): Promise<void> => {
+    const conditions: Record<string, any> = {};
+    const fields = Object.keys(association.field);
+
+    for (let i = 0; i < modelIds.length; i++) {
+      conditions[fields[i]] = Instance[modelIds[i]];
+    }
+
+    const extensions = await association.model.find(conditions).run();
+
+    if (!extensions || extensions.length === 0) {
+      return;
+    }
+
+    for (const extension of extensions) {
+      if (extension && typeof extension.__singleton_uid === 'function') {
+        Singleton.clear(extension.__singleton_uid());
       }
-      return this;
+      await extension.remove();
+    }
+  };
+
+  Object.defineProperty(Instance, association.hasAccessor, {
+    value: function (cb?: (err?: Error | null, result?: boolean) => void): any {
+      const promise = (async () => {
+        const modelIds = ensurePersisted();
+        try {
+          await association.model.get(util.values(Instance, modelIds));
+          return true;
+        } catch (err: any) {
+          if (err && err.code === 'NOT_FOUND') {
+            return false;
+          }
+          throw err;
+        }
+      })();
+
+      return wrapCallback<boolean>(promise, cb, this);
     },
-    enumerable: false
+    enumerable: false,
+    writable: true
   });
 
   Object.defineProperty(Instance, association.getAccessor, {
-    value: function (opts: any, cb?: (err?: Error, result?: any) => void): any {
-      if (typeof opts === "function") {
-        cb = opts;
-        opts = {};
+    value: function (opts?: any, cb?: (err?: Error | null, result?: any) => void): any {
+      let options = opts;
+      let callback = cb;
+
+      if (typeof options === 'function') {
+        callback = options;
+        options = {};
       }
 
-      const modelIds = Array.isArray(Model.id) ? Model.id : [Model.id];
-      let hasAllIds = true;
-      for (let i = 0; i < modelIds.length; i++) {
-        if (!Instance[modelIds[i]]) {
-          hasAllIds = false;
-          break;
+      const promise = (async () => {
+        const modelIds = ensurePersisted();
+        const values = util.values(Instance, modelIds);
+        const normalized = options && typeof options === 'object' ? options : {};
+        const args: any[] = [values];
+        if (Object.keys(normalized).length) {
+          args.push(normalized);
         }
-      }
-      
-      if (!hasAllIds) {
-        cb!(new ORMError.ORMError("Instance not saved, cannot get extension", 'NOT_DEFINED', { model: Model.table }));
-      } else {
-        association.model.get(util.values(Instance, modelIds), opts, cb);
-      }
-      return this;
+        return await association.model.get.apply(association.model, args);
+      })();
+
+      return wrapCallback<any>(promise, callback, this);
     },
-    enumerable: false
+    enumerable: false,
+    writable: true
   });
 
   Object.defineProperty(Instance, association.setAccessor, {
-    value: function (Extension: any, cb: (err?: Error, result?: any) => void): any {
-      Instance.save((err?: Error) => {
-        if (err) {
-          return cb(err);
+    value: function (Extension: any, cb?: (err?: Error | null) => void): any {
+      const promise = (async () => {
+        const modelIds = ensurePersisted();
+        const fields = Object.keys(association.field);
+
+        await Instance.save({}, { saveAssociations: false });
+
+        let extensionInstance = Extension;
+        if (!extensionInstance || !extensionInstance.isInstance) {
+          extensionInstance = new association.model(extensionInstance);
         }
 
-        Instance[association.delAccessor]((err?: Error) => {
-          if (err) {
-            return cb(err);
-          }
+        await removeExtensionsForInstance(modelIds);
 
-          const fields = Object.keys(association.field);
-          const modelIds = Array.isArray(Model.id) ? Model.id : [Model.id];
+        for (let i = 0; i < modelIds.length; i++) {
+          extensionInstance[fields[i]] = Instance[modelIds[i]];
+        }
 
-          if (!Extension.isInstance) {
-            Extension = new association.model(Extension);
-          }
+        await extensionInstance.save({}, { saveAssociations: false });
 
-          for (let i = 0; i < modelIds.length; i++) {
-            Extension[fields[i]] = Instance[modelIds[i]];
-          }
+        return Instance;
+      })();
 
-          Extension.save(cb);
-        });
-      });
-      return this;
+      return wrapCallback<any>(promise, cb, this);
     },
-    enumerable: false
+    enumerable: false,
+    writable: true
   });
 
   Object.defineProperty(Instance, association.delAccessor, {
-    value: function (cb: (err?: Error, result?: any) => void): any {
-      const modelIds = Array.isArray(Model.id) ? Model.id : [Model.id];
-      let hasAllIds = true;
-      for (let i = 0; i < modelIds.length; i++) {
-        if (!Instance[modelIds[i]]) {
-          hasAllIds = false;
-          break;
-        }
-      }
-      
-      if (!hasAllIds) {
-        cb(new ORMError.ORMError("Instance not saved, cannot get extension", 'NOT_DEFINED', { model: Model.table }));
-      } else {
-        const conditions: Record<string, any> = {};
-        const fields = Object.keys(association.field);
+    value: function (cb?: (err?: Error | null) => void): any {
+      const promise = (async () => {
+        const modelIds = ensurePersisted();
+        await removeExtensionsForInstance(modelIds);
+        return Instance;
+      })();
 
-        for (let i = 0; i < modelIds.length; i++) {
-          conditions[fields[i]] = Instance[modelIds[i]];
-        }
-
-        association.model.find(conditions, (err?: Error, extensions?: any[]) => {
-          if (err) {
-            return cb(err);
-          }
-
-          let pending = extensions!.length;
-
-          for (let i = 0; i < extensions!.length; i++) {
-            Singleton.clear(extensions![i].__singleton_uid());
-            extensions![i].remove(() => {
-              if (--pending === 0) {
-                return cb();
-              }
-            });
-          }
-
-          if (pending === 0) {
-            return cb();
-          }
-        });
-      }
-      return this;
+      return wrapCallback<any>(promise, cb, this);
     },
-    enumerable: false
+    enumerable: false,
+    writable: true
   });
 
-  for (let i = 0; i < ACCESSOR_METHODS.length; i++) {
-    const name = ACCESSOR_METHODS[i];
-    const asyncName = association[name] + promiseFunctionPostfix;
-    Object.defineProperty(Instance, asyncName, {
-      value: promisify(Instance[association[name]]),
-      enumerable: false,
-      writable: true
-    });
+  if (promiseFunctionPostfix) {
+    for (let i = 0; i < ACCESSOR_METHODS.length; i++) {
+      const name = ACCESSOR_METHODS[i];
+      const baseName = association[name];
+      const asyncName = baseName + promiseFunctionPostfix;
+      if (!Object.prototype.hasOwnProperty.call(Instance, asyncName)) {
+        Object.defineProperty(Instance, asyncName, {
+          value: Instance[baseName],
+          enumerable: false,
+          writable: true
+        });
+      }
+    }
   }
 }
 

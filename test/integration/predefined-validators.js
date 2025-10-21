@@ -1,29 +1,27 @@
 var should     = require('should');
 var helper     = require('../support/spec_helper');
-var validators = require('../../').validators;
+var ORM        = require('../../');
+var validators = ORM.validators;
 var common = require('../common');
 var protocol = common.protocol().toLowerCase();
-var undef      = undefined;
 
-function checkValidation(done, expected) {
+function checkValidation(expected) {
   return function (returned) {
     should.equal(returned, expected);
-
-    return done();
   };
 }
 
 describe("Predefined Validators", function () {
 
   describe("equalToProperty('name')", function () {
-    it("should pass if equal", function (done) {
-      validators.equalToProperty('name').call({ name: "John Doe" }, 'John Doe', checkValidation(done));
+    it("should pass if equal", function () {
+      validators.equalToProperty('name').call({ name: "John Doe" }, 'John Doe', checkValidation());
     });
-    it("should not pass if not equal", function (done) {
-      validators.equalToProperty('name').call({ name: "John" }, 'John Doe', checkValidation(done, 'not-equal-to-property'));
+    it("should not pass if not equal", function () {
+      validators.equalToProperty('name').call({ name: "John" }, 'John Doe', checkValidation('not-equal-to-property'));
     });
-    it("should not pass even if equal to other property", function (done) {
-      validators.equalToProperty('name').call({ surname: "John Doe" }, 'John Doe', checkValidation(done, 'not-equal-to-property'));
+    it("should not pass even if equal to other property", function () {
+      validators.equalToProperty('name').call({ surname: "John Doe" }, 'John Doe', checkValidation('not-equal-to-property'));
     });
   });
 
@@ -33,80 +31,69 @@ describe("Predefined Validators", function () {
     var db = null;
     var Person = null;
 
-    var setup = function () {
-      return function (done) {
-        Person = db.define("person", {
-          name    : String,
-          surname : String
-        }, {
-          validations: {
-            surname: validators.unique()
-          }
-        });
+    before(async function () {
+      db = await helper.connectAsync();
+      Person = db.define("person", {
+        name    : String,
+        surname : String
+      }, {
+        validations: {
+          surname: validators.unique()
+        }
+      });
 
-        Person.settings.set("instance.returnAllErrors", false);
+      Person.settings.set("instance.returnAllErrors", false);
+    });
 
-        return helper.dropSync(Person, function () {
-          Person.create([{
-            name    : "John",
-            surname : "Doe"
-          }], done);
-        });
-      };
-    };
-
-    before(function (done) {
-      helper.connect(function (connection) {
-        db = connection;
-
-        return setup()(done);
+    beforeEach(async function () {
+      ORM.singleton.clear();
+      await helper.dropSyncAsync(Person);
+      await Person.create({
+        name    : "John",
+        surname : "Doe"
       });
     });
 
-    after(function () {
-      return db.close();
+    after(async function () {
+      await db.close();
     });
 
-    it("should not pass if more elements with that property exist", function (done) {
+    it("should not pass if more elements with that property exist", async function () {
       var janeDoe = new Person({
         name    : "Jane",
         surname : "Doe" // <-- in table already!
       });
-      janeDoe.save(function (err) {
+
+      try {
+        await janeDoe.save();
+        should.fail("Expected unique validation error");
+      } catch (err) {
         err.should.be.a.Object();
+        should.equal(Array.isArray(err), false);
         err.should.have.property("property", "surname");
         err.should.have.property("value",    "Doe");
         err.should.have.property("msg",      "not-unique");
-
-        return done();
-      });
+      }
     });
 
-    it("should pass if no more elements with that property exist", function (done) {
+    it("should pass if no more elements with that property exist", async function () {
       var janeDean = new Person({
         name    : "Jane",
         surname : "Dean" // <-- not in table
       });
-      janeDean.save(function (err) {
-        should.equal(err, null);
 
-        return done();
-      });
+      const result = await janeDean.save();
+      should.exist(result);
     });
 
-    it("should pass if resaving the same instance", function (done) {
-      Person.find({ name: "John", surname: "Doe" }, function (err, Johns) {
-        should.equal(err, null);
-        Johns.should.have.property("length", 1);
+    it("should pass if resaving the same instance", async function () {
+      var Johns = await Person.find({ name: "John", surname: "Doe" }).run();
+      should.equal(Johns.length, 1);
 
-        Johns[0].surname = "Doe"; // forcing resave
+      Johns[0].surname = "Doe"; // forcing resave
 
-        Johns[0].save(function (err) {
-          should.equal(err, null);
-
-          return done();
-        });
-      });
+      const saved = await Johns[0].save();
+      should.exist(saved);
     });
   });
 

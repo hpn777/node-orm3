@@ -8,7 +8,7 @@ describe("Model.extendsTo()", function() {
   var PersonAddress = null;
 
   var setup = function () {
-    return function (done) {
+    return async function () {
       Person = db.define("person", {
         name   : String
       });
@@ -19,171 +19,138 @@ describe("Model.extendsTo()", function() {
 
       ORM.singleton.clear();
 
-      return helper.dropSync([ Person, PersonAddress ], function () {
-        Person.create({
-          name: "John Doe"
-        }, function (err, person) {
-          should.not.exist(err);
-
-          return person.setAddress(new PersonAddress({
-            street : "Liberty",
-            number : 123
-          }), done);
-        });
+      await helper.dropSyncAsync([ Person, PersonAddress ]);
+      
+      const person = await Person.create({
+        name: "John Doe"
       });
+
+      await person.setAddressAsync(new PersonAddress({
+        street : "Liberty",
+        number : 123
+      }));
     };
   };
 
-  before(function (done) {
-    helper.connect(function (connection) {
-      db = connection;
-
-      return done();
-    });
+  before(async function () {
+    db = await helper.connectAsync();
   });
 
-  after(function () {
-    return db.close();
+  after(async function () {
+    await db.close();
   });
 
-  describe("when calling hasAccessorAsync", function () { // TODO: fix Model.find to async
+  describe("when calling hasAccessorAsync", function () {
     before(setup());
 
-    it("should return true if found", function () {
-      return Person.find()
-        .firstAsync()
-        .then(function (John) {
-          return John.hasAddressAsync();
-        })
-        .then(function (hasAddress) {
-          should.equal(hasAddress, true);
-        });
+    it("should return true if found", async function () {
+      const John = await Person.find().first();
+      const hasAddress = await John.hasAddressAsync();
+      should.equal(hasAddress, true);
     });
 
-    it("should return error if instance not with an ID", function (done) {
+    it("should return error if instance not with an ID", async function () {
       var Jane = new Person({
         name: "Jane"
       });
 
-      Jane.hasAddressAsync()
-        .catch(function (err) {
-          err.should.be.a.Object();
-          should.equal(Array.isArray(err), false);
-          err.should.have.property("code", ORM.ErrorCodes.NOT_DEFINED);
-          done();
-        });
+      try {
+        await Jane.hasAddressAsync();
+        should.fail("Expected not defined error");
+      } catch (err) {
+        err.should.be.a.Object();
+        should.equal(Array.isArray(err), false);
+        err.should.have.property("code", ORM.ErrorCodes.NOT_DEFINED);
+      }
     });
   });
 
-  describe("when calling getAccessorAsync", function () { // TODO: fix Model.find to async
+  describe("when calling getAccessorAsync", function () {
     before(setup());
 
-    it("should return extension if found", function () {
-      return Person.find()
-        .firstAsync()
-        .then(function (John) {
-          return John.getAddressAsync();
-        })
-        .then(function (Address) {
-          Address.should.be.a.Object();
-          should.equal(Array.isArray(Address), false);
-          Address.should.have.property("street", "Liberty");
-        });
+    it("should return extension if found", async function () {
+      const John = await Person.find().first();
+      const Address = await John.getAddressAsync();
+      Address.should.be.a.Object();
+      should.equal(Array.isArray(Address), false);
+      Address.should.have.property("street", "Liberty");
     });
 
-    it("should return error if not found", function (done) {
-      Person.find()
-        .firstAsync()
-        .then(function (John) {
-          return Promise.all([John, John.removeAddressAsync()]);
-        })
-        .then(function([John]) {
-          return John.getAddressAsync();
-        })
-        .catch(function(err) {
-          err.should.be.a.Object();
-          err.should.have.property("code", ORM.ErrorCodes.NOT_FOUND);
-          done();
-        });
+    it("should return error if not found", async function () {
+      const John = await Person.find().first();
+      await John.removeAddressAsync();
+      
+      try {
+        await John.getAddressAsync();
+        should.fail("Should have thrown an error");
+      } catch(err) {
+        err.should.be.a.Object();
+        err.should.have.property("code", ORM.ErrorCodes.NOT_FOUND);
+      }
     });
 
-    it("should return error if instance not with an ID", function (done) {
+    it("should return error if instance not with an ID", async function () {
       var Jane = new Person({
         name: "Jane"
       });
-      Jane.getAddressAsync()
-        .catch(function(err) {
-          err.should.be.a.Object();
-          err.should.have.property("code", ORM.ErrorCodes.NOT_DEFINED);
-          done();
-        });
+      try {
+        await Jane.getAddressAsync();
+        should.fail("Expected not defined error");
+      } catch (err) {
+        err.should.be.a.Object();
+        err.should.have.property("code", ORM.ErrorCodes.NOT_DEFINED);
+      }
     });
   });
 
   describe("when calling setAccessorAsync", function () {
     before(setup());
 
-    it("should remove any previous extension", function () { // TODO: fix Model.find to async
-      return Person.find().firstAsync()
-        .then(function (John) {
-          return Promise.all([John, PersonAddress.find({ number: 123 }).countAsync()]);
-        })
-        .then(function ([John, count]) {
-          count.should.equal(1);
+    it("should remove any previous extension", async function () {
+      const John = await Person.find().first();
+      const count = await PersonAddress.find({ number: 123 }).count();
+      count.should.equal(1);
 
-          var addr = new PersonAddress({
-            street : "4th Ave",
-            number : 4
-          });
+      const addr = new PersonAddress({
+        street : "4th Ave",
+        number : 4
+      });
 
-          return Promise.all([John, addr, John.setAddressAsync(addr)]);
-        })
-        .then(function ([John, addr]) {
-          return Promise.all([addr, John.getAddressAsync()]);
-        })
-        .then(function ([addr, Address]) {
-          Address.should.be.a.Object();
-          should.equal(Array.isArray(Address), false);
-          Address.should.have.property("street", addr.street);
-          return PersonAddress.findAsync({ number: 123 });
-        })
-        .then(function (addres) {
-          addres.length.should.equal(0);
-        });
+  await John.setAddressAsync(addr);
+      const Address = await John.getAddressAsync();
+      Address.should.be.a.Object();
+      should.equal(Array.isArray(Address), false);
+      Address.should.have.property("street", addr.street);
+      
+      const addres = await PersonAddress.find({ number: 123 }).run();
+      addres.length.should.equal(0);
     });
   });
 
-  describe("when calling delAccessor + Async", function () { // TODO: fix .find to async
+  describe("when calling delAccessor + Async", function () {
     before(setup());
 
-    it("should remove any extension", function () {
-      return Person.find().firstAsync()
-        .then(function (John) {
-          return Promise.all([John, PersonAddress.find({ number: 123 }).countAsync()]);
-        })
-        .then(function ([John, count]) {
-          count.should.equal(1);
+    it("should remove any extension", async function () {
+      const John = await Person.find().first();
+      const count = await PersonAddress.find({ number: 123 }).count();
+      count.should.equal(1);
 
-          return John.removeAddressAsync();
-        })
-        .then(function () {
-          return PersonAddress.findAsync({ number: 123 });
-        })
-        .then(function (addres) {
-          addres.length.should.equal(0);
-        });
+      await John.removeAddressAsync();
+      const addres = await PersonAddress.find({ number: 123 }).run();
+      addres.length.should.equal(0);
     });
 
-    it("should return error if instance not with an ID", function (done) {
+    it("should return error if instance not with an ID", async function () {
       var Jane = new Person({
         name: "Jane"
       });
-      Jane.removeAddressAsync()
-        .catch(function(err) {
-          err.should.be.a.Object();
-          err.should.have.property("code", ORM.ErrorCodes.NOT_DEFINED);
-          done();
-        });
+      try {
+        await Jane.removeAddressAsync();
+        should.fail("Expected not defined error");
+      } catch (err) {
+        err.should.be.a.Object();
+        err.should.have.property("code", ORM.ErrorCodes.NOT_DEFINED);
+      }
     });
   });
 });

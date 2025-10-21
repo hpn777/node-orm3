@@ -3,10 +3,8 @@
  */
 
 import * as _ from 'lodash';
-import * as async from 'async';
 import * as util from '../Utilities';
 import * as ORMError from '../Error';
-import { promisify } from 'util';
 import type { HookMap, AssociationType } from '../types/Core';
 
 const Accessors: Record<string, string> = { "get": "get", "set": "set", "has": "has", "del": "remove" };
@@ -158,111 +156,169 @@ export function autoFetch(Instance: any, associations: any[], opts: Record<strin
 function extendInstance(Model: any, Instance: any, Driver: any, association: any): void {
   const promiseFunctionPostfix = Model.settings.get('promiseFunctionPostfix');
 
+  const normalizeOptions = (opts: any): Record<string, unknown> => {
+    if (opts && typeof opts === 'object') {
+      return opts;
+    }
+    return {};
+  };
+
+  const isNotFoundError = (err: any): boolean => {
+    return !!err && typeof err === 'object' && (err.code === 'NOT_FOUND' || err.type === 'NotFound');
+  };
+
   Object.defineProperty(Instance, association.hasAccessor, {
-    value: function (opts: any, cb?: Function): any {
-      if (typeof opts === "function") {
-        cb = opts;
-        opts = {};
+    value: function (opts?: any, cb?: Function): any {
+      let options = opts;
+      let callback = cb;
+
+      if (typeof options === 'function') {
+        callback = options;
+        options = {};
       }
 
-      if (util.hasValues(Instance, Object.keys(association.field))) {
-        association.model.get(util.values(Instance, Object.keys(association.field)), opts, (err?: Error, instance?: any) => {
-          return cb!(err, instance ? true : false);
-        });
-      } else {
-        cb!(null, false);
+      const promise = (async () => {
+        if (!util.hasValues(Instance, Object.keys(association.field))) {
+          return false;
+        }
+
+        try {
+          const args: any[] = [util.values(Instance, Object.keys(association.field))];
+          const normalized = normalizeOptions(options);
+          if (Object.keys(normalized).length) {
+            args.push(normalized);
+          }
+          const related = await association.model.get.apply(association.model, args);
+          return !!related;
+        } catch (err) {
+          if (isNotFoundError(err)) {
+            return false;
+          }
+          throw err;
+        }
+      })();
+
+      if (typeof callback === 'function') {
+        promise.then((result) => callback(null, result)).catch((err) => callback(err));
+        return this;
       }
 
-      return this;
+      return promise;
     },
     enumerable: false,
     writable: true
   });
 
   Object.defineProperty(Instance, association.getAccessor, {
-    value: function (opts: any, cb?: Function): any {
-      if (typeof opts === "function") {
-        cb = opts;
-        opts = {};
+    value: function (opts?: any, cb?: Function): any {
+      let options = opts;
+      let callback = cb;
+
+      if (typeof options === 'function') {
+        callback = options;
+        options = {};
       }
 
-      const saveAndReturn = (err?: Error, Assoc?: any): any => {
-        if (!err) {
-          Instance[association.name] = Assoc;
-        }
+      const promise = (async () => {
+        const normalized = normalizeOptions(options);
 
-        return cb!(err, Assoc);
-      };
-
-      if (association.reversed) {
-        const modelIds = Array.isArray(Model.id) ? Model.id : [Model.id];
-        if (util.hasValues(Instance, modelIds)) {
-          if (typeof cb !== "function") {
-            return association.model.find(util.getConditions(Model, Object.keys(association.field), Instance), opts);
+        if (association.reversed) {
+          const modelIds = Array.isArray(Model.id) ? Model.id : [Model.id];
+          if (!util.hasValues(Instance, modelIds)) {
+            return null;
           }
-          association.model.find(util.getConditions(Model, Object.keys(association.field), Instance), opts, saveAndReturn);
-        } else {
-          cb!(null);
+
+          const conditions = util.getConditions(Model, Object.keys(association.field), Instance);
+          const finder = association.model.find(conditions, normalized);
+          const results = await finder.run();
+          Instance[association.name] = results;
+          return results;
         }
-      } else {
-        if (Instance.isShell()) {
-          Model.get(util.values(Instance, Model.id), (err?: Error, instance?: any) => {
-            if (err || !util.hasValues(instance, Object.keys(association.field))) {
-              return cb!(null);
+
+        const assignAssociated = async (target: any): Promise<any> => {
+          if (!target || !util.hasValues(target, Object.keys(association.field))) {
+            return null;
+          }
+
+          const args: any[] = [util.values(target, Object.keys(association.field))];
+          if (Object.keys(normalized).length) {
+            args.push(normalized);
+          }
+
+          try {
+            const associated = await association.model.get.apply(association.model, args);
+            Instance[association.name] = associated;
+            return associated;
+          } catch (err) {
+            if (isNotFoundError(err)) {
+              Instance[association.name] = null;
+              return null;
             }
-            association.model.get(util.values(instance, Object.keys(association.field)), opts, saveAndReturn);
-          });
-        } else if (util.hasValues(Instance, Object.keys(association.field))) {
-          association.model.get(util.values(Instance, Object.keys(association.field)), opts, saveAndReturn);
-        } else {
-          cb!(null);
+            throw err;
+          }
+        };
+
+        if (Instance.isShell()) {
+          try {
+            const args: any[] = [util.values(Instance, Model.id)];
+            const modelInstance = await Model.get.apply(Model, args);
+            return await assignAssociated(modelInstance);
+          } catch (err) {
+            if (isNotFoundError(err)) {
+              return null;
+            }
+            throw err;
+          }
         }
+
+        if (!util.hasValues(Instance, Object.keys(association.field))) {
+          return null;
+        }
+
+        return await assignAssociated(Instance);
+      })();
+
+      if (typeof callback === 'function') {
+        promise.then((result) => callback(null, result)).catch((err) => callback(err));
+        return this;
       }
 
-      return this;
+      return promise;
     },
     enumerable: false,
     writable: true
   });
 
   Object.defineProperty(Instance, association.setAccessor, {
-    value: function (OtherInstance: any, next: Function): any {
-      if (association.reversed) {
-        Instance.save((err?: Error) => {
-          if (err) {
-            return next(err);
+    value: function (OtherInstance: any, next?: Function): any {
+      const callback = typeof next === 'function' ? next : undefined;
+
+      const promise = (async () => {
+        if (association.reversed) {
+          await Instance.save();
+
+          const items = Array.isArray(OtherInstance) ? OtherInstance : [OtherInstance];
+
+          for (const item of items) {
+            util.populateConditions(Model, Object.keys(association.field), Instance, item, true);
+            await item.save({}, { saveAssociations: false });
           }
 
-          if (!Array.isArray(OtherInstance)) {
-            util.populateConditions(Model, Object.keys(association.field), Instance, OtherInstance, true);
+          return;
+        }
 
-            return OtherInstance.save({}, { saveAssociations: false }, next);
-          }
+        await OtherInstance.save({}, { saveAssociations: false });
+        Instance[association.name] = OtherInstance;
+        util.populateConditions(association.model, Object.keys(association.field), OtherInstance, Instance);
+        await Instance.save({}, { saveAssociations: false });
+      })();
 
-          const saveAssociation = (otherInstance: any, cb: Function): void => {
-            util.populateConditions(Model, Object.keys(association.field), Instance, otherInstance, true);
-
-            otherInstance.save({}, { saveAssociations: false }, cb);
-          };
-
-          const associations = _.clone(OtherInstance);
-          async.eachSeries(associations, saveAssociation as any, next as any);
-        });
-      } else {
-        OtherInstance.save({}, { saveAssociations: false }, (err?: Error) => {
-          if (err) {
-            return next(err);
-          }
-
-          Instance[association.name] = OtherInstance;
-
-          util.populateConditions(association.model, Object.keys(association.field), OtherInstance, Instance);
-
-          return Instance.save({}, { saveAssociations: false }, next);
-        });
+      if (callback) {
+        promise.then(() => callback(null)).catch((err) => callback(err));
+        return this;
       }
 
-      return this;
+      return promise;
     },
     enumerable: false,
     writable: true
@@ -270,37 +326,46 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
   if (!association.reversed) {
     Object.defineProperty(Instance, association.delAccessor, {
-      value: function (cb: Function): any {
-        for (const k in association.field) {
-          if (Object.prototype.hasOwnProperty.call(association.field, k)) {
-            Instance[k] = null;
+      value: function (cb?: Function): any {
+        const callback = typeof cb === 'function' ? cb : undefined;
+
+        const promise = (async () => {
+          for (const k in association.field) {
+            if (Object.prototype.hasOwnProperty.call(association.field, k)) {
+              Instance[k] = null;
+            }
           }
+
+          await Instance.save({}, { saveAssociations: false });
+          delete Instance[association.name];
+        })();
+
+        if (callback) {
+          promise.then(() => callback(null)).catch((err) => callback(err));
+          return this;
         }
-        Instance.save({}, { saveAssociations: false }, (err?: Error) => {
-          if (!err) {
-            delete Instance[association.name];
-          }
 
-          return cb();
-        });
-
-        return this;
+        return promise;
       },
       enumerable: false,
       writable: true
     });
   }
 
-  for (let i = 0; i < ACCESSOR_METHODS.length; i++) {
-    const name = ACCESSOR_METHODS[i];
-    const asyncNameAccessorName = association[name] + promiseFunctionPostfix;
+  if (promiseFunctionPostfix) {
+    for (let i = 0; i < ACCESSOR_METHODS.length; i++) {
+      const name = ACCESSOR_METHODS[i];
+      const base = Instance[association[name]];
+      if (!base) continue;
+      if (name === "delAccessor" && !Instance[association.delAccessor]) continue;
+      const asyncNameAccessorName = association[name] + promiseFunctionPostfix;
 
-    if (name === "delAccessor" && !Instance[association.delAccessor]) continue;
-    Object.defineProperty(Instance, asyncNameAccessorName, {
-      value: promisify(Instance[association[name]]),
-      enumerable: false,
-      writable: true
-    });
+      Object.defineProperty(Instance, asyncNameAccessorName, {
+        value: base,
+        enumerable: false,
+        writable: true
+      });
+    }
   }
 }
 

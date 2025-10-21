@@ -2,12 +2,27 @@ import * as _ from "lodash";
 const sqlite3 = require("sqlite3");
 const QueryLib = require("sql-query");
 import * as shared from "./_shared";
-import * as utils from "./_utils";
 import * as DDL from "../DDL/SQL";
 import { PropertyDefinition } from "../../types/Core";
 import type { IDriver, DriverSettings, DriverDefineOptions } from "../../types/Driver";
 
 export { Driver };
+
+const resolveWithCallback = <T>(promise: Promise<T>, cb?: (err: Error | null, result?: T) => void): Promise<T> | void => {
+  if (typeof cb === "function") {
+    promise.then((result) => cb(null, result)).catch((err: Error) => cb(err));
+    return;
+  }
+  return promise;
+};
+
+const resolveVoidWithCallback = (promise: Promise<void>, cb?: (err: Error | null) => void): Promise<void> | void => {
+  if (typeof cb === "function") {
+    promise.then(() => cb(null)).catch((err: Error) => cb(err));
+    return;
+  }
+  return promise;
+};
 
 function Driver(this: any, config: any, connection: any, opts: any) {
   this.dialect = 'sqlite';
@@ -44,9 +59,12 @@ function Driver(this: any, config: any, connection: any, opts: any) {
 
 _.extend(Driver.prototype, shared, DDL);
 
-Driver.prototype.ping = function (this: any, cb: (err: Error | null) => void) {
-  process.nextTick(cb);
-  return this;
+Driver.prototype.ping = function (this: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = new Promise<void>((resolve) => {
+    process.nextTick(() => resolve());
+  });
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
 Driver.prototype.on = function (this: any, ev: string, cb: (err: Error) => void) {
@@ -56,27 +74,45 @@ Driver.prototype.on = function (this: any, ev: string, cb: (err: Error) => void)
   return this;
 };
 
-Driver.prototype.connect = function (this: any, cb: (err: Error | null) => void) {
-  process.nextTick(cb);
+Driver.prototype.connect = function (this: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = new Promise<void>((resolve) => {
+    process.nextTick(() => resolve());
+  });
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
-Driver.prototype.close = function (this: any, cb?: (err: Error | null) => void) {
-  this.db.close();
-  if (typeof cb == "function") process.nextTick(cb);
+Driver.prototype.close = function (this: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = new Promise<void>((resolve, reject) => {
+    this.db.close((err: Error | null) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
 Driver.prototype.getQuery = function (this: any): any {
   return this.query;
 };
 
-Driver.prototype.execSimpleQuery = function (this: any, query: string, cb: (err: Error | null, data?: any) => void) {
-  if (this.opts.debug) {
-    require("../../Debug").sql('sqlite', query);
-  }
-  this.db.all(query, cb);
+Driver.prototype.execSimpleQuery = function (this: any, query: string, cb?: (err: Error | null, data?: any) => void): Promise<any> | void {
+  const promise = new Promise<any>((resolve, reject) => {
+    if (this.opts.debug) {
+      require("../../Debug").sql('sqlite', query);
+    }
+
+    this.db.all(query, (err: Error | null, rows: any) => {
+      if (err) return reject(err);
+      resolve(rows);
+    });
+  });
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.find = function (this: any, fields: string[], table: string, conditions: any, opts: any, cb: (err: Error | null, data?: any) => void) {
+Driver.prototype.find = function (this: any, fields: string[], table: string, conditions: any, opts: any, cb?: (err: Error | null, data?: any) => void): Promise<any> | void {
   var q = this.query.select()
                     .from(table).select(fields);
 
@@ -114,19 +150,16 @@ Driver.prototype.find = function (this: any, fields: string[], table: string, co
 
   q = q.build();
 
-  try {
-    require('fs').appendFileSync('/tmp/sqlite-debug.log', `SELECT SQL: ${q}\n`);
-  } catch (e) {
-    // ignore
-  }
-
   if (this.opts.debug) {
     require("../../Debug").sql('sqlite', q);
   }
-  this.db.all(q, cb);
+
+  const promise = this.execSimpleQuery(q) as Promise<any>;
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.count = function (this: any, table: string, conditions: any, opts: any, cb: (err: Error | null, data?: any) => void) {
+Driver.prototype.count = function (this: any, table: string, conditions: any, opts: any, cb?: (err: Error | null, data?: any) => void): Promise<any> | void {
   var q = this.query.select()
                     .from(table)
                     .count(null, 'c');
@@ -153,10 +186,13 @@ Driver.prototype.count = function (this: any, table: string, conditions: any, op
   if (this.opts.debug) {
     require("../../Debug").sql('sqlite', q);
   }
-  this.db.all(q, cb);
+
+  const promise = this.execSimpleQuery(q) as Promise<any>;
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.insert = function (this: any, table: string, data: any, keyProperties: PropertyDefinition[] | null, cb: (err: Error | null, ids?: any) => void) {
+Driver.prototype.insert = function (this: any, table: string, data: any, keyProperties: PropertyDefinition[] | null, cb?: (err: Error | null, ids?: any) => void): Promise<any> | void {
   var q = this.query.insert()
                     .into(table)
                     .set(data)
@@ -166,33 +202,39 @@ Driver.prototype.insert = function (this: any, table: string, data: any, keyProp
     require("../../Debug").sql('sqlite', q);
   }
 
+  const promise = (async () => {
+    await this.execSimpleQuery(q);
 
-  this.db.all(q, function (this: any, err: Error | null, info: any) {
-    if (err)            return cb(err);
-    if (!keyProperties) return cb(null);
-
-    var i: number, ids: any = {}, prop: PropertyDefinition;
-
-    if (keyProperties.length == 1 && keyProperties[0].type == 'serial') {
-      this.db.get("SELECT last_insert_rowid() AS last_row_id", function (err: Error | null, row: any) {
-        if (err) return cb(err);
-
-        ids[keyProperties[0].name!] = row.last_row_id;
-
-        return cb(null, ids);
-      });
-    } else {
-      for (i = 0; i < keyProperties.length; i++) {
-        prop = keyProperties[i];
-                                // Zero is a valid value for an ID column
-        ids[prop.name!] = data[prop.mapsTo!] !== undefined ? data[prop.mapsTo!] : null;
-      }
-      return cb(null, ids);
+    if (!keyProperties || keyProperties.length === 0) {
+      return undefined;
     }
-  }.bind(this));
+
+    if (keyProperties.length === 1 && keyProperties[0].type === 'serial') {
+      const row = await new Promise<any>((resolve, reject) => {
+        this.db.get("SELECT last_insert_rowid() AS last_row_id", (err: Error | null, fetchedRow: any) => {
+          if (err) return reject(err);
+          resolve(fetchedRow);
+        });
+      });
+
+      const ids: Record<string, unknown> = {};
+      ids[keyProperties[0].name!] = row?.last_row_id;
+      return ids;
+    }
+
+    const ids: Record<string, unknown> = {};
+    for (let i = 0; i < keyProperties.length; i++) {
+      const prop = keyProperties[i];
+      ids[prop.name!] = data[prop.mapsTo!] !== undefined ? data[prop.mapsTo!] : null;
+    }
+
+    return ids;
+  })();
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.update = function (this: any, table: string, changes: any, conditions: any, cb: (err: Error | null) => void) {
+Driver.prototype.update = function (this: any, table: string, changes: any, conditions: any, cb?: (err: Error | null) => void): Promise<any> | void {
   var q = this.query.update()
                     .into(table)
                     .set(changes)
@@ -202,10 +244,13 @@ Driver.prototype.update = function (this: any, table: string, changes: any, cond
   if (this.opts.debug) {
     require("../../Debug").sql('sqlite', q);
   }
-  this.db.all(q, cb);
+
+  const promise = this.execSimpleQuery(q) as Promise<any>;
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.remove = function (this: any, table: string, conditions: any, cb: (err: Error | null) => void) {
+Driver.prototype.remove = function (this: any, table: string, conditions: any, cb?: (err: Error | null) => void): Promise<any> | void {
   var q = this.query.remove()
                     .from(table)
                     .where(conditions)
@@ -214,25 +259,24 @@ Driver.prototype.remove = function (this: any, table: string, conditions: any, c
   if (this.opts.debug) {
     require("../../Debug").sql('sqlite', q);
   }
-  this.db.all(q, cb);
+
+  const promise = this.execSimpleQuery(q) as Promise<any>;
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.clear = function (this: any, table: string, cb: (err: Error | null) => void) {
-  var self = this;
+Driver.prototype.clear = function (this: any, table: string, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = (async () => {
+    await this.execQueryAsync("DELETE FROM ??", [table]);
+    const data = await this.execQueryAsync("SELECT count(*) FROM ?? WHERE type=? AND name=?;", ['sqlite_master', 'table', 'sqlite_sequence']);
 
-  this.execQuery("DELETE FROM ??", [table], function (err: Error | null) {
-    if (err) return cb(err);
+    const hasSequence = data[0] && (data[0]['count(*)'] === 1 || data[0]['COUNT(*)'] === 1 || data[0]['count'] === 1);
+    if (hasSequence) {
+      await this.execQueryAsync("DELETE FROM ?? WHERE NAME = ?", ['sqlite_sequence', table]);
+    }
+  })();
 
-    self.execQuery("SELECT count(*) FROM ?? WHERE type=? AND name=?;", ['sqlite_master', 'table', 'sqlite_sequence'], function (err: Error | null, data: any) {
-      if (err) return cb(err);
-
-      if (data[0] && data[0]['count(*)'] === 1) {
-        self.execQuery("DELETE FROM ?? WHERE NAME = ?", ['sqlite_sequence', table], cb);
-      } else {
-        cb(null);
-      }
-    });
-  });
+  return resolveVoidWithCallback(promise, cb);
 };
 
 Driver.prototype.valueToProperty = function (this: any, value: any, property: PropertyDefinition): any {
@@ -397,11 +441,26 @@ Driver.prototype.getConnection = function (this: any): unknown {
   return this.db;
 };
 
-utils.promisifyFunctions(Driver.prototype, ['ping', 'execSimpleQuery', 'find', 'count', 'insert', 'update', 'remove', 'clear']);
-
 Object.defineProperty(Driver.prototype, "isSql", {
     value: true
 });
+
+const asyncCompatMethods = [
+  'ping',
+  'execSimpleQuery',
+  'find',
+  'count',
+  'insert',
+  'update',
+  'remove',
+  'clear'
+];
+
+for (const method of asyncCompatMethods) {
+  (Driver.prototype as any)[`${method}Async`] = function (...args: any[]) {
+    return (this[method] as Function).apply(this, args);
+  };
+}
 
 function convertTimezone(tz: string): number | false {
   if (tz == "Z") return 0;

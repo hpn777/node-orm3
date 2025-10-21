@@ -8,11 +8,12 @@ describe("hasMany", function () {
   var Person = null;
   var Pet    = null;
 
-  before(function(done) {
-    helper.connect(function (connection) {
-      db = connection;
-      done();
-    });
+  before(async function() {
+    db = await helper.connectAsync();
+  });
+
+  after(async function() {
+    await db.close();
   });
 
   describe("normal", function () {
@@ -20,7 +21,7 @@ describe("hasMany", function () {
     var setup = function (opts) {
       opts = opts || {};
 
-      return function (done) {
+      return async function () {
         db.settings.set('instance.identityCache', false);
 
         Person = db.define('person', {
@@ -33,57 +34,46 @@ describe("hasMany", function () {
         });
         Person.hasMany('pets', Pet, {}, { autoFetch: opts.autoFetchPets });
 
-        helper.dropSync([ Person, Pet], function (err) {
-          should.not.exist(err);
+        await helper.dropSyncAsync([ Person, Pet]);
 
-          Pet.create([{ name: "Cat" }, { name: "Dog" }], function (err) {
-            should.not.exist(err);
+        await Pet.create([{ name: "Cat" }, { name: "Dog" }]);
 
-            /**
-             * John --+---> Deco
-             *        '---> Mutt <----- Jane
-             *
-             * Justin
-             */
-            Person.create([
-              {
-                name    : "Bob",
-                surname : "Smith",
-                age     : 30
-              },
-              {
-                name    : "John",
-                surname : "Doe",
-                age     : 20,
-                pets    : [{
-                  name    : "Deco"
-                }, {
-                  name    : "Mutt"
-                }]
-              }, {
-                name    : "Jane",
-                surname : "Doe",
-                age     : 16
-              }, {
-                name    : "Justin",
-                surname : "Dean",
-                age     : 18
-              }
-            ], function (err) {
-              should.not.exist(err);
-
-              Person.find({ name: "Jane" }, function (err, people) {
-                should.not.exist(err);
-
-                Pet.find({ name: "Mutt" }, function (err, pets) {
-                  should.not.exist(err);
-
-                  people[0].addPets(pets, done);
-                });
-              });
-            });
-          });
+        /**
+         * John --+---> Deco
+         *        '---> Mutt <----- Jane
+         *
+         * Justin
+         */
+        const Bob = await Person.create({
+          name    : "Bob",
+          surname : "Smith",
+          age     : 30
         });
+        
+        const John = await Person.create({
+          name    : "John",
+          surname : "Doe",
+          age     : 20
+        });
+        
+  const Deco = await Pet.create({ name: "Deco" });
+  const Mutt = await Pet.create({ name: "Mutt" });
+  const result = await John.addPetsAsync(Deco, Mutt);
+  const johnPets = await John.getPetsAsync();
+        
+        const Jane = await Person.create({
+          name    : "Jane",
+          surname : "Doe",
+          age     : 16
+        });
+        
+        const Justin = await Person.create({
+          name    : "Justin",
+          surname : "Dean",
+          age     : 18
+        });
+
+        await Jane.addPetsAsync(Mutt);
       };
     };
 
@@ -91,7 +81,7 @@ describe("hasMany", function () {
       before(setup());
 
       it("should allow to specify order as string", function () {
-        return Person.findAsync({ name: "John" })
+        return Person.find({ name: "John" })
           .then(function (people) {
             return people[0].getPetsAsync("-name");
           })
@@ -105,7 +95,7 @@ describe("hasMany", function () {
       });
 
       it("should return proper instance model", function(){
-        return Person.findAsync({ name: "John" })
+        return Person.find({ name: "John" })
           .then(function (people) {
             return people[0].getPetsAsync("-name");
           })
@@ -115,7 +105,7 @@ describe("hasMany", function () {
       });
 
       it("should allow to specify order as Array", function () {
-        return Person.findAsync({ name: "John" })
+        return Person.find({ name: "John" })
           .then(function (people) {
             return people[0].getPetsAsync([ "name", "Z" ]);
           })
@@ -129,7 +119,7 @@ describe("hasMany", function () {
 
       it("should allow to specify a limit", function () {
         return Person.find({ name: "John" })
-          .firstAsync()
+          .first()
           .then(function (John) {
             return John.getPetsAsync(1)
             })
@@ -140,7 +130,7 @@ describe("hasMany", function () {
       });
 
       it("should allow to specify conditions", function () {
-        return Person.find({ name: "John" }).firstAsync()
+        return Person.find({ name: "John" }).first()
           .then(function (John) {
             return John.getPetsAsync({ name: "Mutt" });
           })
@@ -154,7 +144,7 @@ describe("hasMany", function () {
       if (common.protocol() == "mongodb") return;
 
       it("should allow chaining count()", function () {
-        return Person.findAsync({})
+        return Person.find({})
           .then(function (people) {
             return Promise.all([people[1].getPetsAsync(), people[2].getPetsAsync(), people[3].getPetsAsync()]);
           })
@@ -170,9 +160,9 @@ describe("hasMany", function () {
       before(setup());
 
       it("should return true if instance has associated item", function () {
-        return Pet.findAsync({ name: "Mutt" })
+        return Pet.find({ name: "Mutt" })
           .then(function (pets) {
-            return Promise.all([pets, Person.find({ name: "Jane" }).firstAsync()]);
+            return Promise.all([pets, Person.find({ name: "Jane" }).first()]);
           })
           .then(function ([pets, Jane]) {
             return Jane.hasPetsAsync(pets[0]);
@@ -183,9 +173,9 @@ describe("hasMany", function () {
       });
 
       it("should return false if any passed instances are not associated", function () {
-        return Pet.findAsync()
+        return Pet.find()
           .then(function (pets) {
-            return Promise.all([pets, Person.find({ name: "Jane" }).firstAsync()]);
+            return Promise.all([pets, Person.find({ name: "Jane" }).first()]);
           })
           .then(function ([pets, Jane]) {
             return Jane.hasPetsAsync(pets);
@@ -197,11 +187,11 @@ describe("hasMany", function () {
 
       if (common.protocol() != "mongodb") {
         it("should return true if join table has duplicate entries", function () {
-          return Pet.findAsync({ name: ["Mutt", "Deco"] })
+          return Pet.find({ name: ["Mutt", "Deco"] })
             .then(function (pets) {
               should.equal(pets.length, 2);
 
-              return Promise.all([pets, Person.find({ name: "John" }).firstAsync()]);
+              return Promise.all([pets, Person.find({ name: "John" }).first()]);
             })
             .then(function ([pets, John]) {
               return Promise.all([John, pets, John.hasPetsAsync(pets)]);
@@ -227,11 +217,11 @@ describe("hasMany", function () {
         });
 
         it("should return true if join table has duplicate entries (promise-based)", function () {
-          return Pet.findAsync({ name: ["Mutt", "Deco"] })
+          return Pet.find({ name: ["Mutt", "Deco"] })
             .then(function (pets) {
               should.equal(pets.length, 2);
 
-              return Promise.all([pets, Person.find({ name: "John" }).firstAsync()]);
+              return Promise.all([pets, Person.find({ name: "John" }).first()]);
             })
             .then(function ([pets, John]) {
               return Promise.all([ John, pets, John.hasPetsAsync(pets)]);
@@ -262,9 +252,9 @@ describe("hasMany", function () {
       before(setup());
 
       it("should accept arguments in different orders", function () {
-        return Pet.findAsync({ name: "Mutt" })
+        return Pet.find({ name: "Mutt" })
           .then(function (pets) {
-            return Promise.all([pets, Person.findAsync({ name: "John" })]);
+            return Promise.all([pets, Person.find({ name: "John" })]);
           })
           .then(function ([pets, people]) {
             return Promise.all([people, people[0].removePetsAsync(pets[0])]);
@@ -280,9 +270,9 @@ describe("hasMany", function () {
       });
 
       it("should remove specific associations if passed", function () {
-        return Pet.findAsync({ name: "Mutt" })
+        return Pet.find({ name: "Mutt" })
           .then(function (pets) {
-            return Promise.all([pets, Person.findAsync({ name: "John" })]);
+            return Promise.all([pets, Person.find({ name: "John" })]);
           })
           .then(function ([pets, people]) {
             return Promise.all([people, people[0].removePetsAsync(pets[0])]);
@@ -298,7 +288,7 @@ describe("hasMany", function () {
       });
 
       it("should remove all associations if none passed", function () {
-        return Person.find({ name: "John" }).firstAsync()
+        return Person.find({ name: "John" }).first()
           .then(function (John) {
             return Promise.all([John, John.removePetsAsync()]);
           })
@@ -318,9 +308,9 @@ describe("hasMany", function () {
       if (common.protocol() != "mongodb") {
 
         it("might add duplicates (promise-based)", function () {
-          return Pet.findAsync({ name: "Mutt" })
+          return Pet.find({ name: "Mutt" })
             .then(function (pets) {
-              return Promise.all([pets, Person.findAsync({ name: "Jane" })]);
+              return Promise.all([pets, Person.find({ name: "Jane" })]);
             })
             .then(function ([pets, people]) {
               return Promise.all([people, people[0].addPetsAsync(pets[0])]);
@@ -338,9 +328,9 @@ describe("hasMany", function () {
       }
 
       it("should keep associations and add new ones", function () {
-        return Pet.find({ name: "Deco" }).firstAsync()
+        return Pet.find({ name: "Deco" }).first()
           .then(function (Deco) {
-            return Promise.all([Deco, Person.find({ name: "Jane" }).firstAsync()]);
+            return Promise.all([Deco, Person.find({ name: "Jane" }).first()]);
           })
           .then(function ([Deco, Jane]) {
             return Promise.all([Jane, Deco, Jane.getPetsAsync()])
@@ -362,9 +352,9 @@ describe("hasMany", function () {
       });
 
       it("should accept several arguments as associations (promise-based)", function () {
-        return Pet.findAsync()
+        return Pet.find()
           .then(function (pets) {
-            return Promise.all([pets, Person.find({ name: "Justin" }).firstAsync()]);
+            return Promise.all([pets, Person.find({ name: "Justin" }).first()]);
           })
           .then(function ([pets, Justin]) {
             return Promise.all([Justin, Justin.addPetsAsync(pets[0], pets[1])]);
@@ -379,9 +369,9 @@ describe("hasMany", function () {
       });
 
       it("should accept array as list of associations (promise-based)", function () {
-        return Pet.createAsync([{ name: 'Ruff' }, { name: 'Spotty' }])
+        return Pet.create([{ name: 'Ruff' }, { name: 'Spotty' }])
           .then(function (pets) {
-            return Promise.all([pets, Person.find({ name: "Justin" }).firstAsync()]);
+            return Promise.all([pets, Person.find({ name: "Justin" }).first()]);
           })
           .then(function ([pets, Justin]) {
             return Promise.all([pets, Justin, Justin.getPetsAsync()]);
@@ -406,9 +396,9 @@ describe("hasMany", function () {
       before(setup());
 
       it("should accept several arguments as associations", function () {
-        return Pet.findAsync()
+        return Pet.find()
           .then(function (pets) {
-            return Promise.all([pets, Person.find({ name: "Justin" }).firstAsync()]);
+            return Promise.all([pets, Person.find({ name: "Justin" }).first()]);
           })
           .then(function ([pets, Justin]) {
             return Promise.all([Justin, Justin.setPetsAsync(pets[0], pets[1])])
@@ -423,9 +413,9 @@ describe("hasMany", function () {
       });
 
       it("should accept an array of associations", function () {
-        return Pet.findAsync()
+        return Pet.find()
           .then(function (pets) {
-            return Promise.all([pets, Person.find({ name: "Justin" }).firstAsync()]);
+            return Promise.all([pets, Person.find({ name: "Justin" }).first()]);
           })
           .then(function ([pets, Justin]) {
             return Promise.all([pets, Justin, Justin.setPetsAsync(pets)]);
@@ -440,7 +430,7 @@ describe("hasMany", function () {
       });
 
       it("should remove all associations if an empty array is passed", function () {
-        return Person.find({ name: "Justin" }).firstAsync()
+        return Person.find({ name: "Justin" }).first()
           .then(function (Justin) {
             return Promise.all([Justin, Justin.getPetsAsync()]);
           })
@@ -458,11 +448,11 @@ describe("hasMany", function () {
       });
 
       it("clears current associations", function () {
-        return Pet.findAsync({ name: "Deco" })
+        return Pet.find({ name: "Deco" })
           .then(function (pets) {
             var Deco = pets[0];
 
-            return Promise.all([Deco, Person.find({ name: "Jane" }).firstAsync()]);
+            return Promise.all([Deco, Person.find({ name: "Jane" }).first()]);
           })
           .then(function ([Deco, Jane]) {
             return Promise.all([Jane, Deco, Jane.getPetsAsync()]);
@@ -491,7 +481,7 @@ describe("hasMany", function () {
       }));
 
       it("should fetch associations", function () {
-        return Person.find({ name: "John" }).firstAsync()
+        return Person.find({ name: "John" }).first()
           .then(function (John) {
             John.should.have.property("pets");
             should(Array.isArray(John.pets));
@@ -500,14 +490,14 @@ describe("hasMany", function () {
       });
 
       it("should save existing", function () {
-        return Person.createAsync({ name: 'Bishan' })
+        return Person.create({ name: 'Bishan' })
           .then(function () {
-            return Person.oneAsync({ name: 'Bishan' });
+            return Person.one({ name: 'Bishan' });
           })
           .then(function (person) {
             person.surname = 'Dominar';
 
-            return person.saveAsync();
+            return person.save();
           })
           .then(function (person) {
             should.equal(person.surname, 'Dominar');
@@ -515,14 +505,14 @@ describe("hasMany", function () {
       });
 
       it("should not auto save associations which were autofetched", function () {
-        return Pet.allAsync()
+        return Pet.all()
           .then(function (pets) {
             should.equal(pets.length, 4);
 
-            return Promise.all([pets, Person.createAsync({ name: 'Paul' })]);
+            return Promise.all([pets, Person.create({ name: 'Paul' })]);
           })
           .then(function ([pets]) {
-            return Promise.all([pets, Person.oneAsync({ name: 'Paul' })]);
+            return Promise.all([pets, Person.one({ name: 'Paul' })]);
           })
           .then(function ([pets, paul]) {
             should.equal(paul.pets.length, 0);
@@ -531,18 +521,18 @@ describe("hasMany", function () {
           })
           .then(function () {
             // reload paul to make sure we have 2 pets
-            return Person.oneAsync({ name: 'Paul' });
+            return Person.one({ name: 'Paul' });
           })
           .then(function (paul) {
             should.equal(paul.pets.length, 4);
 
             // Saving paul2 should NOT auto save associations and hence delete
             // the associations we just created.
-            return paul.saveAsync();
+            return paul.save();
           })
           .then(function () {
             // let's check paul - pets should still be associated
-            return Person.oneAsync({ name: 'Paul' });
+            return Person.one({ name: 'Paul' });
           })
           .then(function (paul) {
             should.equal(paul.pets.length, 4);
@@ -550,17 +540,17 @@ describe("hasMany", function () {
       });
 
       it("should save associations set by the user", function () {
-        return Person.oneAsync({ name: 'John' })
+        return Person.one({ name: 'John' })
           .then(function (john) {
             should.equal(john.pets.length, 2);
 
             john.pets = [];
 
-            return john.saveAsync();
+            return john.save();
           })
           .then(function () {
             // reload john to make sure pets were deleted
-            return Person.oneAsync({ name: 'John' });
+            return Person.one({ name: 'John' });
           })
           .then(function (john) {
             should.equal(john.pets.length, 0);

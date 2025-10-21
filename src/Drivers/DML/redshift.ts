@@ -2,9 +2,16 @@
  * Redshift DML driver
  */
 
-import { promisify } from 'util';
 import * as util from 'util';
 const postgres = require('./postgres');
+
+const resolveWithCallback = <T>(promise: Promise<T>, cb?: (err: Error | null, result?: T) => void): Promise<T> | void => {
+  if (typeof cb === "function") {
+    promise.then((result) => cb(null, result)).catch((err: Error) => cb(err));
+    return;
+  }
+  return promise;
+};
 
 export function Driver(this: any, config: any, connection: any, opts: any): void {
   postgres.Driver.call(this, config, connection, opts);
@@ -12,42 +19,47 @@ export function Driver(this: any, config: any, connection: any, opts: any): void
 
 util.inherits(Driver, postgres.Driver);
 
-Driver.prototype.insert = function (this: any, table: string, data: Record<string, any>, keyProperties: any[], cb: Function): void {
+Driver.prototype.insert = function (
+  this: any,
+  table: string,
+  data: Record<string, any>,
+  keyProperties: any[] | null,
+  cb?: (err: Error | null, ids?: Record<string, any>) => void
+): Promise<Record<string, any>> | void {
   const q = this.query.insert()
     .into(table)
     .set(data)
     .build();
 
-  if (this.opts.debug) {
-    require("../../Debug").sql('postgres', q);
-  }
+  const promise = (async () => {
+    if (this.opts.debug) {
+      require("../../Debug").sql('postgres', q);
+    }
 
-  this.execQuery(q, function (this: any, err?: Error, result?: any) {
-    if (err) return cb(err);
-    if (!keyProperties) return cb(null);
+    await this.execSimpleQuery(q);
 
-    let i: number;
     const ids: Record<string, any> = {};
-    let prop: any;
+
+    if (!keyProperties || keyProperties.length === 0) {
+      return ids;
+    }
 
     if (keyProperties.length === 1) {
-      this.execQuery("SELECT LASTVAL() AS id", (err?: Error, results?: any[]) => {
-        if (err) return cb(err);
-
-        ids[keyProperties[0].name] = results && results[0].id || null;
-        return cb(null, ids);
-      });
-    } else {
-      for (i = 0; i < keyProperties.length; i++) {
-        prop = keyProperties[i];
-        ids[prop.name] = data[prop.mapsTo] !== undefined ? data[prop.mapsTo] : null;
-      }
-
-      return cb(null, ids);
+      const results = await this.execSimpleQuery("SELECT LASTVAL() AS id");
+      const row = Array.isArray(results) && results.length > 0 ? results[0] : undefined;
+      ids[keyProperties[0].name] = row && Object.prototype.hasOwnProperty.call(row, "id") ? row.id : null;
+      return ids;
     }
-  }.bind(this));
-};
 
-Driver.prototype.insertAsync = promisify(Driver.prototype.insert);
+    for (let i = 0; i < keyProperties.length; i++) {
+      const prop = keyProperties[i];
+      ids[prop.name] = data[prop.mapsTo] !== undefined ? data[prop.mapsTo] : null;
+    }
+
+    return ids;
+  })();
+
+  return resolveWithCallback(promise, cb);
+};
 
 export default Driver;

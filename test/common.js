@@ -20,7 +20,9 @@ common.isCI = function() {
 };
 
 common.createConnection = function(opts, cb) {
-  ORM.connect(this.getConnectionString(opts), cb);
+  ORM.connect(this.getConnectionString(opts))
+    .then(conn => cb(null, conn))
+    .catch(err => cb(err));
 };
 
 common.hasConfig = function (proto) {
@@ -79,9 +81,18 @@ common.getConnectionString = function (opts) {
     }
   }
 
+  const defaultUsers = {
+    postgres: 'postgres',
+    redshift: 'postgres',
+    mongodb : ''
+  };
+  const defaultDatabases = {
+    mongodb: 'test'
+  };
+
   _.defaults(config, {
-    user     : { postgres: 'postgres', redshift: 'postgres', mongodb: '' }[protocol] || 'root',
-    database : { mongodb:  'test'     }[protocol] || 'orm_test',
+    user     : Object.prototype.hasOwnProperty.call(defaultUsers, protocol) ? defaultUsers[protocol] : 'root',
+    database : Object.prototype.hasOwnProperty.call(defaultDatabases, protocol) ? defaultDatabases[protocol] : 'orm_test',
     password : '',
     host     : 'localhost',
     pathname : '',
@@ -98,10 +109,22 @@ common.getConnectionString = function (opts) {
     case 'mongodb':
       if (common.isCI()) {
         if (protocol == 'redshift') protocol = 'postgres';
-        const auth = [config.user, config.password].join(':');
+        let auth = '';
+        const hasUser = typeof config.user === 'string' && config.user.length > 0;
+        const hasPassword = typeof config.password === 'string' && config.password.length > 0;
 
-        return util.format("%s://%s@%s/%s?%s",
-          protocol, auth, config.host, config.database, query
+        if (hasUser && hasPassword) {
+          auth = `${config.user}:${config.password}`;
+        } else if (hasUser) {
+          auth = config.user;
+        } else if (hasPassword) {
+          auth = `:${config.password}`;
+        }
+
+        const authority = auth.length > 0 ? `${auth}@${config.host}` : config.host;
+
+        return util.format("%s://%s/%s?%s",
+          protocol, authority, config.database, query
         );
       } else {
         return util.format("%s://%s:%s@%s/%s?%s",

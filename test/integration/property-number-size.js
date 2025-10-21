@@ -37,9 +37,14 @@ if (protocol != "sqlite") {
           float8 : { type: 'number',  size: 8 }
         });
 
-        return helper.dropSync(NumberSize, function () {
-          NumberSize.create(NumberData, done);
-        });
+        helper.dropSyncAsync(NumberSize).then(async function () {
+          try {
+            await NumberSize.create(NumberData);
+            done();
+          } catch (e) {
+            done(e);
+          }
+        }).catch(done);
       };
     };
 

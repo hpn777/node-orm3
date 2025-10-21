@@ -2,12 +2,27 @@ import * as _ from "lodash";
 const mysql = require("mysql");
 const QueryLib = require("sql-query");
 import * as shared from "./_shared";
-import * as utils from "./_utils";
 import * as DDL from "../DDL/SQL";
 import { PropertyDefinition } from "../../types/Core";
 import type { IDriver, DriverSettings, DriverDefineOptions } from "../../types/Driver";
 
 export { Driver };
+
+const resolveWithCallback = <T>(promise: Promise<T>, cb?: (err: Error | null, result?: T) => void): Promise<T> | void => {
+  if (typeof cb === "function") {
+    promise.then((result) => cb(null, result)).catch((err: Error) => cb(err));
+    return;
+  }
+  return promise;
+};
+
+const resolveVoidWithCallback = (promise: Promise<void>, cb?: (err: Error | null) => void): Promise<void> | void => {
+  if (typeof cb === "function") {
+    promise.then(() => cb(null)).catch((err: Error) => cb(err));
+    return;
+  }
+  return promise;
+};
 
 function Driver(this: any, config: any, connection: any, opts: any) {
   this.dialect = 'mysql';
@@ -34,9 +49,15 @@ function Driver(this: any, config: any, connection: any, opts: any) {
 
 _.extend(Driver.prototype, shared, DDL);
 
-Driver.prototype.ping = function (this: any, cb: (err: Error | null) => void) {
-  this.db.ping(cb);
-  return this;
+Driver.prototype.ping = function (this: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = new Promise<void>((resolve, reject) => {
+    this.db.ping((err: Error | null) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
 Driver.prototype.on = function (this: any, ev: string, cb: (err: Error) => void) {
@@ -47,20 +68,30 @@ Driver.prototype.on = function (this: any, ev: string, cb: (err: Error) => void)
   return this;
 };
 
-Driver.prototype.connect = function (this: any, cb: (err: Error | null) => void) {
-  if (this.opts.pool) {
-    return this.db.pool.getConnection(function (err: Error | null, con: any) {
-      if (!err) {
-        if (con.release) {
-          con.release();
-        } else {
-          con.end();
+Driver.prototype.connect = function (this: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = new Promise<void>((resolve, reject) => {
+    if (this.opts.pool) {
+      this.db.pool.getConnection((err: Error | null, con: any) => {
+        if (!err && con) {
+          if (typeof con.release === "function") {
+            con.release();
+          } else if (typeof con.end === "function") {
+            con.end();
+          }
         }
-      }
-      return cb(err);
+        if (err) return reject(err);
+        resolve();
+      });
+      return;
+    }
+
+    this.db.connect((err: Error | null) => {
+      if (err) return reject(err);
+      resolve();
     });
-  }
-  this.db.connect(cb);
+  });
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
 Driver.prototype.reconnect = function (this: any, cb: ((err: Error | null) => void) | null, connection?: any) {
@@ -83,31 +114,62 @@ Driver.prototype.reconnect = function (this: any, cb: ((err: Error | null) => vo
   }
 };
 
-Driver.prototype.close = function (this: any, cb: (err: Error | null) => void) {
-  if (this.opts.pool) {
-    this.db.pool.end(cb);
-  } else {
-    this.db.end(cb);
-  }
+Driver.prototype.close = function (this: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = new Promise<void>((resolve, reject) => {
+    const done = (err: Error | null) => (err ? reject(err) : resolve());
+
+    if (this.opts.pool) {
+      this.db.pool.end(done);
+    } else {
+      this.db.end(done);
+    }
+  });
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
 Driver.prototype.getQuery = function (this: any): any {
   return this.query;
 };
 
-Driver.prototype.execSimpleQuery = function (this: any, query: string, cb: (err: Error | null, data?: any) => void) {
+Driver.prototype.execSimpleQuery = function (this: any, query: string, cb?: (err: Error | null, data?: any) => void): Promise<any> | void {
+  const promise = new Promise<any>((resolve, reject) => {
+    if (this.opts.debug) {
+      require("../../Debug").sql('mysql', query);
+    }
 
-  if (this.opts.debug) {
-    require("../../Debug").sql('mysql', query);
-  }
-  if (this.opts.pool) {
-    this.poolQuery(query, cb);
-  } else {
-    this.db.query(query, cb);
-  }
+    const handleResult = (err: Error | null, data?: any) => {
+      if (err) return reject(err);
+      resolve(data);
+    };
+
+    if (this.opts.pool) {
+      this.db.pool.getConnection((err: Error | null, con: any) => {
+        if (err) return reject(err);
+
+        const release = () => {
+          if (!con) return;
+          if (typeof con.release === "function") {
+            con.release();
+          } else if (typeof con.end === "function") {
+            con.end();
+          }
+        };
+
+        con.query(query, (queryErr: Error | null, data: any) => {
+          release();
+          handleResult(queryErr, data);
+        });
+      });
+    } else {
+      this.db.query(query, handleResult);
+    }
+  });
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.find = function (this: any, fields: string[], table: string, conditions: any, opts: any, cb: (err: Error | null, data?: any) => void) {
+Driver.prototype.find = function (this: any, fields: string[], table: string, conditions: any, opts: any, cb?: (err: Error | null, data?: any) => void): Promise<any> | void {
   var q = this.query.select()
                     .from(table).select(fields);
 
@@ -145,10 +207,12 @@ Driver.prototype.find = function (this: any, fields: string[], table: string, co
 
   q = q.build();
 
-  this.execSimpleQuery(q, cb);
+  const promise = this.execSimpleQuery(q) as Promise<any>;
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.count = function (this: any, table: string, conditions: any, opts: any, cb: (err: Error | null, data?: any) => void) {
+Driver.prototype.count = function (this: any, table: string, conditions: any, opts: any, cb?: (err: Error | null, data?: any) => void): Promise<any> | void {
   var q = this.query.select()
                     .from(table)
                     .count(null, 'c');
@@ -172,75 +236,67 @@ Driver.prototype.count = function (this: any, table: string, conditions: any, op
 
   q = q.build();
 
-  this.execSimpleQuery(q, cb);
+  const promise = this.execSimpleQuery(q) as Promise<any>;
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.insert = function (this: any, table: string, data: any, keyProperties: PropertyDefinition[] | null, cb: (err: Error | null, ids?: any) => void) {
+Driver.prototype.insert = function (this: any, table: string, data: any, keyProperties: PropertyDefinition[] | null, cb?: (err: Error | null, ids?: any) => void): Promise<any> | void {
   var q = this.query.insert()
                     .into(table)
                     .set(data)
                     .build();
 
-  this.execSimpleQuery(q, function (err: Error | null, info: any) {
-    if (err) return cb(err);
+  const promise = (async () => {
+    const info = await this.execSimpleQuery(q) as any;
 
-    var i: number, ids: any = {}, prop: PropertyDefinition;
-
+    const ids: Record<string, unknown> = {};
     if (keyProperties) {
-      if (keyProperties.length == 1 && info.hasOwnProperty("insertId") && info.insertId !== 0 ) {
+      if (keyProperties.length === 1 && Object.prototype.hasOwnProperty.call(info, "insertId") && info.insertId !== 0) {
         ids[keyProperties[0].name!] = info.insertId;
       } else {
-        for(i = 0; i < keyProperties.length; i++) {
-          prop = keyProperties[i];
+        for (let i = 0; i < keyProperties.length; i++) {
+          const prop = keyProperties[i];
           ids[prop.name!] = data[prop.mapsTo!];
         }
       }
     }
-    return cb(null, ids);
-  });
+
+    return ids;
+  })();
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.update = function (this: any, table: string, changes: any, conditions: any, cb: (err: Error | null) => void) {
+Driver.prototype.update = function (this: any, table: string, changes: any, conditions: any, cb?: (err: Error | null) => void): Promise<any> | void {
   var q = this.query.update()
                     .into(table)
                     .set(changes)
                     .where(conditions)
                     .build();
 
-  this.execSimpleQuery(q, cb);
+  const promise = this.execSimpleQuery(q) as Promise<any>;
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.remove = function (this: any, table: string, conditions: any, cb: (err: Error | null) => void) {
+Driver.prototype.remove = function (this: any, table: string, conditions: any, cb?: (err: Error | null) => void): Promise<any> | void {
   var q = this.query.remove()
                     .from(table)
                     .where(conditions)
                     .build();
 
-  this.execSimpleQuery(q, cb);
+  const promise = this.execSimpleQuery(q) as Promise<any>;
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.clear = function (this: any, table: string, cb: (err: Error | null) => void) {
+Driver.prototype.clear = function (this: any, table: string, cb?: (err: Error | null) => void): Promise<any> | void {
   var q = "TRUNCATE TABLE " + this.query.escapeId(table);
 
-  this.execSimpleQuery(q, cb);
-};
+  const promise = this.execSimpleQuery(q) as Promise<any>;
 
-Driver.prototype.poolQuery = function (this: any, query: string, cb: (err: Error | null, data?: any) => void) {
-  this.db.pool.getConnection(function (err: Error | null, con: any) {
-    if (err) {
-      return cb(err);
-    }
-
-    con.query(query, function (err: Error | null, data: any) {
-      if (con.release) {
-        con.release();
-      } else {
-        con.end();
-      }
-
-      return cb(err, data);
-    });
-  });
+  return resolveWithCallback(promise, cb);
 };
 
 Driver.prototype.valueToProperty = function (this: any, value: any, property: PropertyDefinition): any {
@@ -324,8 +380,25 @@ Driver.prototype.getConnection = function (this: any): unknown {
   return this.db;
 };
 
-utils.promisifyFunctions(Driver.prototype, ['ping', 'execSimpleQuery', 'find', 'count', 'insert', 'update', 'remove', 'clear']);
-
 Object.defineProperty(Driver.prototype, "isSql", {
     value: true
 });
+
+const asyncCompatMethods = [
+  "connect",
+  "execSimpleQuery",
+  "ping",
+  "find",
+  "count",
+  "insert",
+  "update",
+  "remove",
+  "clear",
+  "close"
+];
+
+for (const method of asyncCompatMethods) {
+  (Driver.prototype as any)[`${method}Async`] = function (...args: any[]) {
+    return (this as any)[method](...args);
+  };
+}

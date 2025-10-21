@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import async from 'async';
-import { promisify } from 'util';
+import { promisify } from './utils/promises';
 import ChainFind from './ChainFind';
 import { Instance } from './Instance';
 import LazyLoad from './LazyLoad';
@@ -119,36 +119,11 @@ export default function Model(opts: ModelOptions): ModelType {
     };
 
     const saveNewInstance = (instance: InstanceType, saveCb: Function): void => {
-      Hook.wait(instance, modelHooks.beforeCreate, (err?: Error | null) => {
-        if (err) {
-          return cb(err);
-        }
-
-        Hook.wait(instance, modelHooks.beforeSave, (err?: Error | null) => {
-          if (err) {
-            return cb(err);
-          }
-
-          instance.save({}, {}, function (err?: Error | null) {
-            if (err) {
-              return cb(err);
-            }
-
-            Hook.wait(instance, modelHooks.afterSave, (err?: Error | null) => {
-              if (err) {
-                return cb(err);
-              }
-
-              Hook.wait(instance, modelHooks.afterCreate, (err?: Error | null) => {
-                if (err) {
-                  return cb(err);
-                }
-
-                return saveCb(null, instance);
-              });
-            });
-          });
-        });
+      // Call instance.save directly - let it handle hooks
+      (instance.save({}) as Promise<void>).then(() => {
+        return saveCb(null, instance);
+      }).catch((err: Error) => {
+        return cb(err);
       });
     };
 
@@ -197,7 +172,7 @@ export default function Model(opts: ModelOptions): ModelType {
     };
 
     if (instanceOpts.is_new && opts.autoSave) {
-      return saveNewInstance(instance, function (err: Error | null, instance?: InstanceType) {
+      return saveNewInstance(instance, function (err: Error | null, inst?: InstanceType) {
         if (err) {
           return cb(err);
         }
@@ -325,11 +300,43 @@ export default function Model(opts: ModelOptions): ModelType {
     enumerable: false
   });
 
-  model.drop = function (cb?: (err?: Error | null) => void): ModelType {
-    if (!cb) {
-      cb = function () {};
+  const invokeLegacyCallback = <T>(callback: ((err: Error | null, result?: T) => void) | null | undefined, err: Error | null, result?: T): Error | null => {
+    if (typeof callback !== "function") {
+      return null;
     }
 
+    try {
+      callback(err, result);
+      return null;
+    } catch (cbErr) {
+      return cbErr as Error;
+    }
+  };
+
+  const resolveWithCallback = <T>(promise: Promise<T>, callback?: ((err: Error | null, result?: T) => void) | null): Promise<T> => {
+    if (typeof callback !== "function") {
+      return promise;
+    }
+
+    return promise
+      .then((result) => {
+        const cbErr = invokeLegacyCallback<T>(callback, null, result);
+        if (cbErr) {
+          return Promise.reject(cbErr);
+        }
+        return result;
+      })
+      .catch((err) => {
+        const cbErr = invokeLegacyCallback<T>(callback, err as Error, undefined);
+        if (cbErr) {
+          return Promise.reject(cbErr);
+        }
+        return Promise.reject(err);
+      });
+  };
+
+  // Internal callback-based drop implementation
+  const _dropCallback = function (this: any, cb: (err?: Error | null) => void): ModelType {
     opts.driver.drop({
       table: opts.table,
       properties: allProperties,
@@ -340,47 +347,80 @@ export default function Model(opts: ModelOptions): ModelType {
     return this;
   };
 
-  model.dropAsync = promisify(model.drop);
+  // Public async-only interface
+  model.drop = function (cb?: (err?: Error | null) => void): Promise<void> {
+    return new Promise((resolve, reject) => {
+      _dropCallback.call(model, (err?: Error | null) => {
+        if (typeof cb === "function") {
+          try {
+            cb(err || undefined);
+          } catch (cbErr) {
+            reject(cbErr as Error);
+            return;
+          }
+        }
 
-  model.sync = function (cb?: (err?: Error | null) => void): ModelType {
-    if (!cb) {
-      cb = function () {};
-    }
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  };
 
+  // Internal callback-based sync implementation
+  const _syncCallback = function (this: any, cb: (err?: Error | null) => void): ModelType {
     opts.driver.sync({
       id: keyProperties.map(p => p.name),
       extension: opts.extension,
       table: opts.table,
       allProperties: allProperties,
       one_associations: one_associations,
-  many_associations: many_associations,
+      many_associations: many_associations,
       extend_associations: extend_associations
     }, cb);
 
     return this;
   };
 
-  model.syncAsync = promisify(model.sync);
+  // Public async-only interface
+  model.sync = function (cb?: (err?: Error | null) => void): Promise<void> {
+    return new Promise((resolve, reject) => {
+      _syncCallback.call(model, (err?: Error | null) => {
+        if (typeof cb === "function") {
+          try {
+            cb(err || undefined);
+          } catch (cbErr) {
+            reject(cbErr as Error);
+            return;
+          }
+        }
 
-  model.get = function (...args: any[]): ModelType {
-    let ids: any[] = Array.prototype.slice.apply(args);
-    const cb = ids.pop();
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  };
+
+  model.get = function (...params: any[]): Promise<InstanceType | null> {
+    const callback = (params.length > 0 && typeof params[params.length - 1] === "function")
+      ? (params.pop() as (err: Error | null, item?: InstanceType | null) => void)
+      : undefined;
+
     const conditions: QueryConditions = {};
     const options: any = {};
-
-    if (typeof cb !== "function") {
-      throw new ORMError("Missing Model.get() callback", 'MISSING_CALLBACK', { model: opts.table });
-    }
-
     const keys = Array.isArray(opts.keys) ? opts.keys : [opts.keys!];
 
-    // Check if last argument before callback is an options object
+    let ids: any[] = params;
+
     if (ids.length > 0 && typeof ids[ids.length - 1] === "object" && !Array.isArray(ids[ids.length - 1])) {
       const lastArg = ids[ids.length - 1];
-      // If it doesn't look like it contains ID fields, treat it as options
       const hasIdFields = keys.some((k: string) => Object.prototype.hasOwnProperty.call(lastArg, k));
       if (!hasIdFields && ids.length > 1) {
-        // It's an options object
         const optsArg = ids.pop()!;
         for (const k in optsArg) {
           options[k] = optsArg[k];
@@ -415,40 +455,37 @@ export default function Model(opts: ModelOptions): ModelType {
 
     options.identityCache = options.hasOwnProperty("identityCache") ? options.identityCache : opts.settings!.get("instance.identityCache");
 
-    const uid = opts.driver.uid + "/" + opts.table + "/";
-    const itemId = uid + keys.map((k: string) => conditions[k]).join("/");
+    const promise = new Promise<InstanceType | null>((resolve, reject) => {
+      const uid = opts.driver.uid + "/" + opts.table + "/";
+      const itemId = uid + keys.map((k: string) => conditions[k]).join("/");
 
-    if (options.identityCache === false) {
-      return model.find(conditions, options, function (err: Error | null, items?: InstanceType[]) {
-        if (err) {
-          return cb(err);
-        }
-        if (!items || items.length === 0) {
-          return cb(new ORMError("Not found", 'NOT_FOUND', { model: opts.table }));
-        }
-        return cb(null, items[0]);
+      if (options.identityCache === false) {
+        return model.find(conditions, options).run().then((items: InstanceType[]) => {
+          if (!items || items.length === 0) {
+            return reject(new ORMError("Not found", 'NOT_FOUND', { model: opts.table }));
+          }
+          resolve(items[0]);
+        }).catch(reject);
+      }
+
+      Singleton.get(itemId, {
+        identityCache: options.identityCache,
+        saveCheck: opts.settings!.get("instance.identityCacheSaveCheck")
+      }, function (createCb: Function) {
+        model.find(conditions, options).run().then((items: InstanceType[]) => {
+          if (!items || items.length === 0) {
+            return createCb(new ORMError("Not found", 'NOT_FOUND', { model: opts.table }));
+          }
+          return createCb(null, items[0]);
+        }).catch(createCb);
+      }, function(err: Error | null, item?: InstanceType) {
+        if (err) reject(err);
+        else resolve(item || null);
       });
-    }
+    });
 
-    Singleton.get(itemId, {
-      identityCache: options.identityCache,
-      saveCheck: opts.settings!.get("instance.identityCacheSaveCheck")
-    }, function (createCb: Function) {
-      model.find(conditions, options, function (err: Error | null, items?: InstanceType[]) {
-        if (err) {
-          return createCb(err);
-        }
-        if (!items || items.length === 0) {
-          return createCb(new ORMError("Not found", 'NOT_FOUND', { model: opts.table }));
-        }
-        return createCb(null, items[0]);
-      });
-    }, cb);
-
-    return this;
+    return resolveWithCallback(promise, callback);
   };
-
-  model.getAsync = promisify(model.get);
 
   model.find = function (...args: any[]): any {
     const conditions: QueryConditions = {};
@@ -705,79 +742,73 @@ export default function Model(opts: ModelOptions): ModelType {
       }
     });
 
-    if (typeof cb !== "function") {
-      return chain;
-    } else {
-      chain.run(cb);
-      return this;
-    }
+    return chain;
   };
-
-  model.findAsync = promisify(model.find);
 
   model.where = model.all = model.find;
-  model.whereAsync = model.allAsync = model.findAsync;
 
-  model.one = function (...args: any[]): ModelType {
-    let cb: Function | null = null;
 
-    for (let i = 0; i < args.length; i++) {
-      if (typeof args[i] === "function") {
-        cb = args.splice(i, 1)[0];
-        break;
-      }
+  // Public async-one method with legacy callback support
+  model.one = function (...args: any[]): Promise<InstanceType | null> {
+    const callback = (args.length > 0 && typeof args[args.length - 1] === "function")
+      ? (args.pop() as (err: Error | null, item?: InstanceType | null) => void)
+      : undefined;
+
+    let conditions: Record<string, unknown> = {};
+    let options: FindOptions | undefined;
+
+    if (args.length > 0 && typeof args[0] === "object" && !Array.isArray(args[0])) {
+      conditions = args.shift() || {};
     }
 
-    if (cb === null) {
-      throw new ORMError("Missing Model.one() callback", 'MISSING_CALLBACK', { model: opts.table });
+    if (args.length > 0 && typeof args[0] === "object" && !Array.isArray(args[0])) {
+      options = args.shift();
     }
 
-    args.push(1);
-    args.push(function (err: Error | null, results?: InstanceType[]) {
-      if (err) {
-        return cb!(err);
-      }
-      return cb!(null, results && results.length ? results[0] : null);
+    const promise = new Promise<InstanceType | null>((resolve, reject) => {
+      (async () => {
+        try {
+          const chain = model.find(conditions, options) as any;
+          chain.limit(1);
+          const results = await chain.run();
+          resolve(results && results.length ? results[0] : null);
+        } catch (err) {
+          reject(err);
+        }
+      })();
     });
 
-    return this.find.apply(this, args);
+    return resolveWithCallback(promise, callback);
   };
 
-  model.oneAsync = promisify(model.one);
+  // Public async-only count method with callback support
+  model.count = function (...args: any[]): Promise<number> {
+    const callback = (args.length > 0 && typeof args[args.length - 1] === "function")
+      ? (args.pop() as (err: Error | null, count?: number) => void)
+      : undefined;
 
-  model.count = function (...args: any[]): ModelType {
-    let conditions: QueryConditions | null = null;
-    let cb: Function | null = null;
+    let conditions: Record<string, unknown> | undefined = undefined;
+    if (args.length > 0 && typeof args[0] === "object" && !Array.isArray(args[0])) {
+      conditions = args.shift();
+    }
 
-    for (let i = 0; i < args.length; i++) {
-      switch (typeof args[i]) {
-        case "object":
-          conditions = args[i];
-          break;
-        case "function":
-          cb = args[i];
-          break;
+    const promise = new Promise<number>((resolve, reject) => {
+      let checkConditions = conditions;
+
+      if (conditions) {
+        checkConditions = Utilities.checkConditions(conditions, one_associations as any);
       }
-    }
 
-    if (typeof cb !== "function") {
-      throw new ORMError("Missing Model.count() callback", 'MISSING_CALLBACK', { model: opts.table });
-    }
-
-    if (conditions) {
-      conditions = Utilities.checkConditions(conditions, one_associations as any);
-    }
-
-    opts.driver.count(opts.table, conditions || {}, {}, function (err: Error | null, data?: any[]) {
-      if (err || !data || data.length === 0) {
-        return cb!(err);
-      }
-      return cb!(null, data[0].c);
+      opts.driver.count(opts.table, checkConditions || {}, {}, function (err: Error | null, data?: any[]) {
+        if (err || !data || data.length === 0) {
+          return reject(err || new Error("Count failed"));
+        }
+        return resolve(data[0].c);
+      });
     });
-    return this;
-  };
 
-  model.countAsync = promisify(model.count);
+    return resolveWithCallback(promise, callback);
+  };
 
   model.aggregate = function (...args: any[]): any {
     let conditions: QueryConditions = {};
@@ -807,114 +838,106 @@ export default function Model(opts: ModelOptions): ModelType {
     });
   };
 
-  model.exists = function (...args: any[]): ModelType {
-    const ids = Array.prototype.slice.apply(args);
-    const cb = ids.pop();
+  // Public async-only exists method
+  model.exists = function (...ids: any[]): Promise<boolean> {
+    const callback = (ids.length > 0 && typeof ids[ids.length - 1] === "function")
+      ? (ids.pop() as (err: Error | null, exists?: boolean) => void)
+      : undefined;
 
-    if (typeof cb !== "function") {
-      throw new ORMError("Missing Model.exists() callback", 'MISSING_CALLBACK', { model: opts.table });
-    }
+    const promise = new Promise<boolean>((resolve, reject) => {
+      let conditions: QueryConditions = {};
+      let i: number;
+      const keys = Array.isArray(opts.keys) ? opts.keys : [opts.keys!];
 
-    let conditions: QueryConditions = {};
-    let i: number;
-    const keys = Array.isArray(opts.keys) ? opts.keys : [opts.keys!];
-
-    if (ids.length === 1 && typeof ids[0] === "object") {
-      if (Array.isArray(ids[0])) {
-        for (i = 0; i < keys.length; i++) {
-          conditions[keys[i]] = ids[0][i];
+      if (ids.length === 1 && typeof ids[0] === "object") {
+        if (Array.isArray(ids[0])) {
+          for (i = 0; i < keys.length; i++) {
+            conditions[keys[i]] = ids[0][i];
+          }
+        } else {
+          conditions = ids[0];
         }
       } else {
-        conditions = ids[0];
+        for (i = 0; i < keys.length; i++) {
+          conditions[keys[i]] = ids[i];
+        }
       }
-    } else {
-      for (i = 0; i < keys.length; i++) {
-        conditions[keys[i]] = ids[i];
-      }
-    }
 
-    if (conditions) {
-      conditions = Utilities.checkConditions(conditions, one_associations as any);
-    }
-
-    (opts.driver.count as any)(opts.table, conditions, {}, function (err: Error | null, data?: any[]) {
-      if (err || !data || data.length === 0) {
-        return cb(err);
+      if (conditions) {
+        conditions = Utilities.checkConditions(conditions, one_associations as any);
       }
-      return cb(null, data[0].c > 0);
+
+      (opts.driver.count as any)(opts.table, conditions, {}, function (err: Error | null, data?: any[]) {
+        if (err || !data || data.length === 0) {
+          return reject(err);
+        }
+        return resolve(data[0].c > 0);
+      });
     });
-    return this;
+
+    return resolveWithCallback(promise, callback);
   };
 
-  model.existsAsync = promisify(model.exists);
+  model.create = function (...args: any[]): Promise<InstanceType | InstanceType[]> {
+    const params = Array.from(args);
+    const callback = (params.length > 0 && typeof params[params.length - 1] === "function")
+      ? (params.pop() as (err: Error | null, result?: InstanceType | InstanceType[]) => void)
+      : undefined;
 
-  model.create = function (...args: any[]): ModelType {
     let itemsParams: any[] = [];
-    const items: InstanceType[] = [];
     let options: any = {};
-    let done: Function | null = null;
     let single = false;
 
-    for (let i = 0; i < args.length; i++) {
-      switch (typeof args[i]) {
+    for (let i = 0; i < params.length; i++) {
+      switch (typeof params[i]) {
         case "object":
-          if (!single && Array.isArray(args[i])) {
-            itemsParams = itemsParams.concat(args[i]);
+          if (!single && Array.isArray(params[i])) {
+            itemsParams = itemsParams.concat(params[i]);
           } else if (i === 0) {
             single = true;
-            itemsParams.push(args[i]);
+            itemsParams.push(params[i]);
           } else {
-            options = args[i];
+            options = params[i];
           }
-          break;
-        case "function":
-          done = args[i];
           break;
       }
     }
 
-    const iterator = function (
-      params: any,
-      index: string | number,
-      cb: (err?: Error | null) => void
-    ): void {
-      createInstance(params, {
-        is_new: true,
-        autoSave: opts.autoSave,
-        autoFetch: false
-      }, function (err, item) {
-        if (err) {
-          if (typeof err === 'object' && err !== null) {
-            (err as any).index = index;
-            (err as any).instance = item;
-          }
-          return cb(err);
-        }
-        item!.save({}, options, function (err?: Error | null) {
-          if (err) {
-            if (typeof err === 'object' && err !== null) {
-              (err as any).index = index;
-              (err as any).instance = item;
-            }
-            return cb(err);
-          }
-          items[typeof index === 'number' ? index : parseInt(index)] = item!;
-          cb();
+    const promise = (async () => {
+      const items: InstanceType[] = [];
+
+      for (let i = 0; i < itemsParams.length; i++) {
+        const itemParams = itemsParams[i];
+        
+        // Create instance without autoSave
+        const item = await new Promise<InstanceType>((resolve, reject) => {
+          createInstance(itemParams, {
+            is_new: true,
+            autoSave: false,
+            autoFetch: false
+          }, (err, inst) => {
+            if (err) reject(err);
+            else resolve(inst!);
+          });
         });
-      });
-    };
+        
+        // Manually save
+        try {
+          await (item.save({}, options) as Promise<void>);
+          items.push(item);
+        } catch (err) {
+          throw err;
+        }
+      }
 
-    async.eachOfSeries(itemsParams, iterator, function (err?: Error | null) {
-      if (err) return done!(err);
-      done!(null, single ? items[0] : items);
-    });
+      return single ? items[0] : items;
+    })();
 
-    return this;
+    return resolveWithCallback(promise, callback);
   };
 
-  model.createAsync = promisify(model.create);
-
-  model.clear = function (cb?: (err?: Error | null) => void): ModelType {
+  // Internal callback-based implementation
+  const _clearCallback = function (this: any, cb: (err?: Error | null) => void): ModelType {
     opts.driver.clear(opts.table, function (err?: Error | null) {
       if (typeof cb === "function") cb(err);
     });
@@ -922,7 +945,15 @@ export default function Model(opts: ModelOptions): ModelType {
     return this;
   };
 
-  model.clearAsync = promisify(model.clear);
+  // Public async-only interface - wrapped to return Promise<void>
+  model.clear = function (): Promise<void> {
+    return new Promise((resolve, reject) => {
+      _clearCallback.call(model, (err?: Error | null) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  };
 
   model.prependValidation = function (key: string, validation: any): void {
     const validations = opts.validations || {};

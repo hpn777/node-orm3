@@ -10,8 +10,31 @@ export = function (uri: string, opts?: any) {
 
   _pending += 1;
 
-  orm.connect(uri, function (err: Error | null, db: any) {
-    if (err) {
+  // Use async connect wrapped to work with middleware style
+  (async () => {
+    try {
+      const db = await orm.connect(uri);
+
+      if (Array.isArray(_db)) {
+        _db.push(db);
+      } else if (_db !== null) {
+        _db = [ _db, db ];
+      } else {
+        _db = db;
+      }
+
+      if (typeof opts.define === "function") {
+        if (opts.define.length > 2) {
+          return opts.define(db, _models, function () {
+            return checkRequestQueue();
+          });
+        }
+
+        opts.define(db, _models);
+      }
+
+      return checkRequestQueue();
+    } catch (err: any) {
       if (typeof opts.error === "function") {
         opts.error(err);
       } else {
@@ -20,27 +43,7 @@ export = function (uri: string, opts?: any) {
 
       return checkRequestQueue();
     }
-
-    if (Array.isArray(_db)) {
-      _db.push(db);
-    } else if (_db !== null) {
-      _db = [ _db, db ];
-    } else {
-      _db = db;
-    }
-
-    if (typeof opts.define === "function") {
-      if (opts.define.length > 2) {
-        return opts.define(db, _models, function () {
-          return checkRequestQueue();
-        });
-      }
-
-      opts.define(db, _models);
-    }
-
-    return checkRequestQueue();
-  });
+  })();
 
   return function ORM_ExpressMiddleware(req: any, res: any, next?: any) {
     if (!Object.prototype.hasOwnProperty.call(req, "models")) {

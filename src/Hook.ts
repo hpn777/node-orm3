@@ -1,51 +1,70 @@
 /**
- * Hook utility functions
+ * Hook utility functions - Promise-based
+ * 
+ * All hooks are now promise-based for consistency with async/await patterns.
+ * Hooks should return a Promise<void> that resolves when the hook is complete.
  */
 
+/**
+ * Emit a hook event (for backward compatibility)
+ * @deprecated Use await hook() directly instead
+ */
 export function trigger(self: any, cb: Function | undefined, ...args: any[]): void {
   if (typeof cb === "function") {
     cb.apply(self, args);
   }
 }
 
-export function wait(
+/**
+ * Wait for a hook to complete
+ * Hooks should be async functions that return Promise<void>
+ * 
+ * @param self - The context to execute the hook in
+ * @param hook - The hook function to execute
+ * @param options - Optional arguments to pass to the hook
+ * @returns A promise that resolves when the hook completes
+ */
+export async function wait(
   self: any,
   hook: Function | undefined,
-  next: (err?: Error) => void,
-  opts?: any
-): void | Promise<void> {
+  optionsOrCallback?: any,
+  maybeCallback?: (err?: Error) => void
+): Promise<void> {
+  let options = optionsOrCallback;
+  let callback = maybeCallback;
+
+  // Backwards compatibility: if only three args and third is a function,
+  // treat it as the callback (Node-style signature).
+  if (typeof optionsOrCallback === "function" && maybeCallback === undefined) {
+    callback = optionsOrCallback as (err?: Error) => void;
+    options = undefined;
+  }
+
   if (typeof hook !== "function") {
-    return next();
+    if (callback) {
+      callback();
+    }
+    return;
   }
 
-  const hookDoesntExpectCallback = opts ? hook.length < 2 : hook.length < 1;
-  
-  let hookValue: any;
-  if (hookDoesntExpectCallback) {
-    // Hook doesn't expect a callback, call it without next parameter
-    if (opts) {
-      hookValue = hook.call(self, opts);
-    } else {
-      hookValue = hook.call(self);
-    }
-  } else {
-    // Hook expects a callback, pass next as callback
-    if (opts) {
-      hookValue = hook.call(self, opts, next);
-    } else {
-      hookValue = hook.call(self, next);
-    }
-  }
+  try {
+    const result = options !== undefined
+      ? hook.call(self, options)
+      : hook.call(self);
 
-  const isPromise = hookValue && typeof hookValue.then === "function";
-
-  if (hookDoesntExpectCallback) {
-    if (isPromise) {
-      return hookValue
-        .then(() => next())
-        .catch(next);
+    if (result && typeof result.then === "function") {
+      await result;
     }
-    return next();
+
+    if (callback) {
+      callback();
+    }
+  } catch (error) {
+    if (callback) {
+      callback(error as Error);
+      return;
+    }
+    throw error;
   }
 }
 

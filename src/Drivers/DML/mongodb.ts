@@ -1,13 +1,33 @@
-import * as Utilities from "../../Utilities";
-const mongodb = require("mongodb");
+/// <reference types="node" />
+
+import { Buffer } from "buffer";
+import { URLSearchParams } from "url";
 import * as _ from "lodash";
 import { PropertyDefinition } from "../../types/Core";
 import type { IDriver, DriverSettings, DriverDefineOptions } from "../../types/Driver";
 
+const mongodb: any = require("mongodb");
+
 export { Driver };
 
+const resolveWithCallback = <T>(promise: Promise<T>, cb?: (err: Error | null, result?: T) => void): Promise<T> | void => {
+  if (typeof cb === "function") {
+    promise.then((result) => cb(null, result)).catch((err: Error) => cb(err));
+    return;
+  }
+  return promise;
+};
+
+const resolveVoidWithCallback = (promise: Promise<void>, cb?: (err: Error | null) => void): Promise<void> | void => {
+  if (typeof cb === "function") {
+    promise.then(() => cb(null)).catch((err: Error) => cb(err));
+    return;
+  }
+  return promise;
+};
+
 function Driver(this: any, config: any, connection: any, opts: any) {
-  this.client = new mongodb.MongoClient();
+  this.client = null;
   this.db     = null;
   this.config = config || {};
   this.opts   = opts;
@@ -22,55 +42,65 @@ function Driver(this: any, config: any, connection: any, opts: any) {
   });
 }
 
-Driver.prototype.sync = function (this: any, opts: any, cb: (err: Error | null) => void) {
-  this.db.createCollection(opts.table, function (err: Error | null, collection: any) {
-    if (err) {
-      return cb(err);
-    }
+Driver.prototype.sync = function (this: any, opts: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = (async () => {
+    const collection = await new Promise<any>((resolve, reject) => {
+      this.db.createCollection(opts.table, (err: Error | null, created: any) => {
+        if (err) return reject(err);
+        resolve(created);
+      });
+    });
 
-    var indexes: string[] = [], pending: number;
+    const indexes: string[] = [];
 
-    for (var i = 0; i < opts.one_associations.length; i++) {
+    for (let i = 0; i < opts.one_associations.length; i++) {
       if (opts.one_associations[i].extension) continue;
       if (opts.one_associations[i].reversed) continue;
 
-      for (var k in opts.one_associations[i].field) {
+      for (const k in opts.one_associations[i].field) {
         indexes.push(k);
       }
     }
 
-    for (i = 0; i < opts.many_associations.length; i++) {
+    for (let i = 0; i < opts.many_associations.length; i++) {
       if (opts.many_associations[i].reversed) continue;
-
       indexes.push(opts.many_associations[i].name);
     }
 
-    pending = indexes.length;
+    if (indexes.length === 0) {
+      return;
+    }
 
-    for (i = 0; i < indexes.length; i++) {
-      collection.createIndex(indexes[i], function () {
-        if (--pending === 0) {
-          return cb(null);
-        }
+    await Promise.all(indexes.map((indexName: string) => new Promise<void>((resolve, reject) => {
+      collection.createIndex(indexName, (err: Error | null) => {
+        if (err) return reject(err);
+        resolve();
       });
-    }
+    })));
+  })();
 
-    if (pending === 0) {
-      return cb(null);
-    }
-  });
+  return resolveVoidWithCallback(promise, cb);
 };
 
-Driver.prototype.drop = function (this: any, opts: any, cb: (err?: Error | null) => void) {
-  return this.db.collection(opts.table).drop(function () {
-    if (typeof cb == "function") {
-      return cb();
-    }
+Driver.prototype.drop = function (this: any, opts: any, cb?: (err?: Error | null) => void): Promise<void> | void {
+  const promise = new Promise<void>((resolve, reject) => {
+    this.db.collection(opts.table).drop((err?: Error | null) => {
+      if (err && (err as any).code !== 26) {
+        return reject(err as Error);
+      }
+      resolve();
+    });
   });
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
-Driver.prototype.ping = function (this: any, cb: (err: Error | null) => void) {
-  return process.nextTick(cb);
+Driver.prototype.ping = function (this: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = new Promise<void>((resolve) => {
+    process.nextTick(() => resolve());
+  });
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
 Driver.prototype.on = function (this: any, ev: string, cb: (err: Error) => void) {
@@ -81,138 +111,167 @@ Driver.prototype.on = function (this: any, ev: string, cb: (err: Error) => void)
   return this;
 };
 
-Driver.prototype.connect = function (this: any, cb: (err: Error | null) => void) {
-  this.client.connect(this.config.href, function (this: any, err: Error | null, db: any) {
-    if (err) {
-      return cb(err);
+Driver.prototype.connect = function (this: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const uri = resolveConnectionString(this.config);
+
+  const promise = (async () => {
+    try {
+      this.client = new mongodb.MongoClient(uri);
+    } catch (err) {
+      throw err as Error;
     }
 
-    this.db = db;
+    await this.client.connect();
 
-    return cb(null);
-  }.bind(this));
+    try {
+      const dbName = (typeof this.config.database === "string" && this.config.database.length > 0)
+        ? this.config.database
+        : undefined;
+      this.db = dbName ? this.client!.db(dbName) : this.client!.db();
+    } catch (err) {
+      this.db = this.client!.db();
+    }
+  })();
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
-Driver.prototype.close = function (this: any, cb?: (err: Error | null) => void) {
-  if (this.db) {
-    this.db.close();
-  }
-  if (typeof cb == "function") {
-    cb(null);
-  }
-  return;
+Driver.prototype.close = function (this: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = (async () => {
+    if (this.client) {
+      await this.client.close();
+    }
+    this.db = null;
+    this.client = null;
+  })();
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
-Driver.prototype.find = function (this: any, fields: string[] | null, table: string, conditions: any, opts: any, cb: (err: Error | null, docs?: any) => void) {
-  var collection = this.db.collection(table);
+Driver.prototype.find = function (this: any, fields: string[] | null, table: string, conditions: any, opts: any, cb?: (err: Error | null, docs?: any) => void): Promise<any> | void {
+  const promise = (async () => {
+    const collection = this.db.collection(table);
 
-  convertToDB(conditions, this.config.timezone);
+    convertToDB(conditions, this.config.timezone);
 
-  var cursor = (fields ? collection.find(conditions, fields) : collection.find(conditions));
+    const cursor = (fields ? collection.find(conditions, fields) : collection.find(conditions));
 
-  if (opts.order) {
-    var orders: any[] = [];
+    if (opts.order) {
+      const orders: any[] = [];
 
-    for (var i = 0; i < opts.order.length; i++) {
-      orders.push([ opts.order[i][0], (opts.order[i][1] == 'Z' ? 'desc' : 'asc') ]);
-    }
-    cursor.sort(orders);
-  }
-  if (opts.offset) {
-    cursor.skip(opts.offset);
-  }
-  if (opts.limit) {
-    cursor.limit(opts.limit);
-  }
-
-  return cursor.toArray(function (this: any, err: Error | null, docs: any[]) {
-    if (err) {
-      throw err;
-      return cb(err);
-    }
-
-    var pending = 0;
-
-    for (var i = 0; i < docs.length; i++) {
-      convertFromDB(docs[i], this.config.timezone);
-      if (opts.extra && opts.extra[docs[i]._id]) {
-        docs[i] = _.merge(docs[i], _.omit(opts.extra[docs[i]._id], '_id'));
+      for (let i = 0; i < opts.order.length; i++) {
+        orders.push([ opts.order[i][0], (opts.order[i][1] == 'Z' ? 'desc' : 'asc') ]);
       }
-      if (opts.createInstance) {
-        pending += 1;
+      cursor.sort(orders);
+    }
+    if (opts.offset) {
+      cursor.skip(opts.offset);
+    }
+    if (opts.limit) {
+      cursor.limit(opts.limit);
+    }
 
-        docs[i] = opts.createInstance(docs[i], {
-          extra : opts.extra_props
-        }, function () {
-          if (--pending === 0) {
-            return cb(null, docs);
-          }
+    const docs = await new Promise<any[]>((resolve, reject) => {
+      cursor.toArray((err: Error | null, result: any[]) => {
+        if (err) return reject(err);
+        resolve(result || []);
+      });
+    });
+
+    const processed = await Promise.all(docs.map((doc: any) => {
+      convertFromDB(doc, this.config.timezone);
+
+      if (opts.extra && opts.extra[doc._id]) {
+        doc = _.merge(doc, _.omit(opts.extra[doc._id], '_id'));
+      }
+
+      if (!opts.createInstance) {
+        return Promise.resolve(doc);
+      }
+
+      return new Promise<any>((resolve) => {
+        const instance = opts.createInstance(doc, {
+          extra: opts.extra_props
+        }, () => {
+          resolve(instance);
         });
+      });
+    }));
+
+    return processed;
+  })();
+
+  return resolveWithCallback(promise, cb);
+};
+
+Driver.prototype.count = function (this: any, table: string, conditions: any, opts: any, cb?: (err: Error | null, data?: any) => void): Promise<any> | void {
+  const promise = (async () => {
+    const collection = this.db.collection(table);
+
+    convertToDB(conditions, this.config.timezone);
+
+    const cursor = collection.find(conditions);
+
+    if (opts.order) {
+      const orders: any[] = [];
+
+      for (let i = 0; i < opts.order.length; i++) {
+        orders.push([ opts.order[i][0], (opts.order[i][1] == 'Z' ? 'desc' : 'asc') ]);
       }
+      cursor.sort(orders);
+    }
+    if (opts.offset) {
+      cursor.skip(opts.offset);
+    }
+    if (opts.limit) {
+      cursor.limit(opts.limit);
     }
 
-    if (pending === 0) {
-      return cb(null, docs);
-    }
-  }.bind(this));
+    const count = await new Promise<number>((resolve, reject) => {
+      cursor.count(true, (err: Error | null, result: number) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+
+    return [{ c: count }];
+  })();
+
+  return resolveWithCallback(promise, cb);
 };
 
-Driver.prototype.count = function (this: any, table: string, conditions: any, opts: any, cb: (err: Error | null, data?: any) => void) {
-  var collection = this.db.collection(table);
+Driver.prototype.insert = function (this: any, table: string, data: any, keyProperties: PropertyDefinition[] | null, cb?: (err: Error | null, ids?: any) => void): Promise<any> | void {
+  const promise = (async () => {
+    convertToDB(data, this.config.timezone);
 
-  convertToDB(conditions, this.config.timezone);
-
-  var cursor     = collection.find(conditions);
-
-  if (opts.order) {
-    var orders: any[] = [];
-
-    for (var i = 0; i < opts.order.length; i++) {
-      orders.push([ opts.order[i][0], (opts.order[i][1] == 'Z' ? 'desc' : 'asc') ]);
-    }
-    cursor.sort(orders);
-  }
-  if (opts.offset) {
-    cursor.skip(opts.offset);
-  }
-  if (opts.limit) {
-    cursor.limit(opts.limit);
-  }
-
-  return cursor.count(true, function (err: Error | null, count: number) {
-    if (err) return cb(err);
-
-    return cb(null, [{ c : count }]);
-  });
-};
-
-Driver.prototype.insert = function (this: any, table: string, data: any, keyProperties: PropertyDefinition[] | null, cb: (err: Error | null, ids?: any) => void) {
-  convertToDB(data, this.config.timezone);
-
-  return this.db.collection(table).insert(
-    data,
-    {
-      w : 1
-    },
-    function (this: any, err: Error | null, docs: any[]) {
-      if (err) return cb(err);
-
-      var i: number, ids: any = {}, prop: PropertyDefinition;
-
-      if (keyProperties && docs.length) {
-        for (i = 0; i < keyProperties.length; i++) {
-          prop = keyProperties[i];
-
-          if (prop.mapsTo && prop.mapsTo in docs[0]) {
-            ids[prop.name!] = docs[0][prop.mapsTo];
-          }
+    const docs = await new Promise<any[]>((resolve, reject) => {
+      this.db.collection(table).insert(
+        data,
+        { w: 1 },
+        (err: Error | null, inserted: any[]) => {
+          if (err) return reject(err);
+          resolve(inserted || []);
         }
-        convertFromDB(ids, this.config.timezone);
-      }
+      );
+    });
 
-      return cb(null, ids);
-    }.bind(this)
-  );
+    const ids: Record<string, unknown> = {};
+
+    if (keyProperties && keyProperties.length && docs.length) {
+      for (let i = 0; i < keyProperties.length; i++) {
+        const prop = keyProperties[i];
+
+        if (prop.mapsTo && prop.mapsTo in docs[0]) {
+          ids[prop.name!] = docs[0][prop.mapsTo];
+        }
+      }
+      convertFromDB(ids, this.config.timezone);
+    }
+
+    return ids;
+  })();
+
+  return resolveWithCallback(promise, cb);
 };
 
 Driver.prototype.hasMany = function (this: any, Model: any, association: any) {
@@ -338,32 +397,102 @@ Driver.prototype.hasMany = function (this: any, Model: any, association: any) {
   };
 };
 
-Driver.prototype.update = function (this: any, table: string, changes: any, conditions: any, cb: (err: Error | null) => void) {
-  convertToDB(changes, this.config.timezone);
-  convertToDB(conditions, this.config.timezone);
+Driver.prototype.update = function (this: any, table: string, changes: any, conditions: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = new Promise<void>((resolve, reject) => {
+    convertToDB(changes, this.config.timezone);
+    convertToDB(conditions, this.config.timezone);
 
-  return this.db.collection(table).update(
-    conditions,
-    {
-      $set   : changes
-    },
-    {
-      safe   : true,
-      upsert : true
-    },
-    cb
-  );
+    this.db.collection(table).update(
+      conditions,
+      { $set: changes },
+      { safe: true, upsert: true },
+      (err: Error | null) => {
+        if (err) return reject(err);
+        resolve();
+      }
+    );
+  });
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
-Driver.prototype.remove = function (this: any, table: string, conditions: any, cb: (err: Error | null) => void) {
-  convertToDB(conditions, this.config.timezone);
+Driver.prototype.remove = function (this: any, table: string, conditions: any, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = new Promise<void>((resolve, reject) => {
+    convertToDB(conditions, this.config.timezone);
 
-  return this.db.collection(table).remove(conditions, cb);
+    this.db.collection(table).remove(conditions, (err: Error | null) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+
+  return resolveVoidWithCallback(promise, cb);
 };
 
-Driver.prototype.clear = function (this: any, table: string, cb: (err: Error | null) => void) {
-  return this.db.collection(table).remove(cb);
+Driver.prototype.clear = function (this: any, table: string, cb?: (err: Error | null) => void): Promise<void> | void {
+  const promise = new Promise<void>((resolve, reject) => {
+    this.db.collection(table).remove((err: Error | null) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+
+  return resolveVoidWithCallback(promise, cb);
 };
+
+function resolveConnectionString(config: any): string {
+  if (config && typeof config.href === "string" && config.href.length > 0) {
+    return config.href;
+  }
+
+  if (config && typeof config.__connectionUri === "string" && config.__connectionUri.length > 0) {
+    return config.__connectionUri;
+  }
+
+  const authProvided = Boolean(config && config.__authProvided);
+  const userProvided = Boolean(config && config.__userProvided);
+  const passwordProvided = Boolean(config && config.__passwordProvided);
+
+  let authPart = "";
+  if (authProvided) {
+    const rawUser = userProvided && typeof config.user === "string" ? config.user : "";
+    const rawPassword = passwordProvided && typeof config.password === "string" ? config.password : "";
+
+    if (passwordProvided) {
+      const encodedUser = encodeURIComponent(rawUser || "");
+      const encodedPassword = encodeURIComponent(rawPassword);
+      authPart = `${encodedUser}:${encodedPassword}@`;
+    } else if (userProvided && rawUser) {
+      authPart = `${encodeURIComponent(rawUser)}@`;
+    }
+  }
+
+  const host = config && typeof config.host === "string" && config.host.length > 0
+    ? config.host
+    : "localhost";
+  const port = config && (typeof config.port === "string" || typeof config.port === "number")
+    ? `:${config.port}`
+    : "";
+  const database = config && typeof config.database === "string" && config.database.length > 0
+    ? config.database
+    : "";
+  const databasePart = database ? `/${database}` : "";
+
+  let query = "";
+  if (config && config.query && typeof config.query === "object") {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(config.query)) {
+      if (value === undefined || value === null) continue;
+      params.append(key, String(value));
+    }
+    const serialized = params.toString();
+    if (serialized.length > 0) {
+      query = `?${serialized}`;
+    }
+  }
+
+  return `mongodb://${authPart}${host}${port}${databasePart}${query}`;
+}
 
 function convertToDB(obj: any, timeZone: string): void {
   for (var k in obj) {
@@ -469,10 +598,22 @@ Driver.prototype.getConnection = function (this: any): unknown {
   return this.db;
 };
 
-['ping', 'find', 'count', 'insert', 'update', 'remove', 'clear',].forEach(function (fnName: string) {
-  (Driver.prototype as any)[fnName + 'Async'] = (Promise as any).promisify((Driver.prototype as any)[fnName]);
-});
-
 Object.defineProperty(Driver.prototype, "isSql", {
     value: false
 });
+
+const asyncCompatMethods = [
+  'ping',
+  'find',
+  'count',
+  'insert',
+  'update',
+  'remove',
+  'clear'
+];
+
+for (const method of asyncCompatMethods) {
+  (Driver.prototype as any)[`${method}Async`] = function (...args: any[]) {
+    return (this[method] as Function).apply(this, args);
+  };
+}

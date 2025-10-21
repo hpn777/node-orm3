@@ -8,7 +8,7 @@ describe("db.driver", function () {
   var db = null;
 
   before(function (done) {
-    helper.connect(function (connection) {
+    helper.connect(async function (connection) {
       db = connection;
 
       var Log = db.define('log', {
@@ -17,15 +17,17 @@ describe("db.driver", function () {
         who: { type: 'text' }
       });
 
-      helper.dropSync(Log, function (err) {
-        if (err) return done(err);
-
-        Log.create([
+      try {
+        await helper.dropSyncAsync(Log);
+        await Log.create([
           { what: "password reset", when: new Date('2013/04/07 12:33:05'), who: "jane" },
           { what: "user login", when: new Date('2013/04/07 13:01:44'), who: "jane" },
           { what: "user logout", when: new Date('2013/05/12 04:09:31'), who: "john" }
-        ], done);
-      });
+        ]);
+        done();
+      } catch (e) {
+        done(e);
+      }
     });
   });
 
@@ -416,37 +418,35 @@ describe("db.driver", function () {
   });
 
   describe("db.serial()", function () {
-    it("should be able to execute chains in serial", function (done) {
+    it("should be able to execute chains in serial", async function () {
       var Person = db.define("person", {
         name: String,
         surname: String
       });
-      helper.dropSync(Person, function () {
-        Person.create([
-          { name: "John", surname: "Doe" },
-          { name: "Jane", surname: "Doe" }
-        ], function () {
-          db.serial(
-            Person.find({ surname: "Doe" }),
-            Person.find({ name: "John" })
-          ).get(function (err, DoeFamily, JohnDoe) {
-            should.equal(err, null);
+      await helper.dropSyncAsync(Person);
+      await Person.create([
+        { name: "John", surname: "Doe" },
+        { name: "Jane", surname: "Doe" }
+      ]);
 
-            should(Array.isArray(DoeFamily));
-            should(Array.isArray(JohnDoe));
+      var results = await db.serial(
+        Person.find({ surname: "Doe" }),
+        Person.find({ name: "John" })
+      ).get();
 
-            DoeFamily.length.should.equal(2);
-            JohnDoe.length.should.equal(1);
+      var DoeFamily = results[0];
+      var JohnDoe = results[1];
 
-            DoeFamily[0].surname.should.equal("Doe");
-            DoeFamily[1].surname.should.equal("Doe");
+      should(Array.isArray(DoeFamily));
+      should(Array.isArray(JohnDoe));
 
-            JohnDoe[0].name.should.equal("John");
+      DoeFamily.length.should.equal(2);
+      JohnDoe.length.should.equal(1);
 
-            return done();
-          });
-        });
-      });
+      DoeFamily[0].surname.should.equal("Doe");
+      DoeFamily[1].surname.should.equal("Doe");
+
+      JohnDoe[0].name.should.equal("John");
     });
   });
 

@@ -1,7 +1,5 @@
-var ORM = require('../../');
 var helper = require('../support/spec_helper');
 var should = require('should');
-var async = require('async');
 var common = require('../common');
 var _ = require('lodash');
 
@@ -10,50 +8,33 @@ describe("hasOne Async", function () {
   var Person = null;
   var Pet = null;
 
-  var setup = function () {
-    return function (done) {
+  var setup = function (opts) {
+    return async function () {
       Person = db.define('person', {
         name: String
       });
       Pet = db.define('pet', {
         name: String
       });
-      Person.hasOne('pet', Pet, {
+      Person.hasOne('pet', Pet, _.extend({
         reverse: 'owners',
         field: 'pet_id'
-      });
+      }, opts || {}));
 
-      return helper.dropSync([Person, Pet], function () {
-        // Running in series because in-memory sqlite encounters problems
-        async.series([
-          Person.create.bind(Person, { name: "John Doe" }),
-          Person.create.bind(Person, { name: "Jane Doe" }),
-          Pet.create.bind(Pet, { name: "Deco"  }),
-          Pet.create.bind(Pet, { name: "Fido"  })
-        ], done);
-      });
+      await helper.dropSyncAsync([Person, Pet]);
+      await Person.create([{ name: "John Doe" }, { name: "Jane Doe" }]);
+      await Pet.create([{ name: "Deco" }, { name: "Fido" }]);
     };
   };
 
-  before(function (done) {
-    helper.connect(function (connection) {
-      db = connection;
-      done();
-    });
+  before(async function () {
+    db = await helper.connectAsync();
   });
 
   describe("reverse", function () {
-    removeHookRun = false;
+    before(setup());
 
-    before(setup({
-      hooks: {
-        beforeRemove: function () {
-          removeHookRun = true;
-        }
-      }
-    }));
-
-    it("should create methods in both models", function (done) {
+    it("should create methods in both models", function () {
       var person = Person(1);
       var pet = Pet(1);
 
@@ -65,155 +46,122 @@ describe("hasOne Async", function () {
       pet.getOwners.should.be.a.Function();
       pet.setOwners.should.be.a.Function();
       pet.hasOwners.should.be.a.Function();
-  
-      person.getPetAsync.should.be.a.Function();
-      person.setPetAsync.should.be.a.Function();
-      person.removePetAsync.should.be.a.Function();
-      person.hasPetAsync.should.be.a.Function();
-  
-      pet.getOwnersAsync.should.be.a.Function();
-      pet.setOwnersAsync.should.be.a.Function();
-      pet.hasOwnersAsync.should.be.a.Function();
-
-      return done();
     });
 
-    describe(".getAccessorAsync()", function () {
+    describe(".getAccessor()", function () {
+      it("compare if model updated", async function () {
+        var johnList = await Person.find({ name: "John Doe" });
+        var decoList = await Pet.find({ name: "Deco" });
 
-      it("compare if model updated", function () {
-        return Person
-          .findAsync({ name: "John Doe" })
-          .then(function (John) {
-            return Promise.all([John, Pet.findAsync({ name: "Deco" })]);
-          })
-          .then(function ([John, deco]) {
-            return Promise.all([John[0], deco[0], deco[0].hasOwnersAsync()]);
-          })
-          .then(function ([John, deco, has_owner]) {
-            has_owner.should.equal(false);
-            return Promise.all([deco.setOwnersAsync(John), deco]);
-          })
-          .then(function ([John, deco]) {
-            return Promise.all([John, deco.getOwnersAsync()]);
-          })
-          .then(function ([John, JohnCopy]) {
-            should(Array.isArray(JohnCopy));
-            John.should.eql(JohnCopy[0]);
-          });
+        var John = johnList[0];
+        var Deco = decoList[0];
+
+        should.exist(John);
+        should.exist(Deco);
+
+        (await Deco.hasOwners()).should.equal(false);
+        await Deco.setOwners(John);
+
+        var owners = await Deco.getOwners();
+        should(Array.isArray(owners));
+        owners.should.have.length(1);
+        owners[0].should.eql(John);
       });
-      
     });
 
-    it("should be able to set an array of people as the owner", function () {
-      return Person
-        .findAsync({ name: ["John Doe", "Jane Doe"] })
-        .then(function (owners) {
-          return Promise.all([owners, Pet.findAsync({ name: "Fido" })]);
-        })
-        .then(function ([owners, Fido]) {
-          return Promise.all([Fido[0], owners, Fido[0].hasOwnersAsync()]);
-        })
-        .then(function ([Fido, owners, has_owner]) {
-          has_owner.should.equal(false);
-          return Promise.all([Fido, owners, Fido.setOwnersAsync(owners)]);
-        })
-        .then(function ([Fido, owners]) {
-          return Promise.all([owners, Fido.getOwnersAsync()]);
-        })
-        .then(function ([owners, ownersCopy]) {
-          should(Array.isArray(owners));
-          owners.length.should.equal(2);
-          // Don't know which order they'll be in.
-          var idProp = common.protocol() == 'mongodb' ? '_id' : 'id'
+    it("should be able to set an array of people as the owner", async function () {
+      var owners = await Person.find({ name: ["John Doe", "Jane Doe"] });
+      var fidoList = await Pet.find({ name: "Fido" });
 
-          if (owners[0][idProp] == ownersCopy[0][idProp]) {
-            owners[0].should.eql(ownersCopy[0]);
-            owners[1].should.eql(ownersCopy[1]);
-          } else {
-            owners[0].should.eql(ownersCopy[1]);
-            owners[1].should.eql(ownersCopy[0]);
-          }
-        });
+      var Fido = fidoList[0];
+      should.exist(Fido);
+
+      (await Fido.hasOwners()).should.equal(false);
+      await Fido.setOwners(owners);
+
+      var ownersCopy = await Fido.getOwners();
+      should(Array.isArray(ownersCopy));
+      ownersCopy.should.have.length(2);
+
+      var idProp = common.protocol() === 'mongodb' ? '_id' : 'id';
+      var originalIds = owners.map(function (owner) { return owner[idProp]; }).sort();
+      var copyIds = ownersCopy.map(function (owner) { return owner[idProp]; }).sort();
+      copyIds.should.eql(originalIds);
     });
   });
 
   describe("reverse find", function () {
     before(setup());
-    it("should be able to find given an association id", function () {
-      return Person
-        .findAsync({ name: "John Doe" })
-        .then(function (persons) {
-          var John = persons[0];
-          should.exist(John);
-          return Promise.all([John, Pet.findAsync({ name: "Deco" })]);
-        })
-        .then(function ([John, Deco]) {
-          var Deco = Deco[0];
-          should.exist(Deco);
-          return Promise.all([John, Deco, Deco.hasOwnersAsync()]);
-        })
-        .then(function ([John, Deco, has_owner]) {
-          has_owner.should.equal(false);
-          return Promise.all([John, Deco, Deco.setOwnersAsync(John)]);
-        })
-        .then(function ([John, Deco]) {
-          return Promise.all([John, Person.findAsync({ pet_id: Deco[Pet.id] })]);
-        })
-        .then(function ([John, owner]) {
-          should.exist(owner);
-          should.equal(owner[0].name, John.name);
-        });
-    });
-    
-    it("should be able to find given an association instance", function () {
-      return Person
-        .findAsync({ name: "John Doe" })
-        .then(function (John) {
-          var John = John[0];
-          should.exist(John);
-          return Promise.all([John, Pet.findAsync({ name: "Deco" })]);
-        })
-        .then(function ([John, Deco]) {
-          var Deco = Deco[0];
-          should.exist(Deco);
-          return Promise.all([John, Deco, Deco.hasOwnersAsync()]);
-        })
-        .then(function ([John, Deco, has_owner]) {
-          has_owner.should.equal(false);
-          return Promise.all([John, Deco, Deco.setOwnersAsync(John)]);
-        })
-        .then(function ([John, Deco]) {
-          return Promise.all([John, Person.findAsync({ pet: Deco })]);
-        })
-        .then(function([John, owner]){
-          should.exist(owner[0]);
-          should.equal(owner[0].name, John.name);
-        });
+
+    it("should be able to find given an association id", async function () {
+      var johnList = await Person.find({ name: "John Doe" });
+      var John = johnList[0];
+      should.exist(John);
+
+      var decoList = await Pet.find({ name: "Deco" });
+      var Deco = decoList[0];
+      should.exist(Deco);
+
+      (await Deco.hasOwners()).should.equal(false);
+      await Deco.setOwners(John);
+
+      var ownersById = await Person.find({ pet_id: Deco[Pet.id] });
+      should.exist(ownersById);
+      should.exist(ownersById[0]);
+      ownersById[0].name.should.equal(John.name);
     });
 
-    it("should be able to find given a number of association instances with a single primary key", function () {
-      return Person.findAsync({ name: "John Doe" })
-        .then(function (John) {
-          should.exist(John);
-          return Promise.all([John, Pet.allAsync()]);
-        })
-        .then(function ([John, pets]) {
-          should.exist(pets);
-          should.equal(pets.length, 2);
-          return Promise.all([John[0], pets, pets[0].hasOwnersAsync()]);
-        })
-        .then(function ([John, pets, has_owner]) {
-          has_owner.should.equal(false);
-          return Promise.all([John, pets, pets[0].setOwnersAsync(John)]);
-        })
-        .then(function ([John, pets]) {
-          return Promise.all([John, Person.findAsync({ pet: pets })]);
-        })
-        .then(function ([John, owners]) {
-          should.exist(owners[0]);
-          owners.length.should.equal(1);
-          should.equal(owners[0].name, John.name);
-        });
+    it("should be able to find given an association instance", async function () {
+      var johnList = await Person.find({ name: "John Doe" });
+      var John = johnList[0];
+      should.exist(John);
+
+      var decoList = await Pet.find({ name: "Deco" });
+      var Deco = decoList[0];
+      should.exist(Deco);
+
+      (await Deco.hasOwners()).should.equal(false);
+      await Deco.setOwners(John);
+
+      var ownersByInstance = await Person.find({ pet: Deco });
+      should.exist(ownersByInstance[0]);
+      ownersByInstance[0].name.should.equal(John.name);
+    });
+
+    it("should be able to find given a number of association instances with a single primary key", async function () {
+      var johnList = await Person.find({ name: "John Doe" });
+      var John = johnList[0];
+      should.exist(John);
+
+      var pets = await Pet.find();
+      should.exist(pets);
+      pets.length.should.equal(2);
+
+      (await pets[0].hasOwners()).should.equal(false);
+      await pets[0].setOwners(John);
+
+      var owners = await Person.find({ pet: pets });
+      should.exist(owners[0]);
+      owners.length.should.equal(1);
+      owners[0].name.should.equal(John.name);
+    });
+
+    it("should be able to find given a number of association instances with a multiple primary key", async function () {
+      var johnList = await Person.find({
+        name: "John Doe"
+      });
+      var John = johnList[0];
+      should.exist(John);
+
+      var pets = await Pet.find();
+      should.exist(pets);
+
+      (await pets[0].hasOwners()).should.equal(false);
+      await pets[0].setOwners(John);
+
+      var owners = await Person.find({ pet: pets });
+      should.exist(owners[0]);
+      owners[0].name.should.equal(John.name);
     });
   });
 });

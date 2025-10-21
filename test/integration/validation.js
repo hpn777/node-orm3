@@ -12,7 +12,7 @@ describe("Validations", function() {
   var Person2 = null;
 
   var setup = function (returnAll, required) {
-    return function (done) {
+    return async function () {
       db.settings.set('properties.required',      required);
       db.settings.set('instance.returnAllErrors', returnAll);
 
@@ -26,7 +26,7 @@ describe("Validations", function() {
         }
       });
 
-      return helper.dropSync(Person, done);
+      return await helper.dropSyncAsync(Person);
     };
   };
 
@@ -37,7 +37,7 @@ describe("Validations", function() {
     return next();
   };
   var setupAlwaysValidate = function () {
-    return function (done) {
+    return async function () {
       Person2 = db.define("person2", {
         name:   { type: 'text'   },
         mustbenull: { type: 'text', required:false, alwaysValidate: true }
@@ -49,63 +49,52 @@ describe("Validations", function() {
           canbenull: notNull
         }
       });
-      return helper.dropSync(Person2, done);
+      return await helper.dropSyncAsync(Person2);
     };
   };
 
-  before(function (done) {
-    helper.connect(function (connection) {
-      db = connection;
-      done();
-    });
+  before(async function () {
+    db = await helper.connectAsync();
   });
 
-  after(function () {
-    db.close();
+  after(async function () {
+    await db.close();
   });
 
 
   describe("alwaysValidate", function () {
     before(setupAlwaysValidate());
 
-    it("I want to see it fail first (the absence of evidence)", function(done) {
+    it("I want to see it fail first (the absence of evidence)", async function() {
       var rachel = new Person2({name: 'rachel', canbenull:null, mustbenull:null});
-      rachel.save(function (err) {
-        should.not.exist(err);
-        return done();
-      });
+      await rachel.save();
     });
 
-    it("then it should work", function(done) {
+    it("then it should work", async function() {
       var tom = new Person2({name: 'tom', canbenull:null, mustbenull:'notnull'});
-      tom.save(function (err) {
-        should.exist(err);
-        should.equal(typeof err,   "object");
-        should.equal(err.property, "mustbenull");
-        should.equal(err.msg,      "notnull");
-        should.equal(err.type,     "validation");
-        should.equal(tom.id,      null);
-        return done();
-      });
+      const err = await tom.save().catch(e => e);
+      should.exist(err);
+      should.equal(typeof err,   "object");
+      should.equal(err.property, "mustbenull");
+      should.equal(err.msg,      "notnull");
+      should.equal(err.type,     "validation");
+      should.equal(tom.id,      null);
     });
   });
 
   describe("predefined", function () {
     before(setup(false, false));
 
-    it("should work", function(done) {
+    it("should work", async function() {
       var john = new Person({name: 'fdhdjendfjkdfhshdfhakdfjajhfdjhbfgk'});
 
-      john.save(function (err) {
-        should.equal(typeof err,   "object");
-        should.equal(err.property, "name");
-        should.equal(err.value,    "fdhdjendfjkdfhshdfhakdfjajhfdjhbfgk");
-        should.equal(err.msg,      "out-of-range-length");
-        should.equal(err.type,     "validation");
-        should.equal(john.id,      null);
-
-        return done();
-      });
+      const err = await john.save().catch(e => e);
+      should.equal(typeof err,   "object");
+      should.equal(err.property, "name");
+      should.equal(err.value,    "fdhdjendfjkdfhshdfhakdfjajhfdjhbfgk");
+      should.equal(err.msg,      "out-of-range-length");
+      should.equal(err.type,     "validation");
+      should.equal(john.id,      null);
     });
 
     describe("unique", function () {
@@ -114,74 +103,51 @@ describe("Validations", function() {
       var Product = null, Supplier = null;
 
       var setupUnique = function (ignoreCase, scope, msg) {
-        return function (done) {
+        return async function () {
           Supplier = db.define("supplier", {
             name     : String
                     }, {
             cache: false
           });
-          helper.dropSync(Supplier, function(err){
-            if (err) {
-              return done(err);
+          await helper.dropSyncAsync(Supplier);
+
+          Product = db.define("productUnique", {
+            instock  : { type: 'boolean', required: true, defaultValue: false },
+            name     : String,
+            category : String
+          }, {
+            cache: false,
+            validations: {
+              name      : ORM.validators.unique({ ignoreCase: ignoreCase, scope: scope }, msg),
+              instock   : ORM.validators.required(),
+              productId : ORM.validators.unique() // this must be straight after a required & validated row.
             }
-
-            Product = db.define("productUnique", {
-              instock  : { type: 'boolean', required: true, defaultValue: false },
-              name     : String,
-              category : String
-            }, {
-              cache: false,
-              validations: {
-                name      : ORM.validators.unique({ ignoreCase: ignoreCase, scope: scope }, msg),
-                instock   : ORM.validators.required(),
-                productId : ORM.validators.unique() // this must be straight after a required & validated row.
-              }
-            });
-                Product.hasOne('supplier',  Supplier,  { field: 'supplierId' });
-
-            return helper.dropSync(Product, done);
           });
+          Product.hasOne('supplier',  Supplier,  { field: 'supplierId' });
+
+          return await helper.dropSyncAsync(Product);
         };
       };
 
       describe("simple", function () {
         before(setupUnique(false, false));
 
-        it("should return validation error for duplicate name", function (done) {
-          Product.create({name: 'fork'}, function (err, product) {
-            should.not.exist(err);
+        it("should return validation error for duplicate name", async function () {
+          await Product.create({name: 'fork'});
 
-            Product.create({name: 'fork'}, function (err, product) {
-              should.exist(err);
-
-              return done();
-            });
-          });
+          const err = await Product.create({name: 'fork'}).catch(e => e);
+          should.exist(err);
         });
 
-        it("should pass with different names", function (done) {
-          Product.create({name: 'spatula'}, function (err, product) {
-            should.not.exist(err);
-
-            Product.create({name: 'plate'}, function (err, product) {
-              should.not.exist(err);
-
-              return done();
-            });
-          });
+        it("should pass with different names", async function () {
+          await Product.create({name: 'spatula'});
+          await Product.create({name: 'plate'});
         });
 
         // Technically this is covered by the tests above, but I'm putting it here for clarity's sake. 3 HOURS WASTED *sigh.
-        it("should not leak required state from previous validation for association properties [regression test]", function (done) {
-          Product.create({ name: 'pencil', productId: null}, function (err, product) {
-            should.not.exist(err);
-
-            Product.create({ name: 'pencilcase', productId: null }, function (err, product) {
-              should.not.exist(err);
-
-              return done();
-            });
-          });
+        it("should not leak required state from previous validation for association properties [regression test]", async function () {
+          await Product.create({ name: 'pencil', productId: null});
+          await Product.create({ name: 'pencilcase', productId: null });
         });
       });
 
@@ -190,157 +156,88 @@ describe("Validations", function() {
 
           before(setupUnique(true, ['category']));
 
-          it("should return validation error if other property also matches", function(done) {
-            Product.create({name: 'red', category: 'chair'}, function (err, product) {
-              should.not.exist(err);
+          it("should return validation error if other property also matches", async function() {
+            await Product.create({name: 'red', category: 'chair'});
 
-              Product.create({name: 'red', category: 'chair'}, function (err, product) {
-                should.exist(err);
-                should.equal(err.msg, 'not-unique');
-
-                return done();
-              });
-            });
+            const err = await Product.create({name: 'red', category: 'chair'}).catch(e => e);
+            should.exist(err);
+            should.equal(err.msg, 'not-unique');
           });
 
-          it("should pass if other property is different", function (done) {
-            Product.create({name: 'blue', category: 'chair'}, function (err, product) {
-              should.not.exist(err);
-
-              Product.create({name: 'blue', category: 'pen'}, function (err, product) {
-                should.not.exist(err);
-
-                return done();
-              });
-            });
+          it("should pass if other property is different", async function () {
+            await Product.create({name: 'blue', category: 'chair'});
+            await Product.create({name: 'blue', category: 'pen'});
           });
 
           // In SQL unique index land, NULL values are not considered equal.
-          it("should pass if other property is null", function (done) {
-            Product.create({name: 'blue', category: null}, function (err, product) {
-              should.not.exist(err);
-
-              Product.create({name: 'blue', category: null}, function (err, product) {
-                should.not.exist(err);
-
-                return done();
-              });
-            });
+          it("should pass if other property is null", async function () {
+            await Product.create({name: 'blue', category: null});
+            await Product.create({name: 'blue', category: null});
           });
         });
 
         describe("to hasOne property", function () {
           firstId = secondId = null;
 
-          before(function(done){
-            setupUnique(true, ['supplierId'])(function(err) {
-              should.not.exist(err);
-              Supplier.create({name: 'first'}, function (err, supplier) {
-                should.not.exist(err);
+          before(async function(){
+            await setupUnique(true, ['supplierId'])();
+            
+            const firstSupplier = await Supplier.create({name: 'first'});
+            firstId = firstSupplier.id;
 
-                firstId = supplier.id;
-
-                Supplier.create({name: 'second'}, function (err, supplier) {
-                  should.not.exist(err);
-
-                  secondId = supplier.id;
-                  done();
-                });
-              });
-            });
+            const secondSupplier = await Supplier.create({name: 'second'});
+            secondId = secondSupplier.id;
           });
 
-          it("should return validation error if hasOne property also matches", function(done) {
-            Product.create({name: 'red', supplierId: firstId}, function (err, product) {
-              should.not.exist(err);
+          it("should return validation error if hasOne property also matches", async function() {
+            await Product.create({name: 'red', supplierId: firstId});
 
-              Product.create({name: 'red', supplierId: firstId}, function (err, product) {
-                should.exist(err);
-                should.equal(err.msg, 'not-unique');
-
-                return done();
-              });
-            });
+            const err = await Product.create({name: 'red', supplierId: firstId}).catch(e => e);
+            should.exist(err);
+            should.equal(err.msg, 'not-unique');
           });
 
-          it("should pass if hasOne property is different", function (done) {
-            Product.create({name: 'blue', supplierId: firstId}, function (err, product) {
-              should.not.exist(err);
-
-              Product.create({name: 'blue', supplierId: secondId}, function (err, product) {
-                should.not.exist(err);
-
-                return done();
-              });
-            });
+          it("should pass if hasOne property is different", async function () {
+            await Product.create({name: 'blue', supplierId: firstId});
+            await Product.create({name: 'blue', supplierId: secondId});
           });
 
           // In SQL unique index land, NULL values are not considered equal.
-          it("should pass if other property is null", function (done) {
-            Product.create({name: 'blue', category: null}, function (err, product) {
-              should.not.exist(err);
-
-              Product.create({name: 'blue', category: null}, function (err, product) {
-                should.not.exist(err);
-
-                return done();
-              });
-            });
+          it("should pass if other property is null", async function () {
+            await Product.create({name: 'blue', category: null});
+            await Product.create({name: 'blue', category: null});
           });
         });
       });
 
       describe("ignoreCase", function () {
         if (protocol != 'mysql') {
-          it("false should do a case sensitive comparison", function (done) {
-            setupUnique(false, false)(function (err) {
-              should.not.exist(err);
+          it("false should do a case sensitive comparison", async function () {
+            await setupUnique(false, false)();
 
-              Product.create({name: 'spork'}, function (err, product) {
-                should.not.exist(err);
-
-                Product.create({name: 'spOrk'}, function (err, product) {
-                  should.not.exist(err);
-
-                  return done();
-                });
-              });
-            });
+            await Product.create({name: 'spork'});
+            await Product.create({name: 'spOrk'});
           });
         }
 
-        it("true should do a case insensitive comparison", function (done) {
-          setupUnique(true, false)(function (err) {
-            should.not.exist(err);
+        it("true should do a case insensitive comparison", async function () {
+          await setupUnique(true, false)();
 
-            Product.create({name: 'stapler'}, function (err, product) {
-              should.not.exist(err);
+          await Product.create({name: 'stapler'});
 
-              Product.create({name: 'staplER'}, function (err, product) {
-                should.exist(err);
-                should.equal(err.msg, 'not-unique');
-
-                return done();
-              });
-            });
-          });
+          const err = await Product.create({name: 'staplER'}).catch(e => e);
+          should.exist(err);
+          should.equal(err.msg, 'not-unique');
         });
 
-        it("true should do a case insensitive comparison on scoped properties too", function (done) {
-          setupUnique(true, ['category'], "name already taken for this category")(function (err) {
-            should.not.exist(err);
+        it("true should do a case insensitive comparison on scoped properties too", async function () {
+          await setupUnique(true, ['category'], "name already taken for this category")();
 
-            Product.create({name: 'black', category: 'pen'}, function (err, product) {
-              should.not.exist(err);
+          await Product.create({name: 'black', category: 'pen'});
 
-              Product.create({name: 'Black', category: 'Pen'}, function (err, product) {
-                should.exist(err);
-                should.equal(err.msg, "name already taken for this category");
-
-                return done();
-              });
-            });
-          });
+          const err = await Product.create({name: 'Black', category: 'Pen'}).catch(e => e);
+          should.exist(err);
+          should.equal(err.msg, "name already taken for this category");
         });
 
       });
@@ -351,60 +248,47 @@ describe("Validations", function() {
     describe("properties.required = false", function() {
       before(setup(false, false));
 
-      it("should save when properties are null", function(done) {
+      it("should save when properties are null", async function() {
         var john = new Person();
 
-        john.save(function (err) {
-          should.equal(err, null);
-          should.exist(john[Person.id]);
-
-          return done();
-        });
+        await john.save();
+        should.exist(john[Person.id]);
       });
 
-      it("shouldn't save when a property is invalid", function(done) {
+      it("shouldn't save when a property is invalid", async function() {
         var john = new Person({ height: 4 });
 
-        john.save(function (err) {
-          should.notEqual(err, null);
-          should.equal(err.property, 'height');
-          should.equal(err.value,     4);
-          should.equal(err.msg,      'out-of-range-number');
-          should.equal(err.type,     'validation');
-          should.equal(john.id,      null);
-
-          return done();
-        });
+        const err = await john.save().catch(e => e);
+        should.notEqual(err, null);
+        should.equal(err.property, 'height');
+        should.equal(err.value,     4);
+        should.equal(err.msg,      'out-of-range-number');
+        should.equal(err.type,     'validation');
+        should.equal(john.id,      null);
       });
     });
 
     describe("properties.required = true", function() {
       before(setup(false, true));
 
-      it("should not save when properties are null", function(done) {
+      it("should not save when properties are null", async function() {
         var john = new Person();
 
-        john.save(function (err) {
-          should.notEqual(err, null);
-          should.equal(john.id, null);
-
-          return done();
-        });
+        const err = await john.save().catch(e => e);
+        should.notEqual(err, null);
+        should.equal(john.id, null);
       });
 
-      it("should return a required error when the first property is blank", function(done) {
+      it("should return a required error when the first property is blank", async function() {
         var john = new Person({ height: 4 });
 
-        john.save(function (err) {
-          should.notEqual(err, null);
-          should.equal(err.property, 'name');
-          should.equal(err.value,    null);
-          should.equal(err.msg,      'required');
-          should.equal(err.type,     'validation');
-          should.equal(john.id,      null);
-
-          return done();
-        });
+        const err = await john.save().catch(e => e);
+        should.notEqual(err, null);
+        should.equal(err.property, 'name');
+        should.equal(err.value,    null);
+        should.equal(err.msg,      'required');
+        should.equal(err.type,     'validation');
+        should.equal(john.id,      null);
       });
     });
   });
@@ -413,56 +297,50 @@ describe("Validations", function() {
     describe("properties.required = false", function() {
       before(setup(true, false));
 
-      it("should return all errors when a property is invalid", function(done) {
+      it("should return all errors when a property is invalid", async function() {
         var john = new Person({ name: 'n', height: 4 });
 
-        john.save(function (err) {
-          should.notEqual(err, null);
-          should(Array.isArray(err));
-          should.equal(err.length, 2);
+        const err = await john.save().catch(e => e);
+        should.notEqual(err, null);
+        should(Array.isArray(err));
+        should.equal(err.length, 2);
 
-          should.deepEqual(err[0], _.extend(new Error('out-of-range-length'), {
-            property: 'name', value: 'n', msg: 'out-of-range-length', type: 'validation'
-          }));
+        should.deepEqual(err[0], _.extend(new Error('out-of-range-length'), {
+          property: 'name', value: 'n', msg: 'out-of-range-length', type: 'validation'
+        }));
 
-          should.deepEqual(err[1], _.extend(new Error('out-of-range-number'), {
-            property: 'height', value: 4, msg: 'out-of-range-number', type: 'validation'
-          }));
+        should.deepEqual(err[1], _.extend(new Error('out-of-range-number'), {
+          property: 'height', value: 4, msg: 'out-of-range-number', type: 'validation'
+        }));
 
-          should.equal(john.id, null);
-
-          return done();
-        });
+        should.equal(john.id, null);
       });
     });
 
     describe("properties.required = true", function() {
       before(setup(true, true));
 
-      it("should return required and user specified validation errors", function(done) {
+      it("should return required and user specified validation errors", async function() {
         var john = new Person({ height: 4 });
 
-        john.save(function (err) {
-          should.notEqual(err, null);
-          should(Array.isArray(err));
-          should.equal(err.length, 3);
+        const err = await john.save().catch(e => e);
+        should.notEqual(err, null);
+        should(Array.isArray(err));
+        should.equal(err.length, 3);
 
-          should.deepEqual(err[0], _.extend(new Error('required'), {
-            property: 'name', value: null, msg: 'required', type: 'validation'
-          }));
+        should.deepEqual(err[0], _.extend(new Error('required'), {
+          property: 'name', value: null, msg: 'required', type: 'validation'
+        }));
 
-          should.deepEqual(err[1], _.extend(new Error('undefined'), {
-            property: 'name', value: null, msg: 'undefined', type: 'validation'
-          }));
+        should.deepEqual(err[1], _.extend(new Error('undefined'), {
+          property: 'name', value: null, msg: 'undefined', type: 'validation'
+        }));
 
-          should.deepEqual(err[2], _.extend(new Error('out-of-range-number'), {
-            property: 'height', value: 4, msg: 'out-of-range-number', type: 'validation'
-          }));
+        should.deepEqual(err[2], _.extend(new Error('out-of-range-number'), {
+          property: 'height', value: 4, msg: 'out-of-range-number', type: 'validation'
+        }));
 
-          should.equal(john.id, null);
-
-          return done();
-        });
+        should.equal(john.id, null);
       });
     });
   });
@@ -470,7 +348,7 @@ describe("Validations", function() {
   describe("mockable", function() {
     before(setup());
 
-    it("validate should be writable", function(done) {
+    it("validate should be writable", async function() {
       var John = new Person({
         name: "John"
       });
@@ -479,9 +357,11 @@ describe("Validations", function() {
         validateCalled = true;
         cb(null);
       };
-      John.validate(function(err) {
-        should.equal(validateCalled,true);
-        return done();
+      await new Promise((resolve) => {
+        John.validate(function(err) {
+          should.equal(validateCalled,true);
+          resolve();
+        });
       });
     });
   });

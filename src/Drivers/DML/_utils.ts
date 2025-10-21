@@ -2,7 +2,7 @@
  * DML utilities
  */
 
-import { promisify } from 'util';
+import { promisify } from '../../utils/promises';
 
 export function promisifyFunctions(target: any, functions: string[]): void {
   functions.forEach((fnName) => {

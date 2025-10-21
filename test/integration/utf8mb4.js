@@ -8,48 +8,39 @@ describe("UTF8mb4", function() {
   var Text;
 
   var setup = function () {
-    return function (done) {
+    return async function () {
       Text = db.define("utf8mb4text", {
         value: String
       });
 
       ORM.singleton.clear();
 
-      return helper.dropSync(Text, function () {
-        Text.create({ value: 'Hello 😃' }, done);
-      });
+      await helper.dropSyncAsync(Text);
+      await Text.create({ value: 'Hello 😃' });
     };
   };
 
-  before(function (done) {
+  before(async function () {
     var opts = {};
 
     if (common.protocol() == 'mysql') {
       opts = { query: { charset: 'utf8mb4' }};
     }
 
-    helper.connect(opts, function (connection) {
-      db = connection;
-
-      return done();
-    });
+    db = await helper.connectAsync(opts);
   });
 
-  after(function () {
-    return db.close();
+  after(async function () {
+    await db.close();
   });
 
   describe("strings", function () {
     before(setup());
 
-    it("should be stored", function (done) {
-      Text.one(function (err, item) {
-        should.equal(err, null);
-        should.exist(item);
-        should.equal(item.value, 'Hello 😃');
-
-        return done();
-      });
+    it("should be stored", async function () {
+      var item = await Text.one();
+      should.exist(item);
+      should.equal(item.value, 'Hello 😃');
     });
   });
 });

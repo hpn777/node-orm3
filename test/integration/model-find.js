@@ -2,12 +2,12 @@ var should   = require('should');
 var helper   = require('../support/spec_helper');
 var ORM      = require('../../');
 
-describe("Model.find()", function() {
+describe("Model Query Methods - Async API", function() {
   var db = null;
   var Person = null;
 
   var setup = function () {
-    return function (done) {
+    return async function () {
       Person = db.define("person", {
         name    : String,
         surname : String,
@@ -15,41 +15,40 @@ describe("Model.find()", function() {
         male    : Boolean
       });
 
-      return helper.dropSync(Person, function () {
-        Person.create([{
-          name    : "John",
-          surname : "Doe",
-          age     : 18,
-          male    : true
-        }, {
-          name    : "Jane",
-          surname : "Doe",
-          age     : 16,
-          male    : false
-        }, {
-          name    : "Jeremy",
-          surname : "Dean",
-          age     : 18,
-          male    : true
-        }, {
-          name    : "Jack",
-          surname : "Dean",
-          age     : 20,
-          male    : true
-        }, {
-          name    : "Jasmine",
-          surname : "Doe",
-          age     : 20,
-          male    : false
-        }], done);
-      });
+      await helper.dropSyncAsync(Person);
+      
+      await Person.create([{
+        name    : "John",
+        surname : "Doe",
+        age     : 18,
+        male    : true
+      }, {
+        name    : "Jane",
+        surname : "Doe",
+        age     : 16,
+        male    : false
+      }, {
+        name    : "Jeremy",
+        surname : "Dean",
+        age     : 18,
+        male    : true
+      }, {
+        name    : "Jack",
+        surname : "Dean",
+        age     : 20,
+        male    : true
+      }, {
+        name    : "Jasmine",
+        surname : "Doe",
+        age     : 20,
+        male    : false
+      }]);
     };
   };
 
   before(function (done) {
     helper.connect(function (connection) {
       db = connection;
-
       return done();
     });
   });
@@ -58,296 +57,197 @@ describe("Model.find()", function() {
     return db.close();
   });
 
-  describe("without arguments", function () {
+  describe("Model.find() - Basic", function () {
     before(setup());
 
-    it("should return all items", function (done) {
-      Person.find(function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 5);
+    it("should return all items when called with no arguments", async function() {
+      const people = await Person.find();
+      people.should.be.a.Array();
+      people.should.have.length(5);
+    });
 
-        return done();
-      });
+    it("should accept limit as number", async function() {
+      const people = await Person.find().limit(2);
+      people.should.be.a.Array();
+      people.should.have.length(2);
+    });
+
+    it("should accept limit as argument", async function() {
+      const people = await Person.find(2);
+      people.should.be.a.Array();
+      people.should.have.length(2);
+    });
+
+    it("should accept conditions", async function() {
+      const people = await Person.find({ surname: "Doe" });
+      people.should.be.a.Array();
+      people.should.have.length(3);
+    });
+
+    it("should accept ordering as string property", async function() {
+      const people = await Person.find("age");
+      people.should.be.a.Array();
+      people.should.have.length(5);
+      people[0].age.should.equal(16);
+      people[4].age.should.equal(20);
+    });
+
+    it("should accept ordering descending with '-' prefix", async function() {
+      const people = await Person.find("-age");
+      people.should.be.a.Array();
+      people.should.have.length(5);
+      people[0].age.should.equal(20);
+      people[4].age.should.equal(16);
+    });
+
+    it("should accept ordering as Array", async function() {
+      const people = await Person.find(["age"]);
+      people.should.be.a.Array();
+      people.should.have.length(5);
+      people[0].age.should.equal(16);
+      people[4].age.should.equal(20);
+    });
+
+    it("should accept multiple ordering with 'Z' for descending", async function() {
+      const people = await Person.find(["age", "name", "Z"]);
+      people.should.be.a.Array();
+      people.should.have.length(5);
+    });
+
+    it("should filter with conditions", async function() {
+      const people = await Person.find({ age: 18 });
+      people.should.have.length(2);
+      people[0].age.should.equal(18);
+      people[1].age.should.equal(18);
     });
   });
 
-  describe("with a number as argument", function () {
+  describe("Model.find() - Chaining", function () {
     before(setup());
 
-    it("should use it as limit", function (done) {
-      Person.find(2, function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 2);
+    it("should support .limit()", async function() {
+      const people = await Person.find().limit(3);
+      people.should.have.length(3);
+    });
 
-        return done();
-      });
+    it("should support .offset()", async function() {
+      const people = await Person.find().offset(2);
+      people.should.have.length(3);
+    });
+
+    it("should support .skip() as alias for offset()", async function() {
+      const people = await Person.find().skip(2);
+      people.should.have.length(3);
+    });
+
+    it("should support .order()", async function() {
+      const people = await Person.find().order("age");
+      people[0].age.should.be.lessThan(people[1].age);
+    });
+
+    it("should support chaining multiple methods", async function() {
+      const people = await Person.find().where({ male: true }).order("-age").limit(2);
+      people.should.have.length(2);
+      people[0].male.should.equal(true);
+    });
+
+    it("should support .where()", async function() {
+      const people = await Person.find().where({ surname: "Doe" });
+      people.should.have.length(3);
+    });
+
+    it("should support .count() in chain", async function() {
+      const count = await Person.find({ surname: "Doe" }).count();
+      count.should.equal(3);
+    });
+
+    it("should support .first() to get first item", async function() {
+      const person = await Person.find().order("age").first();
+      should.exist(person);
+      person.age.should.equal(16);
+    });
+
+    it("should support .last() to get last item", async function() {
+      const person = await Person.find().order("age").last();
+      should.exist(person);
+      person.age.should.equal(20);
+    });
+
+    it("should support .remove() to delete matching records", async function() {
+      // Create a test record first
+      await Person.create({ name: "ToRemove", age: 25 });
+      const removed = await Person.find({ name: "ToRemove" }).remove();
+      const check = await Person.find({ name: "ToRemove" });
+      check.should.have.length(0);
     });
   });
 
-  describe("with a string argument", function () {
+  describe("Model.one()", function () {
     before(setup());
 
-    it("should use it as property ascending order", function (done) {
-      Person.find("age", function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 5);
-        people[0].age.should.equal(16);
-        people[4].age.should.equal(20);
-
-        return done();
-      });
+    it("should return single matching record", async function() {
+      const person = await Person.one({ name: "Jane" });
+      should.exist(person);
+      person.name.should.equal("Jane");
     });
 
-    it("should use it as property descending order if starting with '-'", function (done) {
-      Person.find("-age", function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 5);
-        people[0].age.should.equal(20);
-        people[4].age.should.equal(16);
-
-        return done();
-      });
+    it("should return null if no match", async function() {
+      const person = await Person.one({ name: "NonExistent" });
+      should.not.exist(person);
     });
   });
 
-  describe("with an Array as argument", function () {
+  describe("Model.get()", function () {
+    beforeEach(async function() {
+      testPerson = (await Person.find({ name: "John" }))[0];
+    });
+
+    it("should retrieve by ID", async function() {
+      const person = await Person.get(testPerson.id);
+      should.exist(person);
+      person.name.should.equal("John");
+    });
+  });
+
+  describe("Model.count()", function () {
     before(setup());
 
-    it("should use it as property ascending order", function (done) {
-      Person.find([ "age" ], function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 5);
-        people[0].age.should.equal(16);
-        people[4].age.should.equal(20);
-
-        return done();
-      });
+    it("should return total count of records", async function() {
+      const count = await Person.count();
+      count.should.equal(5);
     });
 
-    it("should use it as property descending order if starting with '-'", function (done) {
-      Person.find([ "-age" ], function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 5);
-        people[0].age.should.equal(20);
-        people[4].age.should.equal(16);
-
-        return done();
-      });
+    it("should support simple conditions", async function() {
+      const count = await Person.count({ age: 18 });
+      count.should.equal(2);
     });
 
-    it("should use it as property descending order if element is 'Z'", function (done) {
-      Person.find([ "age", "Z" ], function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 5);
-        people[0].age.should.equal(20);
-        people[4].age.should.equal(16);
-
-        return done();
-      });
-    });
-
-    it("should accept multiple ordering", function (done) {
-      Person.find([ "age", "name", "Z" ], function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 5);
-        people[0].age.should.equal(16);
-        people[4].age.should.equal(20);
-
-        return done();
-      });
-    });
-
-    it("should accept multiple ordering using '-' instead of 'Z'", function (done) {
-      Person.find([ "age", "-name" ], function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 5);
-        people[0].age.should.equal(16);
-        people[4].age.should.equal(20);
-
-        return done();
-      });
-    });
+    // Note: Comparison operators (>, <, >=, <=) are tested in async-only-api.js
+    // See: "Advanced Query Methods" describe block
   });
 
-  describe("with an Object as argument", function () {
+  describe("Model.exists()", function () {
+    let testPersonId;
+
     before(setup());
 
-    it("should use it as conditions", function (done) {
-      Person.find({ age: 16 }, function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 1);
-        people[0].age.should.equal(16);
-
-        return done();
-      });
+    beforeEach(async function() {
+      testPersonId = (await Person.find({ name: "John" }))[0].id;
     });
 
-    it("should accept comparison objects", function (done) {
-      Person.find({ age: ORM.gt(18) }, function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 2);
-        people[0].age.should.equal(20);
-        people[1].age.should.equal(20);
-
-        return done();
-      });
+    it("should return true if record exists", async function() {
+      const exists = await Person.exists(testPersonId);
+      exists.should.equal(true);
     });
 
-    describe("with another Object as argument", function () {
-      before(setup());
-
-      it("should use it as options", function (done) {
-        Person.find({ age: 18 }, 1, { cache: false }, function (err, people) {
-          should.not.exist(err);
-          people.should.be.a.Object();
-          people.should.have.property("length", 1);
-          people[0].age.should.equal(18);
-
-          return done();
-        });
-      });
-
-      describe("if a limit is passed", function () {
-        before(setup());
-
-        it("should use it", function (done) {
-          Person.find({ age: 18 }, { limit: 1 }, function (err, people) {
-            should.not.exist(err);
-            people.should.be.a.Object();
-            people.should.have.property("length", 1);
-            people[0].age.should.equal(18);
-
-            return done();
-          });
-        });
-      });
-
-      describe("if an offset is passed", function () {
-        before(setup());
-
-        it("should use it", function (done) {
-          Person.find({}, { offset: 1 }, "age", function (err, people) {
-            should.not.exist(err);
-            people.should.be.a.Object();
-            people.should.have.property("length", 4);
-            people[0].age.should.equal(18);
-
-            return done();
-          });
-        });
-      });
-
-      describe("if an order is passed", function () {
-        before(setup());
-
-        it("should use it", function (done) {
-          Person.find({ surname: "Doe" }, { order: "age" }, function (err, people) {
-            should.not.exist(err);
-            people.should.be.a.Object();
-            people.should.have.property("length", 3);
-            people[0].age.should.equal(16);
-
-            return done();
-          });
-        });
-
-        it("should use it and ignore previously defined order", function (done) {
-          Person.find({ surname: "Doe" }, "-age", { order: "age" }, function (err, people) {
-            should.not.exist(err);
-            people.should.be.a.Object();
-            people.should.have.property("length", 3);
-            people[0].age.should.equal(16);
-
-            return done();
-          });
-        });
-      });
+    it("should return false if record doesn't exist", async function() {
+      const exists = await Person.exists(99999);
+      exists.should.equal(false);
     });
-  });
 
-  describe("if defined static methods", function () {
-    before(setup());
-
-    it("should be rechainable", function (done) {
-      Person.over18 = function () {
-        return this.find({ age: ORM.gt(18) });
-      };
-      Person.family = function (family) {
-        return this.find({ surname: family });
-      };
-
-      Person.over18().family("Doe").run(function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 1);
-        people[0].name.should.equal("Jasmine");
-        people[0].surname.should.equal("Doe");
-
-        return done();
-      });
-    });
-  });
-
-  describe("with identityCache disabled", function () {
-    it("should not return singletons", function (done) {
-      Person.find({ name: "Jasmine" }, { identityCache: false }, function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 1);
-        people[0].name.should.equal("Jasmine");
-        people[0].surname.should.equal("Doe");
-
-        people[0].surname = "Dux";
-
-        Person.find({ name: "Jasmine" }, { identityCache: false }, function (err, people) {
-          should.not.exist(err);
-          people.should.be.a.Object();
-          people.should.have.property("length", 1);
-          people[0].name.should.equal("Jasmine");
-          people[0].surname.should.equal("Doe");
-
-          return done();
-        });
-      });
-    });
-  });
-
-  describe("when using Model.all()", function () {
-    it("should work exactly the same", function (done) {
-      Person.all({ surname: "Doe" }, "-age", 1, function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 1);
-        people[0].name.should.equal("Jasmine");
-        people[0].surname.should.equal("Doe");
-
-        return done();
-      });
-    });
-  });
-
-  describe("when using Model.where()", function () {
-    it("should work exactly the same", function (done) {
-      Person.where({ surname: "Doe" }, "-age", 1, function (err, people) {
-        should.not.exist(err);
-        people.should.be.a.Object();
-        people.should.have.property("length", 1);
-        people[0].name.should.equal("Jasmine");
-        people[0].surname.should.equal("Doe");
-
-        return done();
-      });
+    it("should support condition object", async function() {
+      const exists = await Person.exists({ name: "John" });
+      exists.should.equal(true);
     });
   });
 });

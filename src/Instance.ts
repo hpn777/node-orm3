@@ -6,7 +6,7 @@ import * as Utilities from './Utilities';
 import * as Property from './Property';
 import * as Hook from './Hook';
 import enforce from './shims/enforce';
-import { promisify } from 'util';
+import { promisify } from './utils/promises';
 import type { InstanceData, HookMap, PropertyDefinition } from './types/Core';
 
 export interface InstanceOptions {
@@ -61,7 +61,6 @@ export function Instance(Model: any, opts: InstanceOptions): any {
   opts.associations = {};
   opts.originalKeyValues = {};
 
-  const promiseFunctionPostfix = "Async";
   let instance_saving = false;
   const events: Record<string, Function[]> = {};
   const instance: any = {};
@@ -93,103 +92,114 @@ export function Instance(Model: any, opts: InstanceOptions): any {
     }
   };
 
-  const handleValidations = (cb: (err?: any) => void): void => {
+  const handleValidations = async (): Promise<any> => {
     let required: boolean, alwaysValidate: boolean;
 
-    Hook.wait(instance, opts.hooks.beforeValidation, (err?: Error) => {
-      let k: string, i: number;
-      if (err) {
-        return saveError(cb, err);
-      }
+    return new Promise<any[]>((resolve, reject) => {
+      Hook.wait(instance, opts.hooks.beforeValidation, (err?: Error) => {
+        let k: string, i: number;
+        if (err) {
+          return reject(err);
+        }
 
-      const checks = new (enforce as any).Enforce({
-        returnAllErrors: Model.settings.get("instance.returnAllErrors")
-      });
+        const checks = new (enforce as any).Enforce({
+          returnAllErrors: Model.settings.get("instance.returnAllErrors")
+        });
 
-      for (k in opts.validations) {
-        required = false;
+        for (k in opts.validations) {
+          required = false;
 
-        if (Model.properties[k]) {
-          required = Model.properties[k].required;
-          alwaysValidate = Model.properties[k].alwaysValidate;
-        } else {
-          for (i = 0; i < opts.one_associations.length; i++) {
-            if (opts.one_associations[i].field === k) {
-              required = opts.one_associations[i].required;
-              break;
+          if (Model.properties[k]) {
+            required = Model.properties[k].required;
+            alwaysValidate = Model.properties[k].alwaysValidate;
+          } else {
+            for (i = 0; i < opts.one_associations.length; i++) {
+              if (opts.one_associations[i].field === k) {
+                required = opts.one_associations[i].required;
+                break;
+              }
             }
           }
+          if (!alwaysValidate && !required && instance[k] == null) {
+            continue;
+          }
+          for (i = 0; i < opts.validations[k].length; i++) {
+            checks.add(k, opts.validations[k][i]);
+          }
         }
-        if (!alwaysValidate && !required && instance[k] == null) {
-          continue;
-        }
-        for (i = 0; i < opts.validations[k].length; i++) {
-          checks.add(k, opts.validations[k][i]);
-        }
-      }
 
-      checks.context("instance", instance);
-      checks.context("model", Model);
-      checks.context("driver", opts.driver);
+        checks.context("instance", instance);
+        checks.context("model", Model);
+        checks.context("driver", opts.driver);
 
-      return checks.check(instance, cb);
+        checks.check(instance, (validationErr?: any) => {
+          resolve(validationErr ?? null);
+        });
+      });
     });
   };
 
-  const saveError = (cb: Function, err: Error): void => {
-    instance_saving = false;
-
+  const saveError = (err: any): never => {
     emitEvent("save", err, instance);
 
     Hook.trigger(instance, opts.hooks.afterSave, false);
 
-    if (typeof cb === "function") {
-      cb(err, instance);
-    }
+    throw err;
   };
 
-  const saveInstance = (saveOptions: SaveOptions, cb: (err?: Error | null, instance?: any) => void): void => {
-    if (instance_saving && saveOptions.saveAssociations !== false) {
-      return cb(null, instance);
-    }
-    instance_saving = true;
-
-    handleValidations((err?: any) => {
-      if (err) {
-        return saveError(cb, err);
-      }
-
-      if (opts.is_new) {
-        waitHooks(["beforeCreate", "beforeSave"], (err?: Error) => {
-          if (err) {
-            return saveError(cb, err);
-          }
-
-          return saveNew(saveOptions, getInstanceData(), cb);
-        });
-      } else {
-        waitHooks(["beforeSave"], (err?: Error) => {
-          if (err) {
-            return saveError(cb, err);
-          }
-
-          return savePersisted(saveOptions, getInstanceData(), cb);
-        });
-      }
-    });
-  };
-
-  const runAfterSaveActions = (cb: () => void, create: boolean, err?: Error): void => {
-    instance_saving = false;
-
+  const runAfterSaveActions = async (create: boolean, err?: Error): Promise<void> => {
     emitEvent("save", err, instance);
 
     if (create) {
       Hook.trigger(instance, opts.hooks.afterCreate, !err);
     }
     Hook.trigger(instance, opts.hooks.afterSave, !err);
+  };
 
-    cb();
+  const markAsFinalizedError = (err: any): Error => {
+    if (err && typeof err === "object") {
+      (err as any).__skipSaveErrorHandling = true;
+      return err as Error;
+    }
+
+    const wrapped = new Error(String(err));
+    (wrapped as any).__skipSaveErrorHandling = true;
+    return wrapped;
+  };
+
+  const saveInstance = async (saveOptions: SaveOptions = {}): Promise<void> => {
+    if (instance_saving && saveOptions.saveAssociations !== false) {
+      return;
+    }
+
+    instance_saving = true;
+
+    try {
+      if (Object.keys(opts.validations || {}).length !== 0) {
+        const validationErrors = await handleValidations();
+
+        if (Array.isArray(validationErrors)) {
+          if (validationErrors.length) {
+            throw validationErrors;
+          }
+        } else if (validationErrors) {
+          throw validationErrors;
+        }
+      }
+
+      if (opts.is_new) {
+        await saveNew(saveOptions, getInstanceData());
+      } else {
+        await savePersisted(saveOptions, getInstanceData());
+      }
+    } catch (err: any) {
+      if (err && err.__skipSaveErrorHandling) {
+        throw err;
+      }
+      saveError(err);
+    } finally {
+      instance_saving = false;
+    }
   };
 
   const getInstanceData = (): Record<string, any> => {
@@ -231,75 +241,61 @@ export function Instance(Model: any, opts: InstanceOptions): any {
     return nextHook();
   };
 
-  const saveNew = (saveOptions: SaveOptions, data: Record<string, any>, cb: (err?: Error | null, instance?: any) => void): void => {
+  const saveNew = async (saveOptions: SaveOptions, data: Record<string, any>): Promise<void> => {
     let i: number, prop: any;
-
-    const finish = (err?: Error): void => {
-      runAfterSaveActions(() => {
-        if (err) return cb(err);
-        saveInstanceExtra(cb);
-      }, true, err);
-    };
 
     data = Utilities.transformPropertyNames(data, Model.properties);
 
-    opts.driver.insert(opts.table, data, opts.keyProperties, (save_err: Error | null, info?: any) => {
-      if (save_err) {
-        return saveError(cb, save_err);
-      }
-
-      opts.changes!.length = 0;
-
-      for (i = 0; i < opts.keyProperties.length; i++) {
-        prop = opts.keyProperties[i];
-        opts.data![prop.name] = Object.prototype.hasOwnProperty.call(info, prop.name) ? info[prop.name] : data[prop.name];
-      }
-      opts.is_new = false;
-      rememberKeys();
-
-      if (!shouldSaveAssocs(saveOptions)) {
-        return finish();
-      }
-
-      return saveAssociations(finish);
+    const info = await new Promise<any>((resolve, reject) => {
+      opts.driver.insert(opts.table, data, opts.keyProperties, (saveErr: Error | null, insertInfo?: any) => {
+        if (saveErr) {
+          return reject(saveErr);
+        }
+        resolve(insertInfo);
+      });
     });
+
+    opts.changes!.length = 0;
+
+    const insertInfo = info || {};
+
+    for (i = 0; i < opts.keyProperties.length; i++) {
+      prop = opts.keyProperties[i];
+      opts.data![prop.name] = Object.prototype.hasOwnProperty.call(insertInfo, prop.name) ? insertInfo[prop.name] : data[prop.name];
+    }
+    opts.is_new = false;
+    rememberKeys();
+
+    let assocError: Error | undefined;
+
+    if (shouldSaveAssocs(saveOptions)) {
+      try {
+        await saveAssociations();
+      } catch (err) {
+        assocError = err as Error;
+      }
+    }
+
+    await runAfterSaveActions(true, assocError);
+
+    if (assocError) {
+      throw assocError;
+    }
+
+    try {
+      await saveInstanceExtra();
+    } catch (err) {
+      throw markAsFinalizedError(err);
+    }
   };
 
-  const savePersisted = (saveOptions: SaveOptions, data: Record<string, any>, cb: (err?: Error | null, instance?: any) => void): void => {
+  const savePersisted = async (saveOptions: SaveOptions, data: Record<string, any>): Promise<void> => {
     let changes: Record<string, any> = {};
     const conditions: Record<string, any> = {};
     let i: number, prop: any;
+    let saved = false;
 
-    const next = (saved: boolean): void => {
-      const finish = (): void => {
-        saveInstanceExtra(cb);
-      };
-
-      if (!saved && !shouldSaveAssocs(saveOptions)) {
-        finish();
-      } else {
-        if (!shouldSaveAssocs(saveOptions)) {
-          runAfterSaveActions(() => {
-            finish();
-          }, false);
-        } else {
-          saveAssociations((err?: Error, assocSaved?: boolean) => {
-            if (saved || assocSaved) {
-              runAfterSaveActions(() => {
-                if (err) return cb(err);
-                finish();
-              }, false, err);
-            } else {
-              finish();
-            }
-          });
-        }
-      }
-    };
-
-    if (opts.changes!.length === 0) {
-      next(false);
-    } else {
+    if (opts.changes!.length !== 0) {
       for (i = 0; i < opts.changes!.length; i++) {
         changes[opts.changes![i]] = data[opts.changes![i]];
       }
@@ -309,93 +305,140 @@ export function Instance(Model: any, opts: InstanceOptions): any {
       }
       changes = Utilities.transformPropertyNames(changes, Model.properties) as any;
 
-      opts.driver.update(opts.table, changes, conditions, (err?: Error) => {
-        if (err) {
-          return saveError(cb, err);
-        }
-        opts.changes!.length = 0;
-        rememberKeys();
-
-        next(true);
+      await new Promise<void>((resolve, reject) => {
+        opts.driver.update(opts.table, changes, conditions, (err?: Error) => {
+          if (err) {
+            return reject(err);
+          }
+          resolve();
+        });
       });
+
+      saved = true;
+      opts.changes!.length = 0;
+      rememberKeys();
+    }
+
+    let assocSaved = false;
+    let assocError: Error | undefined;
+
+    if (shouldSaveAssocs(saveOptions)) {
+      try {
+        assocSaved = await saveAssociations();
+      } catch (err) {
+        assocError = err as Error;
+        assocSaved = true;
+      }
+    }
+
+    if (saved || assocSaved) {
+      await runAfterSaveActions(false, assocError);
+    }
+
+    if (assocError) {
+      throw assocError;
+    }
+
+    try {
+      await saveInstanceExtra();
+    } catch (err) {
+      throw markAsFinalizedError(err);
     }
   };
 
-  const saveAssociations = (cb: (err?: Error, saved?: boolean) => void): void => {
-    let pending = 1;
-    let errored = false;
-    let i: number, j: number;
+  const callWithPromise = async (accessor: string, payload: any): Promise<void> => {
+    const fn = instance[accessor];
 
-    const saveAssociation = (accessor: string, instances: any): void => {
-      pending += 1;
+    if (typeof fn !== "function") {
+      return;
+    }
 
-      instance[accessor](instances, (err?: Error) => {
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+
+      const finalize = (err?: Error | null) => {
+        if (settled) return;
+        settled = true;
         if (err) {
-          if (errored) return;
-
-          errored = true;
-          return cb(err, true);
+          reject(err);
+        } else {
+          resolve();
         }
+      };
 
-        if (--pending === 0) {
-          return cb(undefined, true);
+      try {
+        const possiblePromise = fn.call(instance, payload, (err?: Error | null) => finalize(err));
+
+        if (possiblePromise && typeof possiblePromise.then === "function") {
+          possiblePromise.then(() => finalize(), (err: Error) => finalize(err));
+        } else if (fn.length < 2) {
+          finalize();
         }
-      });
-    };
+      } catch (err) {
+        finalize(err as Error);
+      }
+    });
+  };
 
-    const _saveOneAssociation = (assoc: any): void => {
+  const saveAssociations = async (): Promise<boolean> => {
+    let savedAny = false;
+
+    const saveOneAssociation = async (assoc: any): Promise<void> => {
       if (!instance[assoc.name] || typeof instance[assoc.name] !== "object") return;
+
       if (assoc.reversed) {
         if (!Array.isArray(instance[assoc.name])) {
           instance[assoc.name] = [instance[assoc.name]];
         }
+
         for (let i = 0; i < instance[assoc.name].length; i++) {
           if (!instance[assoc.name][i].isInstance) {
             instance[assoc.name][i] = new assoc.model(instance[assoc.name][i]);
           }
-          saveAssociation(assoc.setAccessor, instance[assoc.name][i]);
+          await callWithPromise(assoc.setAccessor, instance[assoc.name][i]);
+          savedAny = true;
         }
         return;
       }
+
       if (!instance[assoc.name].isInstance) {
         instance[assoc.name] = new assoc.model(instance[assoc.name]);
       }
 
-      saveAssociation(assoc.setAccessor, instance[assoc.name]);
+      await callWithPromise(assoc.setAccessor, instance[assoc.name]);
+      savedAny = true;
     };
 
-    for (i = 0; i < opts.one_associations.length; i++) {
-      _saveOneAssociation(opts.one_associations[i]);
+    for (let i = 0; i < opts.one_associations.length; i++) {
+      await saveOneAssociation(opts.one_associations[i]);
     }
 
-    const _saveManyAssociation = (assoc: any): void => {
+    const saveManyAssociation = async (assoc: any): Promise<void> => {
       const assocVal = instance[assoc.name];
 
       if (!Array.isArray(assocVal)) return;
       if (!((opts.associations as any)![assoc.name]).changed) return;
 
-      for (j = 0; j < assocVal.length; j++) {
+      for (let j = 0; j < assocVal.length; j++) {
         if (!assocVal[j].isInstance) {
           assocVal[j] = new assoc.model(assocVal[j]);
         }
       }
 
-      saveAssociation(assoc.setAccessor, assocVal);
+      await callWithPromise(assoc.setAccessor, assocVal);
+      savedAny = true;
     };
 
-    for (i = 0; i < opts.many_associations.length; i++) {
-      _saveManyAssociation(opts.many_associations[i]);
+    for (let i = 0; i < opts.many_associations.length; i++) {
+      await saveManyAssociation(opts.many_associations[i]);
     }
 
-    if (--pending === 0) {
-      return cb(undefined, false);
-    }
+    return savedAny;
   };
 
-  const saveInstanceExtra = (cb: (err?: Error | null, instance?: any) => void): void => {
+  const saveInstanceExtra = async (): Promise<void> => {
     if (opts.extrachanges!.length === 0) {
-      if (cb) return cb(null, instance);
-      else return;
+      return;
     }
 
     const data: Record<string, any> = {};
@@ -423,19 +466,24 @@ export function Instance(Model: any, opts: InstanceOptions): any {
       }
     }
 
-    opts.driver.update(opts.extra_info!.table, data, conditions, (err?: Error) => {
-      return cb(err || null);
+    await new Promise<void>((resolve, reject) => {
+      opts.driver.update(opts.extra_info!.table, data, conditions, (err?: Error) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve();
+      });
     });
   };
 
-  const removeInstance = (cb: (err: Error | null, instance?: any) => void): void => {
+  const removeInstance = async (): Promise<void> => {
     if (opts.is_new) {
-      return cb(null);
+      return;
     }
 
     const conditions: Record<string, any> = {};
     const keys = Array.isArray(opts.keys) ? opts.keys : [opts.keys];
-    
+
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
       if (key) {
@@ -443,27 +491,35 @@ export function Instance(Model: any, opts: InstanceOptions): any {
       }
     }
 
-    Hook.wait(instance, opts.hooks.beforeRemove, (err?: Error) => {
-      if (err) {
-        emitEvent("remove", err, instance);
-        if (typeof cb === "function") {
-          cb(err, instance);
-        }
-        return;
-      }
-
-      emitEvent("beforeRemove", instance);
-
-      opts.driver.remove(opts.table, conditions, (err?: Error, data?: any) => {
-        Hook.trigger(instance, opts.hooks.afterRemove, !err);
-
-        emitEvent("remove", err, instance);
-
-        if (typeof cb === "function") {
-          cb(err || null, instance);
-        }
+    try {
+      await new Promise<void>((resolve, reject) => {
+        Hook.wait(instance, opts.hooks.beforeRemove, (err?: Error) => {
+          if (err) return reject(err);
+          resolve();
+        });
       });
-    });
+    } catch (err) {
+      emitEvent("remove", err, instance);
+      throw err;
+    }
+
+    emitEvent("beforeRemove", instance);
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        opts.driver.remove(opts.table, conditions, (err?: Error) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+    } catch (err) {
+      Hook.trigger(instance, opts.hooks.afterRemove, false);
+      emitEvent("remove", err, instance);
+      throw err;
+    }
+
+    Hook.trigger(instance, opts.hooks.afterRemove, true);
+    emitEvent("remove", undefined, instance);
   };
 
   const saveInstanceProperty = (key: string, value: any): void => {
@@ -652,12 +708,12 @@ export function Instance(Model: any, opts: InstanceOptions): any {
   });
 
   Object.defineProperty(instance, "save", {
-    value: function (...args: any[]) {
+    value: async function (...args: any[]) {
       let arg: any = null;
       let objCount = 0;
       const data: Record<string, any> = {};
       let saveOptions: SaveOptions = {};
-      let cb: ((err: Error | null, instance?: any) => void) | null = null;
+      let callback: ((err?: Error | null, instance?: any) => void) | null = null;
 
       while (args.length > 0) {
         arg = args.shift();
@@ -675,7 +731,7 @@ export function Instance(Model: any, opts: InstanceOptions): any {
             objCount++;
             break;
           case 'function':
-            cb = arg;
+            callback = arg;
             break;
           default:
             const err: any = new Error("Unknown parameter type '" + (typeof arg) + "' in Instance.save()");
@@ -685,19 +741,35 @@ export function Instance(Model: any, opts: InstanceOptions): any {
       }
 
       for (const k in data) {
-        if (data.hasOwnProperty(k)) {
+        if (Object.prototype.hasOwnProperty.call(data, k)) {
           this[k] = data[k];
         }
       }
 
-      saveInstance(saveOptions, (err?: Error | null) => {
-        if (!cb) return;
-        if (err) return cb(err);
+      const invokeCallback = (err?: Error | null): Error | null => {
+        if (!callback) return null;
 
-        return cb(null, instance);
-      });
+        try {
+          callback(err || undefined, err ? undefined : instance);
+          return null;
+        } catch (cbErr) {
+          return cbErr as Error;
+        }
+      };
 
-      return this;
+      try {
+        await saveInstance(saveOptions);
+      } catch (err) {
+        const callbackErr = invokeCallback(err as Error);
+        throw callbackErr || err;
+      }
+
+      const callbackErr = invokeCallback(null);
+      if (callbackErr) {
+        throw callbackErr;
+      }
+
+      return instance;
     },
     enumerable: false,
     writable: true
@@ -712,10 +784,9 @@ export function Instance(Model: any, opts: InstanceOptions): any {
   });
 
   Object.defineProperty(instance, "remove", {
-    value: function (cb: (err: Error | null, instance?: any) => void) {
-      removeInstance(cb);
-
-      return this;
+    value: async function () {
+      await removeInstance();
+      return instance;
     },
     enumerable: false,
     writable: true
@@ -772,10 +843,9 @@ export function Instance(Model: any, opts: InstanceOptions): any {
   });
 
   Object.defineProperty(instance, "validate", {
-    value: function (cb: (err: null, errors: any) => void) {
-      handleValidations((errors?: any) => {
-        cb(null, errors || false);
-      });
+    value: async function () {
+      const errors = await handleValidations();
+      return errors || [];
     },
     enumerable: false,
     writable: true
@@ -800,14 +870,7 @@ export function Instance(Model: any, opts: InstanceOptions): any {
     enumerable: false
   });
 
-  for (let j = 0; j < INSTANCE_METHOD_NAMES.length; j++) {
-    const name = INSTANCE_METHOD_NAMES[j];
-    Object.defineProperty(instance, name + promiseFunctionPostfix, {
-      value: promisify(instance[name]),
-      enumerable: false,
-      writable: true
-    });
-  }
+  // Methods are now async-only, no need for promisify wrapper
 
   for (i = 0; i < opts.keyProperties.length; i++) {
     const prop = opts.keyProperties[i];

@@ -18,7 +18,7 @@ describe("hasOne", function() {
 
   var setup = function (opts) {
     opts = opts || {};
-    return function (done) {
+    return async function () {
       db.settings.set('instance.identityCache', false);
       db.settings.set('instance.returnAllErrors', true);
       Tree  = db.define("tree",   { type:   { type: 'text'    } });
@@ -34,37 +34,31 @@ describe("hasOne", function() {
       Leaf.hasOne('stalk', Stalk, { field: 'stalkId', mapsTo: 'stalk_id' });
       Leaf.hasOne('hole',  Hole,  { field: 'holeId' });
 
-      return helper.dropSync([Tree, Stalk, Hole, Leaf], function() {
-        Tree.create({ type: 'pine' }, function (err, tree) {
-          should.not.exist(err);
-          treeId = tree[Tree.id];
-          Leaf.create({ size: 14 }, function (err, leaf) {
-            should.not.exist(err);
-            leafId = leaf[Leaf.id];
-            leaf.setTree(tree, function (err) {
-              should.not.exist(err);
-              Stalk.create({ length: 20 }, function (err, stalk) {
-                should.not.exist(err);
-                should.exist(stalk);
-                stalkId = stalk[Stalk.id];
-                Hole.create({ width: 3 }, function (err, hole) {
-                  should.not.exist(err);
-                  holeId = hole.id;
-                  done();
-                });
-              });
-            });
-          });
-        });
-      });
+      await helper.dropSyncAsync([Tree, Stalk, Hole, Leaf]);
+      
+      const tree = await Tree.create({ type: 'pine' });
+      treeId = tree[Tree.id];
+      
+      const leaf = await Leaf.create({ size: 14 });
+      leafId = leaf[Leaf.id];
+      
+      await leaf.setTree(tree);
+      
+      const stalk = await Stalk.create({ length: 20 });
+      should.exist(stalk);
+      stalkId = stalk[Stalk.id];
+      
+      const hole = await Hole.create({ width: 3 });
+      holeId = hole.id;
     };
   };
 
-  before(function(done) {
-    helper.connect(function (connection) {
-      db = connection;
-      done();
-    });
+  before(async function() {
+    db = await helper.connectAsync();
+  });
+
+  after(async function() {
+    await db.close();
   });
 
   describe("accessors Async", function () {
@@ -72,10 +66,10 @@ describe("hasOne", function() {
 
     it("get should get the association", function () {
       return Leaf
-        .oneAsync({ size: 14 })
+        .one({ size: 14 })
         .then(function (leaf) {
           should.exist(leaf);
-          return leaf.getTreeAsync();
+          return leaf.getTree();
         })
         .then(function (tree) {
           should.exist(tree);
@@ -84,9 +78,9 @@ describe("hasOne", function() {
 
     it("should return proper instance model", function () {
       return Leaf
-        .oneAsync({ size: 14 })
+        .one({ size: 14 })
         .then(function (leaf) {
-          return leaf.getTreeAsync();
+          return leaf.getTree();
         })
         .then(function (tree) {
           tree.model().should.equal(Tree);
@@ -95,7 +89,7 @@ describe("hasOne", function() {
 
     it("get should get the association with a shell model", function () {
       return Leaf(leafId)
-        .getTreeAsync()
+        .getTree()
         .then(function (tree) {
           should.exist(tree);
           should.equal(tree[Tree.id], treeId);
@@ -103,14 +97,14 @@ describe("hasOne", function() {
     });
 
     it("has should indicate if there is an association present", function () {
-      return Leaf.oneAsync({ size: 14 })
+      return Leaf.one({ size: 14 })
         .then(function (leaf) {
           should.exist(leaf);
-          return Promise.all([leaf, leaf.hasTreeAsync()]);
+          return Promise.all([leaf, leaf.hasTree()]);
         })
         .then(function ([leaf, has]) {
           should.equal(has, true);
-          return leaf.hasStalkAsync();
+          return leaf.hasStalk();
 				})
         .then(function (has) {
           should.equal(has, false);
@@ -119,18 +113,18 @@ describe("hasOne", function() {
 
     it("set should associate another instance", function () {
       return Stalk
-        .oneAsync({ length: 20 })
+        .one({ length: 20 })
         .then(function (stalk) {
           should.exist(stalk);
-          return Promise.all([stalk, Leaf.oneAsync({ size: 14 })]);
+          return Promise.all([stalk, Leaf.one({ size: 14 })]);
         })
         .then(function ([stalk, leaf]) {
           should.exist(leaf);
           should.not.exist(leaf.stalkId);
-          return Promise.all([stalk, leaf.setStalkAsync(stalk)]);
+          return Promise.all([stalk, leaf.setStalk(stalk)]);
         })
         .then(function (stalk) {
-          return Promise.all([stalk, Leaf.oneAsync({ size: 14 })]);
+          return Promise.all([stalk, Leaf.one({ size: 14 })]);
         })
         .then(function ([stalk, leafOne]) {
           should.equal(leafOne.stalkId, stalk[0][Stalk.id]);
@@ -139,18 +133,18 @@ describe("hasOne", function() {
 
     it("remove should unassociation another instance", function () {
       return Stalk
-        .oneAsync({ length: 20 })
+        .one({ length: 20 })
         .then(function (stalk) {
           should.exist(stalk);
-          return Leaf.oneAsync({size: 14});
+          return Leaf.one({size: 14});
         })
         .then(function (leaf) {
           should.exist(leaf);
           should.exist(leaf.stalkId);
-          return leaf.removeStalkAsync();
+          return leaf.removeStalk();
 				})
         .then(function () {
-          return Leaf.oneAsync({ size: 14 });
+          return Leaf.one({ size: 14 });
         })
         .then(function (leaf) {
           should.equal(leaf.stalkId, null);
@@ -165,19 +159,13 @@ describe("hasOne", function() {
 
         before(setup());
 
-        before(function (done) {
-          Leaf.createAsync({ size: 444, stalkId: stalkId, holeId: holeId })
-            .then(function (lf) {
-              leaf = lf;
-              done();
-            }).catch(function(err) {
-              done(err);
-            });
+        before(async function () {
+          leaf = await Leaf.create({ size: 444, stalkId: stalkId, holeId: holeId });
         });
 
         it("should get parent", function () {
           return leaf
-            .getStalkAsync()
+            .getStalk()
             .then(function (stalk) {
               should.exist(stalk);
               should.equal(stalk.id, stalkId);
@@ -191,19 +179,13 @@ describe("hasOne", function() {
 
         before(setup());
 
-        before(function (done) {
-          Leaf.createAsync({ size: 444, stalkId: stalkId, holeId: holeId })
-            .then(function (lf) {
-              leaf = lf;
-              done();
-            }).catch(function(err) {
-              done(err);
-            });
+        before(async function () {
+          leaf = await Leaf.create({ size: 444, stalkId: stalkId, holeId: holeId });
         });
 
         it("should get parent", function () {
           return leaf
-            .getHoleAsync()
+            .getHole()
             .then(function (hole) {
               should.exist(hole);
               should.equal(hole.id, stalkId);

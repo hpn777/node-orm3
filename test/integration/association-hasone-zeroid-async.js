@@ -10,7 +10,7 @@ describe("hasOne promise-based methods", function() {
   var Pet    = null;
 
   var setup = function (autoFetch) {
-    return function (done) {
+    return async function () {
       db.settings.set('instance.identityCache', false);
       db.settings.set('instance.returnAllErrors', true);
 
@@ -28,38 +28,37 @@ describe("hasOne promise-based methods", function() {
 
       Pet.hasOne('owner', Person, { field: 'ownerID', autoFetch: autoFetch });
 
-      helper.dropSync([Person, Pet], function(err) {
-        if (err) return done(err);
+      await helper.dropSyncAsync([Person, Pet]);
 
-        Pet.create([
-          {
-            id: 10,
-            petName: 'Muttley',
-            owner: {
-              id: 12,
-              firstName: 'Stuey',
-              lastName: 'McG'
-            }
-          },
-          {
-            id: 11,
-            petName: 'Snagglepuss',
-            owner: {
-              id: 0,
-              firstName: 'John',
-              lastName: 'Doe'
-            }
+      await Pet.create([
+        {
+          id: 10,
+          petName: 'Muttley',
+          owner: {
+            id: 12,
+            firstName: 'Stuey',
+            lastName: 'McG'
           }
-        ], done);
-      });
+        },
+        {
+          id: 11,
+          petName: 'Snagglepuss',
+          owner: {
+            id: 0,
+            firstName: 'John',
+            lastName: 'Doe'
+          }
+        }
+      ]);
     };
   };
 
-  before(function(done) {
-    helper.connect(function (connection) {
-      db = connection;
-      done();
-    });
+  before(async function() {
+    db = await helper.connectAsync();
+  });
+
+  after(async function() {
+    await db.close();
   });
 
   describe("auto fetch", function () {
@@ -67,7 +66,7 @@ describe("hasOne promise-based methods", function() {
 
     it("should work for non-zero ownerID ", function () {
       return Pet
-        .findAsync({petName: "Muttley"})
+        .find({petName: "Muttley"})
         .then(function(pets) {
           pets[0].petName.should.equal("Muttley");
           pets[0].should.have.property("id");
@@ -80,14 +79,14 @@ describe("hasOne promise-based methods", function() {
 
     it("should work for zero ownerID ", function () {
       return Pet
-        .findAsync({petName: "Snagglepuss"})
+        .find({petName: "Snagglepuss"})
         .then(function(pets) {
           var pet = pets[0];
           pet.petName.should.equal("Snagglepuss");
           pet.should.have.property("id");
           pet.id.should.equal(11);
   
-          return Person.allAsync();
+          return Person.all();
         })
         .then(function (people) {
           should.equal(typeof people[0], 'object');
@@ -101,7 +100,7 @@ describe("hasOne promise-based methods", function() {
     
     it("should work for non-zero ownerID (promise-based)", function () {
       return Pet
-        .findAsync({petName: "Muttley"})
+        .find({petName: "Muttley"})
         .then(function(pets) {
           var pets = pets[0];
           
@@ -127,7 +126,7 @@ describe("hasOne promise-based methods", function() {
 
     it("should work for zero ownerID", function () {
       return Pet
-        .findAsync({petName: "Snagglepuss"})
+        .find({petName: "Snagglepuss"})
         .then(function(pets) {
           var pets = pets[0];
           

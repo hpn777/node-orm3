@@ -10,16 +10,13 @@ describe("Sqlite driver", function() {
   let db;
   let driver;
 
-  before(function (done) {
-    helper.connect(function (connection) {
-      db     = connection;
-      driver = connection.driver;
-      done();
-    });
+  before(async function () {
+    db = await helper.connectAsync();
+    driver = db.driver;
   });
 
-  after(function (done) {
-    db.close(done);
+  after(async function () {
+    await db.close();
   });
 
   describe("execSimpleQuery", function () {
@@ -31,11 +28,9 @@ describe("Sqlite driver", function() {
       });
     });
 
-    it("#execSimpleQueryAsync should run query", function () {
-      it("should run query", async function () {
-        const data = await driver.execSimpleQueryAsync("SELECT count(*)");
-        should.deepEqual(data, [{ 'count(*)': 1 }]);
-      });
+    it("#execSimpleQueryAsync should run query", async function () {
+      const data = await driver.execSimpleQueryAsync("SELECT count(*)");
+      should.deepEqual(data, [{ 'count(*)': 1 }]);
     });
   });
 
@@ -317,62 +312,44 @@ describe("Sqlite driver", function() {
   });
 
   describe("db", function () {
-    var db = null;
+    var dbInstance = null;
     var Person = null;
 
-    before(function (done) {
-      helper.connect(function (connection) {
-        db = connection;
+    before(async function () {
+      dbInstance = await helper.connectAsync();
 
-        Person = db.define("person", {
-          name: String
-        });
-
-        return helper.dropSync([ Person ], done);
+      Person = dbInstance.define("person", {
+        name: String
       });
+
+      await helper.dropSyncAsync([Person]);
     });
 
-    after(function () {
-      return db.close();
+    after(async function () {
+      await dbInstance.close();
     });
 
     describe("#clear", function () {
-      beforeEach(function (done) {
-        Person.create([{ name: 'John' }, { name: 'Jane' }], function (err) {
-          Person.count(function (err, count) {
-            should.not.exist(err);
-            should.equal(count, 2);
-            done();
-          });
-        });
+      beforeEach(async function () {
+        await Person.create([{ name: 'John' }, { name: 'Jane' }]);
+        const count = await Person.count();
+        should.equal(count, 2);
       });
 
-      it("should drop all items", function (done) {
-        Person.clear(function (err) {
-          should.not.exist(err);
-
-          Person.count(function (err, count) {
-            should.not.exist(err);
-            should.equal(count, 0);
-            done();
-          });
-        });
+      afterEach(async function () {
+        await helper.dropSyncAsync(Person);
       });
 
-      it("should reset id sequence", function (done) {
-        Person.clear(function (err) {
-          should.not.exist(err);
-          db.driver.execQuery("SELECT * FROM ?? WHERE ?? = ?", ['sqlite_sequence', 'name', Person.table], function (err, data) {
-            should.not.exist(err);
+      it("should drop all items", async function () {
+        await Person.clear();
+        const count = await Person.count();
+        should.equal(count, 0);
+      });
 
-            Person.create({ name: 'Bob' }, function (err, person) {
-              should.not.exist(err);
-              should.equal(person.id, 1);
-
-              done();
-            });
-          });
-        });
+      it("should reset id sequence", async function () {
+        await Person.clear();
+        const person = await Person.create({ name: 'Bob' });
+        should.equal(person.id, 1);
       });
     });
   });

@@ -7,64 +7,41 @@ describe("Model.clear()", function() {
   var Person = null;
 
   var setup = function () {
-    return function (done) {
+    return async function () {
       Person = db.define("person", {
         name   : String
       });
 
       ORM.singleton.clear();
 
-      return helper.dropSync(Person, function () {
-        Person.create([{
-          name: "John Doe"
-        }, {
-          name: "Jane Doe"
-        }], done);
-      });
+      await helper.dropSyncAsync(Person);
+      await Person.create([
+        { name: "John Doe" },
+        { name: "Jane Doe" }
+      ]);
     };
   };
 
-  before(function (done) {
-    helper.connect(function (connection) {
-      db = connection;
+  before(async function () {
+    db = await helper.connectAsync();
+  });
 
-      return done();
+  after(async function () {
+    await db.close();
+  });
+
+  describe("clearing records", function () {
+    beforeEach(setup());
+
+    it("should clear all records", async function () {
+      await Person.clear();
+      const count = await Person.count();
+      should.equal(count, 0);
     });
-  });
 
-  after(function () {
-    return db.close();
-  });
-
-  describe("with callback", function () {
-    before(setup());
-
-    it("should call when done", function (done) {
-      Person.clear(function (err) {
-        should.equal(err, null);
-
-        Person.find().count(function (err, count) {
-          count.should.equal(0);
-
-          return done();
-        });
-      });
-    });
-  });
-
-  describe("without callback", function () {
-    before(setup());
-
-    it("should still remove", function (done) {
-      Person.clear();
-
-      setTimeout(function () {
-        Person.find().count(function (err, count) {
-          count.should.equal(0);
-
-          return done();
-        });
-      }, 200);
+    it("should return a Promise", function () {
+      const result = Person.clear();
+      should(result).be.a.Promise();
     });
   });
 });

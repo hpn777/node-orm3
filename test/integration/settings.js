@@ -5,20 +5,17 @@ var Settings = ORM.Settings;
 
 describe("Settings", function () {
   describe("changed on connection instance", function() {
-    it("should not change global defaults", function (done) {
+    it("should not change global defaults", async function() {
       var setting = 'instance.returnAllErrors';
       var defaultValue = ORM.settings.get(setting);
 
-      helper.connect(function (db) {
-        db.settings.set(setting, !defaultValue);
-        db.close();
+      const db1 = await new Promise(resolve => helper.connect(resolve));
+      db1.settings.set(setting, !defaultValue);
+      await db1.close();
 
-        helper.connect(function (db) {
-          db.settings.get(setting).should.equal(defaultValue);
-          db.close();
-          done();
-        });
-      });
+      const db2 = await new Promise(resolve => helper.connect(resolve));
+      db2.settings.get(setting).should.equal(defaultValue);
+      await db2.close();
     });
   });
 

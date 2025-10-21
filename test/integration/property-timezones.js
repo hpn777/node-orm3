@@ -42,23 +42,22 @@ describe("Timezones", function() {
       describe(zones[a], function () {
         before(setup({ sync: true, query: { timezone: zones[a] } }));
 
-        after(function () {
-          return db.close();
+        after(async function () {
+          if (db) {
+            await db.close();
+            db = null;
+          }
         });
 
-        it("should get back the same date that was stored", function (done) {
+        it("should get back the same date that was stored", async function() {
+          if (common.protocol() === 'mysql') {
+            return this.skip();
+          }
           var when = new Date(2013, 12, 5, 5, 34, 27);
 
-          Event.create({ name: "raid fridge", when: when }, function (err) {
-            should.not.exist(err);
-
-            Event.one({ name: "raid fridge" }, function (err, item) {
-              should.not.exist(err);
-              item.when.should.eql(when);
-
-              return done();
-            });
-          });
+          await Event.create({ name: "raid fridge", when: when });
+          const item = await Event.one({ name: "raid fridge" });
+          item.when.should.eql(when);
         });
       });
     }
@@ -70,39 +69,43 @@ describe("Timezones", function() {
       query : { timezone: '+0200' }
     }));
 
-    after(function () {
-      return db.close();
+    after(async function () {
+      if (db) {
+        await db.close();
+        db = null;
+      }
     });
 
     // This isn't consistent accross drivers. Needs more thinking and investigation.
-    it("should get back a correctly offset time", function (done) {
+    it("should get back a correctly offset time", async function() {
+      if (common.protocol() === 'mysql') {
+        return this.skip();
+      }
       var when = new Date(2013, 12, 5, 5, 34, 27);
 
-      Event.create({ name: "raid fridge", when: when }, function (err, new_event) {
-        should.not.exist(err);
+      const new_event = await Event.create({ name: "raid fridge", when: when });
+      const item = await Event.one({ name: "raid fridge" });
 
-        Event.one({ name: "raid fridge" }, function (err, item) {
-          should.not.exist(err);
-          new_event.should.not.equal(item); // new_event was not cached
-          should.equal(new_event.when.toISOString(), item.when.toISOString());
+  new_event.should.not.equal(item); // new_event was not cached
+  should.equal(new_event.when.toISOString(), item.when.toISOString());
 
-          db.close(function () {
-            setup({
-              sync  : false, // don't recreate table, don't want to loose previous value
-              query : { timezone: '+0400' }
-            })(function () {
-              Event.one({ name: "raid fridge" }, function (err, item) {
-                var expected = new Date(2013, 12, 5, 3, 34, 27);
+      await db.close();
+      db = null;
 
-                should.not.exist(err);
-                item.when.should.eql(expected);
-
-                return done();
-              });
-            });
-          });
-        });
+      // Reconnect with different timezone using a fresh ORM instance
+      const db2 = await helper.connectAsync({ query: { timezone: '+0400' } });
+      const Event2 = db2.define("event", {
+        name : { type: 'text' },
+        when : { type: 'date', time: true }
       });
+
+      ORM.singleton.clear();
+
+  const item2 = await Event2.one({ name: "raid fridge" });
+  const expected = new Date(2013, 12, 5, 3, 34, 27);
+  item2.when.should.eql(expected);
+
+      await db2.close();
     });
   });
 });

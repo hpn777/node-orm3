@@ -5,11 +5,48 @@ var ORM      = require('../../');
 describe("LazyLoad Async properties", function() {
   var db = null;
   var Person = null;
-  var PersonPhoto = new Buffer(1024); // fake photo
-  var OtherPersonPhoto = new Buffer(1024); // other fake photo
+  var PersonPhoto = Buffer.alloc(1024); // fake photo
+  var OtherPersonPhoto = Buffer.alloc(1024); // other fake photo
+
+    function normalizeToBuffer(value) {
+      if (value == null) return value;
+
+      if (Buffer.isBuffer(value)) {
+        return value;
+      }
+
+      if (typeof value === 'string') {
+        try {
+          var parsed = JSON.parse(value);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return Buffer.from(Object.keys(parsed).sort(function (a, b) {
+              return parseInt(a, 10) - parseInt(b, 10);
+            }).map(function (key) {
+              return parsed[key];
+            }));
+          }
+        } catch (err) {
+          return Buffer.from(value);
+        }
+      }
+
+      if (Array.isArray(value)) {
+        return Buffer.from(value);
+      }
+
+      if (typeof value === 'object') {
+        return Buffer.from(Object.keys(value).sort(function (a, b) {
+          return parseInt(a, 10) - parseInt(b, 10);
+        }).map(function (key) {
+          return value[key];
+        }));
+      }
+
+      return Buffer.from(String(value));
+    }
 
   var setup = function () {
-    return function (done) {
+      return async function () {
       Person = db.define("person", {
         name   : String,
         photo  : { type: "binary", lazyload: true }
@@ -17,117 +54,92 @@ describe("LazyLoad Async properties", function() {
 
       ORM.singleton.clear();
 
-      return helper.dropSync(Person, function () {
-        Person.create({
+        await helper.dropSyncAsync(Person);
+        await Person.create({
           name  : "John Doe",
           photo : PersonPhoto
-        }, done);
-      });
+        });
     };
   };
 
-  before(function (done) {
-    helper.connect(function (connection) {
-      db = connection;
-
-      return done();
+    before(async function () {
+      db = await helper.connectAsync();
     });
-  });
 
-  after(function () {
-    return db.close();
-  });
+    after(async function () {
+      await db.close();
+    });
 
   describe("when defined Async methods", function () {
     before(setup());
 
-    it("should not be available when fetching an instance", function () {
-      return Person
-        .findAsync()
-        .then(function (John) {
-          var john = John[0];
-          
-          should.equal(typeof john, 'object');
-          should.equal(Array.isArray(john), false);
-          john.should.have.property("name", "John Doe");
-          john.should.have.property("photo", null);
-        });
+    it("should not be available when fetching an instance", async function () {
+      var persons = await Person.find().run();
+      var john = persons[0];
+
+      should.equal(typeof john, 'object');
+      should.equal(Array.isArray(john), false);
+      john.should.have.property("name", "John Doe");
+      john.should.have.property("photo", null);
     });
 
-    it("should have apropriate accessors", function () {
-      return Person
-        .findAsync()
-        .then(function (persons) {
-          var John = persons[0];
-          should.equal(typeof John, 'object');
-          should.equal(Array.isArray(John), false);
-          
-          John.getPhotoAsync.should.be.a.Function();
-          John.setPhotoAsync.should.be.a.Function();
-          John.removePhotoAsync.should.be.a.Function();
-        });
+    it("should have apropriate accessors", async function () {
+      var persons = await Person.find().run();
+      var John = persons[0];
+
+      should.equal(typeof John, 'object');
+      should.equal(Array.isArray(John), false);
+
+      John.getPhotoAsync.should.be.a.Function();
+      John.setPhotoAsync.should.be.a.Function();
+      John.removePhotoAsync.should.be.a.Function();
     });
 
-    it("getAccessorAsync should return property", function () {
-      return Person
-        .findAsync()
-        .then(function (persons) {
-          var John = persons[0];
-  
-          should.equal(typeof John, 'object');
-          should.equal(Array.isArray(John), false);
-          return John.getPhotoAsync();
-        })
-        .then(function (photo) {
-          photo.toString().should.equal(PersonPhoto.toString());
-        });
+    it("getAccessorAsync should return property", async function () {
+      var persons = await Person.find().run();
+      var John = persons[0];
+
+      should.equal(typeof John, 'object');
+      should.equal(Array.isArray(John), false);
+
+      var photo = await John.getPhotoAsync();
+      var photoBuffer = normalizeToBuffer(photo);
+      Buffer.compare(photoBuffer, PersonPhoto).should.equal(0);
     });
 
-    it("setAccessorAsync should change property", function () {
-      return Person
-        .findAsync()
-        .then(function (persons) {
-          var John = persons[0];
-          should.equal(typeof John, 'object');
-          return John.setPhotoAsync(OtherPersonPhoto);
-        })
-        .then(function (johnPhotoUpdated) {
-          should.equal(typeof johnPhotoUpdated, 'object');
-          return Person.findAsync();
-        })
-        .then(function (persons) {
-          var John = persons[0];
-          
-          should.equal(typeof John, 'object');
-          should.equal(Array.isArray(John), false);
-          return John.getPhotoAsync();
-        })
-        .then(function (photo) {
-          photo.toString().should.equal(OtherPersonPhoto.toString());
-        });
+    it("setAccessorAsync should change property", async function () {
+  var persons = await Person.find().run();
+      var John = persons[0];
+      should.equal(typeof John, 'object');
+
+      await John.setPhotoAsync(OtherPersonPhoto);
+
+  persons = await Person.find().run();
+      John = persons[0];
+
+      should.equal(typeof John, 'object');
+      should.equal(Array.isArray(John), false);
+
+      var photo = await John.getPhotoAsync();
+      var photoBuffer = normalizeToBuffer(photo);
+      Buffer.compare(photoBuffer, OtherPersonPhoto).should.equal(0);
     });
 
-    it("removeAccessorAsync should change property", function () {
-      return Person
-        .findAsync()
-        .then(function (persons) {
-          var John = persons[0];
-          
-          should.equal(typeof John, 'object');
-          should.equal(Array.isArray(John), false);
-          return John.removePhotoAsync();
-        })
-        .then(function (John) {
-          return Person.getAsync(John[Person.id]);
-        })
-        .then(function (John) {
-          should.equal(typeof John, 'object');
-          should.equal(Array.isArray(John), false);
-          return John.getPhotoAsync();
-        })
-        .then(function (photo) {
-          should.equal(photo, null);
-        });
+    it("removeAccessorAsync should change property", async function () {
+  var persons = await Person.find().run();
+      var John = persons[0];
+
+      should.equal(typeof John, 'object');
+      should.equal(Array.isArray(John), false);
+
+      await John.removePhotoAsync();
+
+  John = await Person.get(John[Person.id]);
+      should.equal(typeof John, 'object');
+      should.equal(Array.isArray(John), false);
+
+      var photo = await John.getPhotoAsync();
+      should.equal(photo, null);
     });
   });
 });

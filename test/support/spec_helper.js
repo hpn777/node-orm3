@@ -15,6 +15,15 @@ module.exports.connect = function(cb) {
   });
 };
 
+module.exports.connectAsync = function(opts) {
+  return new Promise((resolve, reject) => {
+    common.createConnection(opts || {}, function (err, conn) {
+      if (err) reject(err);
+      else resolve(conn);
+    });
+  });
+};
+
 module.exports.dropSync = function (models, done) {
   if (!Array.isArray(models)) {
     models = [models];
@@ -33,3 +42,21 @@ module.exports.dropSync = function (models, done) {
     done(err);
   });
 };
+
+module.exports.dropSyncAsync = async function (models) {
+  if (!Array.isArray(models)) {
+    models = [models];
+  }
+
+  for (const item of models) {
+    try {
+      await item.drop();
+      await item.sync();
+    } catch (err) {
+      if (common.protocol() != 'sqlite') {
+        throw err;
+      }
+    }
+  }
+};
+

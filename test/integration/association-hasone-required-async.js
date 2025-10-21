@@ -1,7 +1,6 @@
 var ORM    = require('../../');
 var helper = require('../support/spec_helper');
 var should = require('should');
-var async  = require('async');
 var _      = require('lodash');
 
 describe("hasOne Async", function() {
@@ -9,7 +8,7 @@ describe("hasOne Async", function() {
   var Person = null;
 
   var setup = function (required) {
-    return function (done) {
+    return async function () {
       db.settings.set('instance.identityCache', false);
       db.settings.set('instance.returnAllErrors', true);
 
@@ -21,34 +20,34 @@ describe("hasOne Async", function() {
         field    : 'parentId'
       });
 
-      return helper.dropSync(Person, done);
+      await helper.dropSyncAsync(Person);
     };
   };
 
-  before(function(done) {
-    helper.connect(function (connection) {
-      db = connection;
-      done();
-    });
+  before(async function() {
+    db = await helper.connectAsync();
   });
 
   describe("required", function () {
     before(setup(true));
 
-    it("should not accept empty association", function (done) {
+    it("should not accept empty association", async function () {
       var John = new Person({
         name     : "John",
         parentId : null
       });
-      John.saveAsync()
-        .catch(function(err) {
-          should.exist(err);
-          should.equal(err.length, 1);
-          should.equal(err[0].type,     'validation');
-          should.equal(err[0].msg,      'required');
-          should.equal(err[0].property, 'parentId');
-          done();
-        });
+
+      try {
+        await John.save();
+        should.fail('Expected validation error');
+      } catch (err) {
+        should.exist(err);
+        var errors = Array.isArray(err) ? err : [err];
+        should.equal(errors.length, 1);
+        should.equal(errors[0].type,     'validation');
+        should.equal(errors[0].msg,      'required');
+        should.equal(errors[0].property, 'parentId');
+      }
     });
 
     it("should accept association", function () {
@@ -56,7 +55,7 @@ describe("hasOne Async", function() {
         name     : "John",
         parentId : 1
       });
-      return John.saveAsync();
+      return John.save();
     });
   });
 
@@ -67,7 +66,7 @@ describe("hasOne Async", function() {
       var John = new Person({
         name : "John"
       });
-      return John.saveAsync();
+      return John.save();
     });
 
     it("should accept null association", function () {
@@ -75,7 +74,7 @@ describe("hasOne Async", function() {
         name      : "John",
         parent_id : null
       });
-      return John.saveAsync();
+      return John.save();
     });
   });
 });

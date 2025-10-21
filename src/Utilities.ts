@@ -4,8 +4,11 @@
 
 import * as _ from 'lodash';
 import * as path from 'path';
+import { Buffer } from 'buffer';
 import pathIsAbsolute from 'path-is-absolute';
 import { Property } from './types/Core';
+
+const Query: any = require('sql-query');
 
 interface OneAssociation {
   name: string;
@@ -126,6 +129,82 @@ export function checkConditions(
   }
 
   return conditions;
+}
+
+const comparatorMap: Record<string, (value: any) => any> = {
+  '>': (value: any) => Query.gt(value),
+  gt: (value: any) => Query.gt(value),
+  '>=': (value: any) => Query.gte(value),
+  gte: (value: any) => Query.gte(value),
+  '<': (value: any) => Query.lt(value),
+  lt: (value: any) => Query.lt(value),
+  '<=': (value: any) => Query.lte(value),
+  lte: (value: any) => Query.lte(value),
+  '!': (value: any) => Query.ne(value),
+  '!=': (value: any) => Query.ne(value),
+  ne: (value: any) => Query.ne(value),
+  between: (value: any) => Array.isArray(value) ? Query.between(value[0], value[1]) : Query.between(value.from, value.to),
+  not_between: (value: any) => Array.isArray(value) ? Query.not_between(value[0], value[1]) : Query.not_between(value.from, value.to),
+  not_in: (value: any) => Query.not_in(value)
+};
+
+const logicalKeys = new Set(['or', 'and', 'not', 'not_or', 'not_and']);
+
+function normalizeConditionValue(value: any): any {
+  if (value == null) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(normalizeConditionValue);
+  }
+
+  if (typeof value !== 'object') {
+    return value;
+  }
+
+  if ((value as Record<string, unknown>).hasOwnProperty('sql_comparator')) {
+    return value;
+  }
+
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (Buffer.isBuffer(value)) {
+    return value;
+  }
+
+  const keys = Object.keys(value);
+
+  if (keys.length === 1) {
+    const key = keys[0];
+    const comparatorFn = comparatorMap[key];
+    if (comparatorFn) {
+      const normalizedOperand = normalizeConditionValue((value as any)[key]);
+      return comparatorFn(normalizedOperand);
+    }
+  }
+
+  if (keys.some((key) => logicalKeys.has(key))) {
+    const result: Record<string, any> = {};
+    for (const key of keys) {
+      const entry = (value as any)[key];
+      if (Array.isArray(entry)) {
+        result[key] = entry.map(normalizeConditionValue);
+      } else {
+        result[key] = normalizeConditionValue(entry);
+      }
+    }
+    return result;
+  }
+
+  const normalized: Record<string, any> = {};
+  for (const key of keys) {
+    normalized[key] = normalizeConditionValue((value as any)[key]);
+  }
+
+  return normalized;
 }
 
 /**
@@ -365,11 +444,12 @@ export function transformPropertyNames(
   const dataOut: Record<string, any> = {};
 
   for (const k in dataIn) {
+    const normalizedValue = normalizeConditionValue(dataIn[k]);
     const prop = properties[k];
     if (prop) {
-      dataOut[prop.mapsTo] = dataIn[k];
+      dataOut[prop.mapsTo] = normalizedValue;
     } else {
-      dataOut[k] = dataIn[k];
+      dataOut[k] = normalizedValue;
     }
   }
   return dataOut;

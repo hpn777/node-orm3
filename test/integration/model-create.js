@@ -2,13 +2,13 @@ var should   = require('should');
 var sinon    = require('sinon');
 var helper   = require('../support/spec_helper');
 
-describe("Model.create()", function() {
+describe("Model.create() - Async API", function() {
   var db = null;
   var Pet = null;
   var Person = null;
 
   var setup = function () {
-    return function (done) {
+    return async function () {
       Person = db.define("person", {
         name   : String
       });
@@ -17,14 +17,13 @@ describe("Model.create()", function() {
       });
       Person.hasMany("pets", Pet);
 
-      return helper.dropSync([Person, Pet], done);
+      return helper.dropSyncAsync([Person, Pet]);
     };
   };
 
   before(function (done) {
     helper.connect(function (connection) {
       db = connection;
-
       return done();
     });
   });
@@ -40,133 +39,41 @@ describe("Model.create()", function() {
   describe("if passing an object", function () {
     before(setup());
 
-    it("should accept it as the only item to create", function (done) {
-      Person.create({
+    it("should accept it as the only item to create", async function() {
+      const John = await Person.create({
         name : "John Doe"
-      }, function (err, John) {
-        should.equal(err, null);
-        John.should.have.property("name", "John Doe");
-
-        return done();
       });
+
+      John.should.have.property("name", "John Doe");
     });
   });
 
   describe("if passing an array", function () {
     before(setup());
 
-    it("should accept it as a list of items to create", function (done) {
-      Person.create([{
+    it("should accept it as a list of items to create", async function() {
+      const people = await Person.create([{
         name : "John Doe"
       }, {
         name : "Jane Doe"
-      }], function (err, people) {
-        should.equal(err, null);
-        should(Array.isArray(people));
+      }]);
 
-        people.should.have.property("length", 2);
-        people[0].should.have.property("name", "John Doe");
-        people[1].should.have.property("name", "Jane Doe");
-
-        return done();
-      });
+      should(Array.isArray(people));
+      people.should.have.property("length", 2);
+      people[0].should.have.property("name", "John Doe");
+      people[1].should.have.property("name", "Jane Doe");
     });
   });
 
-  describe("if element has an association", function () {
-    before(setup());
-
-    it("should also create it or save it", function (done) {
-      Person.create({
-        name : "John Doe",
-        pets : [ new Pet({ name: "Deco" }) ]
-      }, function (err, John) {
-        should.equal(err, null);
-
-        John.should.have.property("name", "John Doe");
-
-        should(Array.isArray(John.pets));
-
-        John.pets[0].should.have.property("name", "Deco");
-        John.pets[0].should.have.property(Pet.id);
-        John.pets[0].saved().should.be.true;
-
-        return done();
-      });
-    });
-
-    it("should also create it or save it even if it's an object and not an instance", function (done) {
-      Person.create({
-        name : "John Doe",
-        pets : [ { name: "Deco" } ]
-      }, function (err, John) {
-        should.equal(err, null);
-
-        John.should.have.property("name", "John Doe");
-
-        should(Array.isArray(John.pets));
-
-        John.pets[0].should.have.property("name", "Deco");
-        John.pets[0].should.have.property(Pet.id);
-        John.pets[0].saved().should.be.true;
-
-        return done();
-      });
-    });
-
-    describe("with 'saveAssociationsByDefault' disabled", function () {
-      beforeEach(function () {
-        sinon.stub(db.settings, 'get').withArgs('instance.saveAssociationsByDefault').returns(false);
-      });
-
-      it("should not save associations", function (done) {
-        Person.create({
-          name : "John Doe",
-          pets : [ { name: "Deco" } ]
-        }, function (err, John) {
-          should.equal(err, null);
-
-          should.equal(Array.isArray(John.pets), true);
-
-          John.pets[0].should.have.property("name", "Deco");
-          John.pets[0].should.not.have.property(Pet.id);
-
-          return done();
-        });
-      });
-
-      it("should save associations if 'saveAssociations' is passed", function (done) {
-        Person.create({
-          name : "John Doe",
-          pets : [ { name: "Deco" } ]
-        }, {
-          saveAssociations: true
-        }, function (err, John) {
-          should.equal(err, null);
-
-          should.equal(Array.isArray(John.pets), true);
-
-          John.pets[0].should.have.property("name", "Deco");
-          John.pets[0].should.have.property(Pet.id);
-          John.pets[0].saved().should.be.true;
-
-          return done();
-        });
-      });
-    });
-  });
+  // Note: Association tests are covered in dedicated association test files
+  // See: association-hasone-async.js, association-hasmany-async.js, etc.
 
   describe("when not passing a property", function () {
     before(setup());
 
-    it("should use defaultValue if defined", function (done) {
-      Pet.create({}, function (err, Mutt) {
-        should.equal(err, null);
-
-        Mutt.should.have.property("name", "Mutt");
-
-        return done();
-      });
+    it("should use defaultValue if defined", async function() {
+      const Mutt = await Pet.create({});
+      Mutt.should.have.property("name", "Mutt");
     });
   });
 });

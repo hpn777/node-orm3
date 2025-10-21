@@ -4,7 +4,7 @@ import enforce from './shims/enforce';
 import { EventEmitter } from 'events';
 import hat from 'hat';
 import { parse as parseUrl } from 'url';
-import { inherits, promisify } from 'util';
+import { inherits } from 'util';
 import * as path from 'path';
 import { createRequire } from 'module';
 
@@ -98,112 +98,170 @@ const fileLoader = function (this: ORM, filePaths: string[], cb: (err?: Error | 
   async.eachSeries(filePaths, iterator as any, cb);
 };
 
-export function connect(opts: string | ConnectionOptions, cb?: ConnectCallback): ORM | EventEmitter {
-  if (arguments.length === 0 || !opts || !optsChecker(opts)) {
-    cb = typeof (cb) !== 'function' ? opts as any : cb;
-    return ORM_Error(new ORMError("CONNECTION_URL_EMPTY", 'PARAM_MISMATCH'), cb);
-  }
-
-  let parsedOpts: any;
-  if (typeof opts === 'string') {
-    if (opts.trim().length === 0) {
-      return ORM_Error(new ORMError("CONNECTION_URL_EMPTY", 'PARAM_MISMATCH'), cb);
+export async function connect(opts: string | ConnectionOptions): Promise<ORM> {
+  return new Promise((resolve, reject) => {
+    if (arguments.length === 0 || !opts || !optsChecker(opts)) {
+      reject(new ORMError("CONNECTION_URL_EMPTY", 'PARAM_MISMATCH'));
+      return;
     }
-    parsedOpts = parseUrl(opts, true);
-  } else if (typeof opts === 'object') {
-    parsedOpts = _.cloneDeep(opts);
-  }
 
-  parsedOpts.query = parsedOpts.query || {};
-  for (const k in parsedOpts.query) {
-    parsedOpts.query[k] = queryParamCast(parsedOpts.query[k]);
-    parsedOpts[k] = parsedOpts.query[k];
-  }
+    let parsedOpts: any;
+    let originalUri: string | undefined;
+    if (typeof opts === 'string') {
+      if (opts.trim().length === 0) {
+        reject(new ORMError("CONNECTION_URL_EMPTY", 'PARAM_MISMATCH'));
+        return;
+      }
+      parsedOpts = parseUrl(opts, true);
+      originalUri = opts;
+    } else if (typeof opts === 'object') {
+      parsedOpts = _.cloneDeep(opts);
+      if (typeof (opts as any).href === 'string') {
+        originalUri = (opts as any).href;
+      } else if (typeof (opts as any).url === 'string') {
+        originalUri = (opts as any).url;
+      }
+    }
 
-  if (!parsedOpts.database) {
-    parsedOpts.database = (parsedOpts.pathname ? parsedOpts.pathname.substr(1) : "");
-  }
-  if (!parsedOpts.protocol) {
-    return ORM_Error(new ORMError("CONNECTION_URL_NO_PROTOCOL", 'PARAM_MISMATCH'), cb);
-  }
+    if (typeof parsedOpts.href === 'string' && parsedOpts.href.length > 0) {
+      originalUri = originalUri || parsedOpts.href;
+    }
 
-  if (parsedOpts.auth) {
-    parsedOpts.user = parsedOpts.auth.split(":")[0];
-    parsedOpts.password = parsedOpts.auth.split(":")[1];
-  }
-  if (!Object.prototype.hasOwnProperty.call(parsedOpts, "user")) {
-    parsedOpts.user = "root";
-  }
-  if (!Object.prototype.hasOwnProperty.call(parsedOpts, "password")) {
-    parsedOpts.password = "";
-  }
-  if (Object.prototype.hasOwnProperty.call(parsedOpts, "hostname")) {
-    parsedOpts.host = parsedOpts.hostname;
-  }
+    parsedOpts.query = parsedOpts.query || {};
+    for (const k in parsedOpts.query) {
+      parsedOpts.query[k] = queryParamCast(parsedOpts.query[k]);
+      parsedOpts[k] = parsedOpts.query[k];
+    }
 
-  let proto = parsedOpts.protocol.replace(/:$/, '');
-  let db: ORM;
+    if (!parsedOpts.database) {
+      parsedOpts.database = (parsedOpts.pathname ? parsedOpts.pathname.substr(1) : "");
+    }
+    if (!parsedOpts.protocol) {
+      reject(new ORMError("CONNECTION_URL_NO_PROTOCOL", 'PARAM_MISMATCH'));
+      return;
+    }
 
-  if (DriverAliases[proto]) {
-    proto = DriverAliases[proto];
-  }
+    if (parsedOpts.auth) {
+      parsedOpts.user = parsedOpts.auth.split(":")[0];
+      parsedOpts.password = parsedOpts.auth.split(":")[1];
+    }
+    let userProvided = Object.prototype.hasOwnProperty.call(parsedOpts, "user");
+    let passwordProvided = Object.prototype.hasOwnProperty.call(parsedOpts, "password");
+    if (!Object.prototype.hasOwnProperty.call(parsedOpts, "user")) {
+      parsedOpts.user = "root";
+    }
+    if (!Object.prototype.hasOwnProperty.call(parsedOpts, "password")) {
+      parsedOpts.password = "";
+    }
+    if (Object.prototype.hasOwnProperty.call(parsedOpts, "hostname")) {
+      parsedOpts.host = parsedOpts.hostname;
+    }
 
-  try {
-    const Driver = adapters.get(proto);
-    const settingsContainer = new Settings.Container(settings.get('*'));
-    const driver = new Driver(parsedOpts, null, {
-      debug: 'debug' in parsedOpts.query ? parsedOpts.query.debug : settingsContainer.get("connection.debug"),
-      pool: 'pool' in parsedOpts.query ? parsedOpts.query.pool : settingsContainer.get("connection.pool"),
-      settings: settingsContainer
-    });
+    let proto = parsedOpts.protocol.replace(/:$/, '');
+    let db: ORM;
 
-    db = new ORM(proto, driver, settingsContainer);
+    if (DriverAliases[proto]) {
+      proto = DriverAliases[proto];
+    }
 
-    driver.connect(function (err?: Error | null) {
-      if (typeof cb === "function") {
-        if (err) {
-          return cb(err);
-        } else {
-          return cb(null, db);
+    if ((!parsedOpts.host || parsedOpts.host.length === 0) || (!parsedOpts.database || parsedOpts.database.length === 0)) {
+      const envKey = `${proto.toUpperCase()}_DB_URL`;
+      const envUrl = process.env[envKey];
+
+      if (envUrl) {
+        const envParsed = parseUrl(envUrl, true);
+
+        if (!parsedOpts.host || parsedOpts.host.length === 0) {
+          parsedOpts.host = envParsed.hostname || (envParsed as any).host;
+        }
+
+        if (!parsedOpts.port && envParsed.port) {
+          parsedOpts.port = envParsed.port;
+        }
+
+        if ((!parsedOpts.database || parsedOpts.database.length === 0) && envParsed.pathname) {
+          parsedOpts.database = envParsed.pathname.replace(/^\//, '');
+        }
+
+        if ((!parsedOpts.user || parsedOpts.user === "root") && envParsed.auth) {
+          parsedOpts.user = envParsed.auth.split(":")[0];
+          userProvided = true;
+        }
+
+        if ((!parsedOpts.password || parsedOpts.password.length === 0) && envParsed.auth && envParsed.auth.indexOf(":") >= 0) {
+          parsedOpts.password = envParsed.auth.split(":")[1];
+          passwordProvided = true;
+        }
+
+        if (envParsed.query) {
+          parsedOpts.query = Object.assign({}, envParsed.query, parsedOpts.query || {});
+        }
+
+        if (typeof envUrl === 'string' && envUrl.length > 0) {
+          parsedOpts.href = envUrl;
+          originalUri = envUrl;
         }
       }
-
-      db.emit("connect", err, !err ? db : null);
-    });
-  } catch (ex: any) {
-    if (ex.code === "MODULE_NOT_FOUND" || ex.message.indexOf('find module') > -1) {
-      return ORM_Error(new ORMError("Connection protocol not supported - have you installed the database driver for " + proto + "?", 'NO_SUPPORT'), cb);
     }
-    return ORM_Error(ex, cb);
-  }
 
-  return db!;
+    parsedOpts.__connectionUri = originalUri;
+    parsedOpts.__authProvided = Boolean(parsedOpts.auth) || userProvided || passwordProvided;
+    parsedOpts.__userProvided = userProvided;
+    parsedOpts.__passwordProvided = passwordProvided;
+
+    try {
+      const Driver = adapters.get(proto);
+      const settingsContainer = new Settings.Container(settings.get('*'));
+      const driver = new Driver(parsedOpts, null, {
+        debug: 'debug' in parsedOpts.query ? parsedOpts.query.debug : settingsContainer.get("connection.debug"),
+        pool: 'pool' in parsedOpts.query ? parsedOpts.query.pool : settingsContainer.get("connection.pool"),
+        settings: settingsContainer
+      });
+
+      db = new ORM(proto, driver, settingsContainer);
+
+      driver.connect(function (err?: Error | null) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(db);
+        }
+      });
+    } catch (ex: any) {
+      if (ex.code === "MODULE_NOT_FOUND" || ex.message.indexOf('find module') > -1) {
+        reject(new ORMError("Connection protocol not supported - have you installed the database driver for " + proto + "?", 'NO_SUPPORT'));
+      } else {
+        reject(ex);
+      }
+    }
+  });
 }
 
-export const connectAsync = promisify(connect);
+export const connectAsync = connect;
 
-const use = function (connection: any, proto: string, opts: any, cb?: (err: Error | null, orm?: ORM) => void): void {
+export async function use(connection: any, proto: string, opts?: any): Promise<ORM> {
   if (DriverAliases[proto]) {
     proto = DriverAliases[proto];
   }
   if (typeof opts === "function") {
-    cb = opts;
     opts = {};
   }
 
-  try {
-    const Driver = adapters.get(proto);
-    const settingsContainer = new Settings.Container(settings.get('*'));
-    const driver = new Driver(null, connection, {
-      debug: (opts.query && opts.query.debug === 'true'),
-      settings: settingsContainer
-    });
+  return new Promise((resolve, reject) => {
+    try {
+      const Driver = adapters.get(proto);
+      const settingsContainer = new Settings.Container(settings.get('*'));
+      const driver = new Driver(null, connection, {
+        debug: (opts && opts.query && opts.query.debug === 'true'),
+        settings: settingsContainer
+      });
 
-    return cb!(null, new ORM(proto, driver, settingsContainer));
-  } catch (ex) {
-    return cb!(ex as Error);
-  }
-};
+      resolve(new ORM(proto, driver, settingsContainer));
+    } catch (ex) {
+      reject(ex as Error);
+    }
+  });
+}
 
 export const Text = Query.Text;
 for (const k in Query.Comparators) {
@@ -214,10 +272,8 @@ export function express(...args: any[]): any {
   return require("./Express").apply(null, args);
 }
 
-export { use };
-export const useAsync = promisify(use);
-
 export const addAdapter = (adapters as any).add;
+
 
 class ORM extends EventEmitter implements ORMInterface {
   validators: any;
@@ -347,141 +403,160 @@ class ORM extends EventEmitter implements ORMInterface {
     return this;
   }
 
-  ping(cb: (err: Error | null) => void): this {
-    this.driver.ping(cb);
-    return this;
-  }
-
-  pingAsync(): Promise<void> {
-    return promisify(this.ping.bind(this))() as any;
-  }
-
-  close(cb: (err: Error | null) => void): this {
-    this.driver.close(cb);
-    return this;
-  }
-
-  closeAsync(): Promise<void> {
-    return promisify(this.close.bind(this))() as any;
-  }
-
-  load(...args: any[]): void {
-    const files = _.flatten(args);
-    let cb: Function = function () { };
-
-    if (typeof files[files.length - 1] === "function") {
-      cb = files.pop();
-    }
-
-    // Don't use getRealPath here - let fileLoader handle path resolution with correct caller context
-    const filesWithPath: string[] = files;
-
-    fileLoader.call(this, filesWithPath, cb as any);
-  }
-
-  loadAsync(...args: any[]): Promise<void> {
-    const files = _.flatten(args);
-    // Don't use getRealPath here - let fileLoader handle path resolution with correct caller context
-    const filesWithPath: string[] = files;
-
-    return promisify(fileLoader).call(this, filesWithPath) as any;
-  }
-
-  sync(cb: (err: Error | null) => void): this {
-    const modelIds = Object.keys(this.models);
-    const syncNext = (): void => {
-      if (modelIds.length === 0) {
-        return cb(null);
-      }
-
-      const modelId = modelIds.shift()!;
-
-      this.models[modelId].sync(function (err?: Error | null) {
-        if (err) {
-          (err as any).model = modelId;
-          return cb(err);
+  async ping(cb?: (err?: Error | null) => void): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.driver.ping((err?: Error) => {
+        if (typeof cb === "function") {
+          try {
+            cb(err || undefined);
+          } catch (callbackErr) {
+            reject(callbackErr as Error);
+            return;
+          }
         }
 
-        return syncNext();
+        if (err) reject(err);
+        else resolve();
       });
-    };
-
-    if (arguments.length === 0) {
-      cb = function () { };
-    }
-
-    syncNext();
-
-    return this;
+    });
   }
 
-  syncAsync(): Promise<void> {
-    return promisify(this.sync.bind(this))() as any;
+  async close(cb?: (err?: Error | null) => void): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.driver.close((err?: Error) => {
+        if (typeof cb === "function") {
+          try {
+            cb(err || undefined);
+          } catch (callbackErr) {
+            reject(callbackErr as Error);
+            return;
+          }
+        }
+
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  async load(...files: Array<string | string[] | ((err?: Error | null) => void)>): Promise<void> {
+    const args = files.slice();
+    let callback: ((err?: Error | null) => void) | undefined;
+    if (args.length && typeof args[args.length - 1] === 'function') {
+      callback = args.pop() as (err?: Error | null) => void;
+    }
+
+    const collected: string[] = [];
+
+    const collect = (entry: string | string[] | ((err?: Error | null) => void) | undefined): void => {
+      if (!entry) return;
+      if (typeof entry === 'function') return;
+      if (Array.isArray(entry)) {
+        for (const item of entry) {
+          collect(item);
+        }
+      } else if (typeof entry === 'string') {
+        collected.push(entry);
+      }
+    };
+
+    args.forEach(arg => collect(arg));
+
+    return new Promise((resolve, reject) => {
+      fileLoader.call(this, collected, (err?: Error | null) => {
+        if (err) {
+          if (callback) {
+            try {
+              callback(err);
+            } catch (cbErr) {
+              return reject(cbErr as Error);
+            }
+          }
+          reject(err);
+        } else {
+          if (callback) {
+            try {
+              callback(null);
+            } catch (cbErr) {
+              return reject(cbErr as Error);
+            }
+          }
+          resolve();
+        }
+      });
+    });
+  }
+
+  async sync(): Promise<void> {
+    const modelIds = Object.keys(this.models);
+    for (const modelId of modelIds) {
+      await new Promise<void>((resolve, reject) => {
+        this.models[modelId].sync((err?: Error | null) => {
+          if (err) {
+            (err as any).model = modelId;
+            return reject(err);
+          }
+          resolve();
+        });
+      });
+    }
   }
 
   syncPromise(): Promise<void> {
-    return this.syncAsync();
+    return this.sync();
   }
 
-  drop(cb: (err: Error | null) => void): this {
+  async drop(): Promise<void> {
     const modelIds = Object.keys(this.models);
-    const dropNext = (): void => {
-      if (modelIds.length === 0) {
-        return cb(null);
-      }
-
-      const modelId = modelIds.shift()!;
-
-      this.models[modelId].drop(function (err?: Error | null) {
-        if (err) {
-          (err as any).model = modelId;
-          return cb(err);
-        }
-
-        return dropNext();
+    for (const modelId of modelIds) {
+      await new Promise<void>((resolve, reject) => {
+        this.models[modelId].drop((err?: Error | null) => {
+          if (err) {
+            (err as any).model = modelId;
+            return reject(err);
+          }
+          resolve();
+        });
       });
-    };
-
-    if (arguments.length === 0) {
-      cb = function () { };
     }
+  }
 
-    dropNext();
-
-    return this;
+  loadAsync(...files: Array<string | string[]>): Promise<void> {
+    return this.load(...files);
   }
 
   dropAsync(): Promise<void> {
-    return promisify(this.drop).call(this) as any;
+    return this.drop();
   }
 
   serial(...chains: any[]): any {
     return {
-      get: (cb: Function) => {
-        const params: any[] = [];
-        const getNext = (): void => {
-          if (params.length === chains.length) {
-            params.unshift(null);
-            return cb.apply(null, params);
+      get: async (cb?: (err: Error | null, ...results: any[]) => void) => {
+        try {
+          const results = [];
+          for (const chain of chains) {
+            const result = await new Promise<any[]>((resolve, reject) => {
+              chain.run((err: Error | null, instances?: any[]) => {
+                if (err) reject(err);
+                else resolve(instances || []);
+              });
+            });
+            results.push(result);
           }
 
-          chains[params.length].run(function (err: Error | null, instances?: any[]) {
-            if (err) {
-              params.unshift(err);
-              return cb.apply(null, params);
-            }
+          if (typeof cb === 'function') {
+            cb(null, ...results);
+            return;
+          }
 
-            params.push(instances);
-            return getNext();
-          });
-        };
-
-        getNext();
-
-        return this;
-      },
-      getAsync: () => {
-        return promisify(this.serial(...chains).get)();
+          return results;
+        } catch (err) {
+          if (typeof cb === 'function') {
+            cb(err as Error);
+            return;
+          }
+          throw err;
+        }
       }
     };
   }

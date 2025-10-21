@@ -2,7 +2,7 @@
  * Lazy loading utilities
  */
 
-import { promisify } from 'util';
+import { promisify } from './utils/promises';
 
 const LAZY_METHOD_NAMES = ["get", "remove", "set"];
 

@@ -1,10 +1,8 @@
 /**
- * Chain Find - Fluent interface for querying
+ * Chain Find - Fluent interface for querying (Promise-based)
  */
 
 import * as _ from 'lodash';
-import * as async from 'async';
-import { promisify } from 'util';
 import * as Utilities from './Utilities';
 import ChainInstance from './ChainInstance';
 import { IDriver } from './types/Driver';
@@ -50,59 +48,147 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
     return Utilities.transformOrderPropertyNames((opts.order || []) as any, opts.properties);
   };
 
-  const chainRun = (done: (err: Error | null, items?: any[]) => void): void => {
-    const conditions = Utilities.transformPropertyNames(opts.conditions || {}, opts.properties);
-    const order = Utilities.transformOrderPropertyNames((opts.order || []) as any, opts.properties);
+  const executeFind = (
+    fields: string[],
+    tableName: string,
+    conditions: Record<string, any>,
+    options: Record<string, any>
+  ): Promise<any[]> => {
+    return new Promise<any[]>((resolve, reject) => {
+      try {
+        const driver: any = opts.driver;
+        driver.find(fields, tableName, conditions, options, (err: Error | null, data?: any[]) => {
+          if (err) return reject(err);
+          resolve(data || []);
+        });
+      } catch (err) {
+        reject(err as Error);
+      }
+    });
+  };
 
-    opts.driver.find(opts.only || [], opts.table, conditions, {
-      limit: opts.limit,
-      order: order as any,
-      merge: opts.merge,
-      offset: opts.offset,
-      exists: opts.exists as any
-    }, (err: Error | null, dataItems?: any) => {
-      if (err) return done(err);
-      if (dataItems.length === 0) return done(null, []);
-
-      const eagerLoad = (err: Error | null, items: any[]): void => {
-        const idMap: Record<string, number> = {};
-
-        const keys = _.map(items, (item, index) => {
-          const key = item[opts.keys[0]];
-          for (const association of opts.__eager || []) {
-            item[association.name] = [];
+  const executeCount = (
+    tableName: string,
+    conditions: Record<string, any>,
+    options: Record<string, any>
+  ): Promise<number> => {
+    return new Promise<number>((resolve, reject) => {
+      try {
+        const driver: any = opts.driver;
+        driver.count(tableName, conditions, options, (err: Error | null, data?: any[]) => {
+          if (err) return reject(err);
+          if (!data || data.length === 0) {
+            return resolve(0);
           }
-          idMap[key] = index;
-          return key;
+          const row = data[0] as Record<string, any>;
+          const value = row?.c ?? row?.count ?? row?.C ?? row?.COUNT;
+          if (typeof value === 'number') {
+            return resolve(value);
+          }
+          if (typeof value === 'string') {
+            const parsed = parseInt(value, 10);
+            return resolve(isNaN(parsed) ? 0 : parsed);
+          }
+          return resolve(0);
+        });
+      } catch (err) {
+        reject(err as Error);
+      }
+    });
+  };
+
+  const executeRemove = (
+    tableName: string,
+    conditions: Record<string, any>
+  ): Promise<void> => {
+    return new Promise<void>((resolve, reject) => {
+      try {
+        const driver: any = opts.driver;
+        driver.remove(tableName, conditions, (err?: Error | null) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      } catch (err) {
+        reject(err as Error);
+      }
+    });
+  };
+
+  /**
+   * Internal async chain execution
+   * Retrieves instances with optional eager loading
+   */
+  const chainRun = async (): Promise<any[]> => {
+    // Fetch raw data from driver
+    const dataItems = await executeFind(
+      opts.only || opts.keys,
+      opts.table,
+      prepareConditions(),
+      {
+        limit: opts.limit,
+        order: prepareOrder() as any,
+        merge: opts.merge,
+        offset: opts.offset,
+        exists: opts.exists as any
+      }
+    );
+
+    if (!dataItems || dataItems.length === 0) {
+      return [];
+    }
+
+    // Convert raw data to model instances
+    const instances: any[] = [];
+    for (const item of dataItems) {
+      const instance = await new Promise<any>((resolve, reject) => {
+        opts.newInstance(item, (err: Error | null, inst?: Instance) => {
+          if (err) reject(err);
+          else resolve(inst);
+        });
+      });
+      instances.push(instance);
+    }
+
+    // Handle eager loading associations
+    if (opts.__eager && opts.__eager.length > 0 && typeof opts.driver.eagerQuery === 'function') {
+      const idMap: Record<string, number> = {};
+      const primaryKey = opts.keys[0];
+
+      const keys = instances.map((instance, index) => {
+        const key = instance[primaryKey];
+        idMap[key] = index;
+        return key;
+      });
+
+      for (const association of opts.__eager as any[]) {
+        for (const instance of instances) {
+          instance[association.name] = [];
+        }
+
+        const assocRows = await new Promise<any[]>((resolve, reject) => {
+          try {
+            opts.driver.eagerQuery!(association, opts, keys, (err: Error | null, rows?: any[]) => {
+              if (err) return reject(err);
+              resolve(rows || []);
+            });
+          } catch (err) {
+            reject(err as Error);
+          }
         });
 
-        async.eachSeries(opts.__eager || [],
-          (association: any, cb: (err?: Error | null) => void) => {
-            opts.driver.eagerQuery!(association, opts, keys, (err: Error | null, instances: any[]) => {
-              if (err) return cb(err);
-
-              for (const instance of instances) {
-                items[idMap[instance.$p]][association.name].push(association.model(instance));
-              }
-              cb();
-            });
-          },
-          (err?: Error | null) => {
-            if (err) done(err);
-            else done(null, items);
+        for (const row of assocRows) {
+          const parentIndex = idMap[row.$p];
+          if (typeof parentIndex === 'undefined') {
+            continue;
           }
-        );
-      };
+          const targetInstance = instances[parentIndex];
+          const associatedInstance = new association.model(row);
+          targetInstance[association.name].push(associatedInstance);
+        }
+      }
+    }
 
-      async.map(dataItems, opts.newInstance as any, (err: Error | null | undefined, items?: any[]) => {
-        if (err) return done(err);
-
-        const shouldEagerLoad = opts.__eager && opts.__eager.length;
-        const completeFn = shouldEagerLoad ? eagerLoad : done;
-
-        return completeFn(null, items || []);
-      });
-    });
+    return instances;
   };
 
   const chain: any = {
@@ -123,7 +209,10 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
       }
 
       if (cb) {
-        chainRun(cb as any);
+        chainRun().then(
+          (result) => cb(null, result),
+          (error) => cb(error)
+        );
       }
       return this;
     },
@@ -183,30 +272,40 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
       return this;
     },
 
-    count(cb: (err: Error | null, count?: number) => void): any {
-      (opts.driver.count as any)(opts.table, prepareConditions(), {
-        merge: opts.merge
-      }, (err: Error | null, data?: any[]) => {
-        if (err || !data || data.length === 0) {
-          return cb(err);
+    count(cb?: (err: Error | null, count?: number) => void): any {
+      const promise = executeCount(
+        opts.table,
+        prepareConditions(),
+        {
+          merge: opts.merge,
+          exists: opts.exists
         }
-        return cb(null, data[0].c);
-      });
-      return this;
+      );
+      if (cb) {
+        promise.then(
+          (count: number) => {
+            return cb(null, count);
+          },
+          (error: Error) => cb(error)
+        );
+        return this;
+      }
+      return promise;
     },
 
-    remove(cb: (err: Error | null) => void): any {
+    remove(cb?: (err: Error | null) => void): any {
       const keys = _.map(opts.keyProperties, 'mapsTo') as string[];
 
-      opts.driver.find(keys, opts.table, prepareConditions(), {
+      const promise = executeFind(keys, opts.table, prepareConditions(), {
         limit: opts.limit,
         order: prepareOrder() as any,
         merge: opts.merge,
         offset: opts.offset,
         exists: opts.exists as any
-      }, (err: Error | null, data?: any[]) => {
-        if (err) return cb(err);
-        if (!data || data.length === 0) return cb(null);
+      }).then((data: any[]) => {
+        if (!data || data.length === 0) {
+          return;
+        }
 
         const conditions: any = { or: [] };
 
@@ -218,30 +317,61 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
           conditions.or.push(or);
         }
 
-        return opts.driver.remove(opts.table, conditions, cb);
+        return executeRemove(opts.table, conditions);
       });
-      return this;
+
+      if (cb) {
+        promise.then(
+          () => cb(null),
+          (error: Error) => cb(error)
+        );
+        return this;
+      }
+      return promise;
     },
 
-    first(cb: (err: Error | null, item?: any) => void): any {
-      return this.run((err: Error | null, items?: any[]) => {
-        return cb(err, items && items.length > 0 ? items[0] : null);
+    first(cb?: (err: Error | null, item?: any) => void): any {
+      const promise = this.run().then((items: any[]) => {
+        return items && items.length > 0 ? items[0] : null;
       });
+      if (cb) {
+        promise.then(
+          (item: any) => cb(null, item),
+          (err: any) => cb(err)
+        );
+        return this;
+      }
+      return promise;
     },
 
-    last(cb: (err: Error | null, item?: any) => void): any {
-      return this.run((err: Error | null, items?: any[]) => {
-        return cb(err, items && items.length > 0 ? items[items.length - 1] : null);
+    last(cb?: (err: Error | null, item?: any) => void): any {
+      const promise = this.run().then((items: any[]) => {
+        return items && items.length > 0 ? items[items.length - 1] : null;
       });
+      if (cb) {
+        promise.then(
+          (item: any) => cb(null, item),
+          (err: any) => cb(err)
+        );
+        return this;
+      }
+      return promise;
     },
 
     each(cb?: Function): any {
       return new (ChainInstance as any)(this, cb);
     },
 
-    run(cb: (err: Error | null, items?: any[]) => void): any {
-      chainRun(cb);
-      return this;
+    run(cb?: (err: Error | null, items?: any[]) => void): any {
+      const promise = chainRun();
+      if (cb) {
+        promise.then(
+          (items: any[]) => cb(null, items),
+          (error: Error) => cb(error)
+        );
+        return this;
+      }
+      return promise;
     },
 
     eager(...args: any[]): any {
@@ -260,14 +390,6 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
   };
 
   chain.all = chain.where = chain.find;
-
-  chain['find' + promiseFunctionPostfix] = promisify(chain.find);
-  chain['all' + promiseFunctionPostfix] = promisify(chain.all);
-  chain['where' + promiseFunctionPostfix] = promisify(chain.where);
-  chain['first' + promiseFunctionPostfix] = promisify(chain.first);
-  chain['last' + promiseFunctionPostfix] = promisify(chain.last);
-  chain['run' + promiseFunctionPostfix] = promisify(chain.run);
-  chain['remove' + promiseFunctionPostfix] = promisify(chain.remove);
 
   if (opts.associations) {
     for (const association of opts.associations) {
@@ -293,16 +415,16 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
   chain.model = Model;
   chain.options = opts;
 
-  // Add promisified async methods
-  if (promiseFunctionPostfix) {
-    chain['find' + promiseFunctionPostfix] = promisify(chain.find);
-    chain['all' + promiseFunctionPostfix] = promisify(chain.all);
-    chain['where' + promiseFunctionPostfix] = promisify(chain.where);
-    chain['first' + promiseFunctionPostfix] = promisify(chain.first);
-    chain['last' + promiseFunctionPostfix] = promisify(chain.last);
-    chain['run' + promiseFunctionPostfix] = promisify(chain.run);
-    chain['remove' + promiseFunctionPostfix] = promisify(chain.remove);
-  }
+  // Make ChainFind thenable - automatically call run() when awaited
+  chain.then = function(onFulfilled?: (value: any[]) => any, onRejected?: (reason?: any) => any): Promise<any> {
+    return chain.run().then(onFulfilled, onRejected);
+  };
+
+  chain.catch = function(onRejected?: (reason?: any) => any): Promise<any> {
+    return chain.run().catch(onRejected);
+  };
+
+  // Methods now support both callback and Promise patterns - no promisify needed
 
   return chain;
 }

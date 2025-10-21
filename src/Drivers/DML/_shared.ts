@@ -2,7 +2,7 @@
  * Shared DML functions
  */
 
-import { promisify } from 'util';
+import { promisify } from '../../utils/promises';
 
 export function generateQuery(this: any, sql: string, params: any[]): string {
   return this.query.escape(sql, params);

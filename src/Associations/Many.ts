@@ -3,13 +3,11 @@
  */
 
 import * as _ from 'lodash';
-import * as async from 'async';
 import * as Hook from '../Hook';
 import Settings from '../Settings';
 import * as Property from '../Property';
 import * as ORMError from '../Error';
 import * as util from '../Utilities';
-import { promisify } from 'util';
 import type { HookMap, AssociationType } from '../types/Core';
 
 const ACCESSOR_METHODS = ["hasAccessor", "getAccessor", "setAccessor", "delAccessor", "addAccessor"];
@@ -146,70 +144,141 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
     });
   }
 
-  function adjustForMapsTo(options: any): void {
+  const wrapWithCallback = <T>(promise: Promise<T>, callback: Function | undefined, context: any): Promise<T> | any => {
+    if (typeof callback === 'function') {
+      promise.then((result) => callback(null, result)).catch((err) => callback(err));
+      return context;
+    }
+    return promise;
+  };
+
+  const resolveQueryResult = async (result: any): Promise<any> => {
+    if (!result) {
+      return result;
+    }
+    if (typeof result.then === 'function') {
+      return await result;
+    }
+    if (typeof result.run === 'function') {
+      return await result.run();
+    }
+    return result;
+  };
+
+  const callMaybeCallback = <T>(fn: Function | undefined, context: any, args: any[] = []): Promise<T> => {
+    if (typeof fn !== 'function') {
+      return Promise.resolve(undefined as unknown as T);
+    }
+
+    return new Promise<T>((resolve, reject) => {
+      let callbackCalled = false;
+      const done = (err?: Error | null, result?: T) => {
+        if (callbackCalled) return;
+        callbackCalled = true;
+        if (err) {
+          reject(err);
+        } else {
+          resolve(result as T);
+        }
+      };
+
+      const finalArgs = [...args, done];
+      let returnValue: any;
+
+      try {
+        returnValue = fn.apply(context, finalArgs);
+      } catch (err) {
+        return reject(err as Error);
+      }
+
+      if (returnValue && typeof returnValue.then === 'function') {
+        returnValue.then((value: T) => done(null, value)).catch((error: Error) => done(error));
+      } else if (fn.length < finalArgs.length) {
+        done(null, returnValue as T);
+      }
+    });
+  };
+
+  const callDriverHasMany = async (method: 'has' | 'get' | 'add' | 'del', ...args: any[]): Promise<any> => {
+    if (!Driver.hasMany) {
+      return undefined;
+    }
+
+    const handler = Driver.hasMany(Model, association);
+    const fn = handler && handler[method];
+    if (typeof fn !== 'function') {
+      return undefined;
+    }
+
+    return await callMaybeCallback(fn, handler, args);
+  };
+
+  const adjustForMapsTo = (options: any): void => {
     for (let i = 0; i < options.__merge.to.field.length; i++) {
       const idProp = association.model.properties[options.__merge.to.field[i]];
       if (idProp && idProp.mapsTo) {
         options.__merge.to.field[i] = idProp.mapsTo;
       }
     }
-  }
+  };
+
+  const ensureArray = <T>(value: T | T[]): T[] => Array.isArray(value) ? value : [value];
 
   Object.defineProperty(Instance, association.hasAccessor, {
     value: function (...args: any[]): any {
-      let Instances = Array.prototype.slice.apply(args);
-      const cb = Instances.pop();
-      const conditions: Record<string, any> = {};
-      const options: any = {};
+      const instanceArgs = Array.prototype.slice.call(args);
+      const callback = typeof _.last(instanceArgs) === 'function' ? instanceArgs.pop() : undefined;
+      const targets = instanceArgs.length === 1 && Array.isArray(instanceArgs[0]) ? instanceArgs[0] : instanceArgs;
+      const self = this;
 
-      if (Instances.length) {
-        if (Array.isArray(Instances[0])) {
-          Instances = Instances[0];
+      const promise = (async () => {
+        const normalizedTargets = ensureArray(targets).filter((item) => item != null);
+        if (normalizedTargets.length === 0) {
+          return false;
         }
-      }
-      if (Driver.hasMany) {
-        return Driver.hasMany(Model, association).has(Instance, Instances, conditions, cb);
-      }
 
-      options.autoFetchLimit = 0;
-      const mergeSelectColumns: string[] = [];
-      const mergeSelectMap: Record<string, string> = {};
-      
-      // Map property names to their database column names (mapsTo)
-      for (const k in association.props) {
-        const columnName = association.props[k].mapsTo || k;
-        mergeSelectColumns.push(columnName);
-        mergeSelectMap[k] = columnName;
-      }
-      
-      options.__merge = {
-        from: { table: association.mergeTable, field: Object.keys(association.mergeAssocId) },
-        to: { table: association.model.table, field: association.model.id.slice(0) },
-        where: [association.mergeTable, {}],
-        select: mergeSelectColumns.length > 0 ? mergeSelectColumns : undefined,
-        selectMap: mergeSelectMap,
-        props: association.props
-      };
+        const driverResult = await callDriverHasMany('has', self, normalizedTargets, {});
+        if (typeof driverResult !== 'undefined') {
+          return !!driverResult;
+        }
 
-      adjustForMapsTo(options);
+        const options: any = { autoFetchLimit: 0 };
+        const conditions: Record<string, any> = {};
+        const mergeSelectColumns: string[] = [];
+        const mergeSelectMap: Record<string, string> = {};
 
-      options.extra = association.props;
-      options.extra_info = {
-        table: association.mergeTable,
-        id: util.values(Instance, Model.id),
-        id_prop: Object.keys(association.mergeId),
-        assoc_prop: Object.keys(association.mergeAssocId)
-      };
+        for (const k in association.props) {
+          const columnName = association.props[k].mapsTo || k;
+          mergeSelectColumns.push(columnName);
+          mergeSelectMap[k] = columnName;
+        }
 
-      util.populateConditions(Model, Object.keys(association.mergeId), Instance, options.__merge.where[1]);
+        options.__merge = {
+          from: { table: association.mergeTable, field: Object.keys(association.mergeAssocId) },
+          to: { table: association.model.table, field: association.model.id.slice(0) },
+          where: [association.mergeTable, {}],
+          select: mergeSelectColumns.length > 0 ? mergeSelectColumns : undefined,
+          selectMap: mergeSelectMap,
+          props: association.props
+        };
 
-      for (let i = 0; i < Instances.length; i++) {
-        util.populateConditions(association.model, Object.keys(association.mergeAssocId), Instances[i], options.__merge.where[1], false);
-      }
+        adjustForMapsTo(options);
 
-      association.model.find(conditions, options, (err?: Error, foundItems?: any[]) => {
-        if (err) return cb(err);
-        if (_.isEmpty(Instances)) return cb(null, false);
+        options.extra = association.props;
+        options.extra_info = {
+          table: association.mergeTable,
+          id: util.values(self, Model.id),
+          id_prop: Object.keys(association.mergeId),
+          assoc_prop: Object.keys(association.mergeAssocId)
+        };
+
+        util.populateConditions(Model, Object.keys(association.mergeId), self, options.__merge.where[1]);
+        for (let i = 0; i < normalizedTargets.length; i++) {
+          util.populateConditions(association.model, Object.keys(association.mergeAssocId), normalizedTargets[i], options.__merge.where[1], false);
+        }
+
+        const finder = association.model.find(conditions, options);
+        const foundItems = await resolveQueryResult(finder);
 
         const rawModelId = association.model?.id;
         const modelKeyFields = Array.isArray(rawModelId)
@@ -219,19 +288,18 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
             : Object.keys(association.model?.properties || {});
         const comparisonKeys = modelKeyFields.length > 0 ? modelKeyFields : ['id'];
 
-        const mapKeysToString = (item: any): string => {
-          return comparisonKeys.map((k: string) => String(item?.[k])).join(',');
-        };
+        const mapKeysToString = (item: any): string => comparisonKeys.map((k: string) => String(item?.[k])).join(',');
 
         const foundItemsIDs = _.chain(foundItems).map(mapKeysToString).uniq().value();
-        const InstancesIDs = _.chain(Instances).map(mapKeysToString).uniq().value();
+        const targetIDs = _.chain(normalizedTargets).map(mapKeysToString).uniq().value();
 
-        const sameLength = foundItemsIDs.length === InstancesIDs.length;
-        const sameContents = sameLength && _.isEmpty(_.difference(foundItemsIDs, InstancesIDs));
+        const sameLength = foundItemsIDs.length === targetIDs.length;
+        const sameContents = sameLength && _.isEmpty(_.difference(foundItemsIDs, targetIDs));
 
-        return cb(null, sameContents);
-      });
-      return this;
+        return sameContents;
+      })();
+
+      return wrapWithCallback(promise, callback, self);
     },
     enumerable: false,
     writable: true
@@ -239,37 +307,38 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
   Object.defineProperty(Instance, association.getAccessor, {
     value: function (...args: any[]): any {
+      const parsedArgs = Array.prototype.slice.call(args);
+      const callback = typeof _.last(parsedArgs) === 'function' ? parsedArgs.pop() : undefined;
+      const self = this;
+
       let options: any = {};
       let conditions: any = null;
       let order: any = null;
-      let cb: Function | null = null;
 
-      for (let i = 0; i < args.length; i++) {
-        switch (typeof args[i]) {
-          case "function":
-            cb = args[i];
-            break;
+      for (let i = 0; i < parsedArgs.length; i++) {
+        const arg = parsedArgs[i];
+        switch (typeof arg) {
           case "object":
-            if (Array.isArray(args[i])) {
-              order = args[i];
+            if (Array.isArray(arg)) {
+              order = arg;
               order[0] = [association.model.table, order[0]];
             } else {
               if (conditions === null) {
-                conditions = args[i];
+                conditions = arg;
               } else {
-                options = args[i];
+                options = arg;
               }
             }
             break;
           case "string":
-            if (args[i][0] === "-") {
-              order = [[association.model.table, args[i].substr(1)], "Z"];
+            if (arg[0] === "-") {
+              order = [[association.model.table, arg.substr(1)], "Z"];
             } else {
-              order = [[association.model.table, args[i]]];
+              order = [[association.model.table, arg]];
             }
             break;
           case "number":
-            options.limit = args[i];
+            options.limit = arg;
             break;
         }
       }
@@ -282,53 +351,55 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
         conditions = {};
       }
 
-      if (Driver.hasMany) {
-        return Driver.hasMany(Model, association).get(Instance, conditions, options, createInstance, cb);
-      }
+      const promise = (async () => {
+        const driverResult = await callDriverHasMany('get', self, conditions, options, createInstance);
+        if (typeof driverResult !== 'undefined') {
+          self.__opts.associations[association.name].value = driverResult;
+          return driverResult;
+        }
 
-      const modelIdArray = Array.isArray(association.model.id) ? association.model.id : [association.model.id];
-      options.__merge = {
-        from: { table: association.mergeTable, field: Object.keys(association.mergeAssocId) },
-        to: { table: association.model.table, field: modelIdArray.slice(0) },
-        where: [association.mergeTable, {}]
-      };
+        const modelIdArray = Array.isArray(association.model.id) ? association.model.id : [association.model.id];
+        options.__merge = {
+          from: { table: association.mergeTable, field: Object.keys(association.mergeAssocId) },
+          to: { table: association.model.table, field: modelIdArray.slice(0) },
+          where: [association.mergeTable, {}]
+        };
 
-      const mergeSelectColumns: string[] = [];
-      const mergeSelectMap: Record<string, string> = {};
-      
-      // Map property names to their database column names (mapsTo)
-      for (const k in association.props) {
-        const columnName = association.props[k].mapsTo || k;
-        mergeSelectColumns.push(columnName);
-        mergeSelectMap[k] = columnName;
-      }
-      
-      if (mergeSelectColumns.length > 0) {
-        options.__merge.select = mergeSelectColumns;
-        options.__merge.selectMap = mergeSelectMap;
-        options.__merge.props = association.props;
-      }
+        const mergeSelectColumns: string[] = [];
+        const mergeSelectMap: Record<string, string> = {};
 
-      adjustForMapsTo(options);
+        for (const k in association.props) {
+          const columnName = association.props[k].mapsTo || k;
+          mergeSelectColumns.push(columnName);
+          mergeSelectMap[k] = columnName;
+        }
 
-      const modelIds = Array.isArray(Model.id) ? Model.id : [Model.id];
-      options.extra = association.props;
-      options.extra_info = {
-        table: association.mergeTable,
-        id: util.values(Instance, modelIds),
-        id_prop: Object.keys(association.mergeId),
-        assoc_prop: Object.keys(association.mergeAssocId)
-      };
+        if (mergeSelectColumns.length > 0) {
+          options.__merge.select = mergeSelectColumns;
+          options.__merge.selectMap = mergeSelectMap;
+          options.__merge.props = association.props;
+        }
 
-      util.populateConditions(Model, Object.keys(association.mergeId), Instance, options.__merge.where[1]);
+        adjustForMapsTo(options);
 
-      if (cb === null) {
-        return association.model.find(conditions, options);
-      }
+        const modelIds = Array.isArray(Model.id) ? Model.id : [Model.id];
+        options.extra = association.props;
+        options.extra_info = {
+          table: association.mergeTable,
+          id: util.values(self, modelIds),
+          id_prop: Object.keys(association.mergeId),
+          assoc_prop: Object.keys(association.mergeAssocId)
+        };
 
-      association.model.find(conditions, options, cb);
+        util.populateConditions(Model, Object.keys(association.mergeId), self, options.__merge.where[1]);
 
-      return this;
+        const finder = association.model.find(conditions, options);
+        const results = await resolveQueryResult(finder);
+        self.__opts.associations[association.name].value = results;
+        return results;
+      })();
+
+      return wrapWithCallback(promise, callback, self);
     },
     enumerable: false,
     writable: true
@@ -336,20 +407,20 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
   Object.defineProperty(Instance, association.setAccessor, {
     value: function (...args: any[]): any {
-      const items = _.flatten(args);
-      const cb = _.last(items) instanceof Function ? items.pop() : noOperation;
+      const flatArgs = _.flatten(args);
+      const callback = typeof _.last(flatArgs) === 'function' ? flatArgs.pop() : undefined;
+      const targets = flatArgs.length === 1 && Array.isArray(flatArgs[0]) ? flatArgs[0] : flatArgs;
+      const self = this;
 
-      Instance[association.delAccessor]((err?: Error) => {
-        if (err) return cb(err);
-
-        if (items.length) {
-          Instance[association.addAccessor](items, cb);
-        } else {
-          cb(null);
+      const promise = (async () => {
+        await self[association.delAccessor]();
+        if (targets.length) {
+          await self[association.addAccessor](targets);
         }
-      });
+        return self;
+      })();
 
-      return this;
+      return wrapWithCallback(promise, callback, self);
     },
     enumerable: false,
     writable: true
@@ -357,13 +428,14 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
   Object.defineProperty(Instance, association.delAccessor, {
     value: function (...args: any[]): any {
+      const self = this;
       let Associations: any[] = [];
-      let cb: Function = noOperation;
+      let callback: Function | undefined;
 
       for (let i = 0; i < args.length; i++) {
         switch (typeof args[i]) {
           case "function":
-            cb = args[i];
+            callback = args[i];
             break;
           case "object":
             if (Array.isArray(args[i])) {
@@ -374,37 +446,34 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
             break;
         }
       }
-      const conditions: Record<string, any> = {};
-      const run = (): void => {
-        if (Driver.hasMany) {
-          return Driver.hasMany(Model, association).del(Instance, Associations, cb);
+
+      const promise = (async () => {
+        if (!self.saved()) {
+          await self.save();
+        }
+
+        const conditions: Record<string, any> = {};
+        util.populateConditions(Model, Object.keys(association.mergeId), self, conditions);
+
+        const driverResult = await callDriverHasMany('del', self, Associations);
+        if (typeof driverResult !== 'undefined') {
+          return driverResult;
         }
 
         if (Associations.length === 0) {
-          return Driver.remove(association.mergeTable, conditions, cb);
+          await callMaybeCallback(Driver.remove.bind(Driver), Driver, [association.mergeTable, conditions]);
+          return self;
         }
 
         for (let i = 0; i < Associations.length; i++) {
           util.populateConditions(association.model, Object.keys(association.mergeAssocId), Associations[i], conditions, false);
         }
 
-        Driver.remove(association.mergeTable, conditions, cb);
-      };
+        await callMaybeCallback(Driver.remove.bind(Driver), Driver, [association.mergeTable, conditions]);
+        return self;
+      })();
 
-      util.populateConditions(Model, Object.keys(association.mergeId), Instance, conditions);
-
-      if (this.saved()) {
-        run();
-      } else {
-        this.save((err?: Error) => {
-          if (err) {
-            return cb(err);
-          }
-
-          return run();
-        });
-      }
-      return this;
+      return wrapWithCallback(promise, callback, self);
     },
     enumerable: false,
     writable: true
@@ -412,70 +481,15 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
   Object.defineProperty(Instance, association.addAccessor, {
     value: function (...args: any[]): any {
+      const self = this;
       let Associations: any[] = [];
-      let opts: any = {};
-      let next: Function = noOperation;
-
-      const run = (): void => {
-        const saveAssociation = (Association: any, cb: Function): void => {
-          const hookOpts = Object.keys(association.props).length > 0 ? opts : undefined;
-
-          Hook.wait(Association, association.hooks.beforeSave, (err?: Error) => {
-            if (err) {
-              return cb(err);
-            }
-
-            Association.save((err?: Error) => {
-              if (err) {
-                return cb(err);
-              }
-
-              const data: Record<string, any> = {};
-
-              for (const k in opts) {
-                if (k in association.props && Driver.propertyToValue) {
-                  data[k] = Driver.propertyToValue(opts[k], association.props[k]);
-                } else {
-                  data[k] = opts[k];
-                }
-              }
-
-              if (Driver.hasMany) {
-                return Driver.hasMany(Model, association).add(Instance, Association, data, (err?: Error) => {
-                  if (err) {
-                    return cb(err);
-                  }
-
-                  return cb();
-                });
-              }
-
-              util.populateConditions(Model, Object.keys(association.mergeId), Instance, data);
-              util.populateConditions(association.model, Object.keys(association.mergeAssocId), Association, data);
-
-              Driver.insert(association.mergeTable, data, null, (err?: Error) => {
-                if (err) {
-                  return cb(err);
-                }
-
-                return cb();
-              });
-            });
-          }, hookOpts);
-        };
-
-        async.eachSeries(Associations, saveAssociation as any, (err?: Error | null) => {
-          if (err) {
-            return next(err);
-          }
-          next(null, Associations);
-        });
-      };
+      let optsArg: any = {};
+      let callback: Function | undefined;
 
       for (let i = 0; i < args.length; i++) {
         switch (typeof args[i]) {
           case "function":
-            next = args[i];
+            callback = args[i];
             break;
           case "object":
             if (Array.isArray(args[i])) {
@@ -483,29 +497,129 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
             } else if (args[i].isInstance) {
               Associations.push(args[i]);
             } else {
-              opts = args[i];
+              optsArg = args[i];
             }
             break;
         }
       }
 
-      if (Associations.length === 0) {
-        throw new ORMError.ORMError("No associations defined", 'PARAM_MISMATCH', { model: Model.name });
-      }
+      const promise = (async () => {
+        if (Associations.length === 0) {
+          throw new ORMError.ORMError("No associations defined", 'PARAM_MISMATCH', { model: Model.name });
+        }
 
-      if (this.saved()) {
-        run();
-      } else {
-        this.save((err?: Error) => {
-          if (err) {
-            return next(err);
+        if (!self.saved()) {
+          await self.save();
+        }
+
+        const associationIdFields = (() => {
+          const rawModelId = association.model?.id;
+          if (Array.isArray(rawModelId)) {
+            return rawModelId.slice();
+          }
+          if (rawModelId) {
+            return [rawModelId];
+          }
+          const propertyKeys = Object.keys(association.model?.properties || {});
+          return propertyKeys.length > 0 ? propertyKeys : ['id'];
+        })();
+
+        const getAssociationIdentity = (item: any): string => {
+          return associationIdFields.map((field) => String(item?.[field])).join('|');
+        };
+
+        const resolveExistingAssociations = async (): Promise<any[]> => {
+          const associationCache = self.__opts?.associations?.[association.name];
+          if (associationCache && Array.isArray(associationCache.value)) {
+            return associationCache.value;
+          }
+          const fetched = await self[association.getAccessor]();
+          return Array.isArray(fetched) ? fetched : [];
+        };
+
+        const existingAssociations = await resolveExistingAssociations();
+        const existingKeys = new Set<string>();
+        for (const existing of existingAssociations) {
+          existingKeys.add(getAssociationIdentity(existing));
+        }
+
+        let hasPotentialNewAssociations = false;
+        for (const candidate of Associations) {
+          if (!candidate || !candidate.isInstance) {
+            hasPotentialNewAssociations = true;
+            break;
+          }
+          const candidateKey = getAssociationIdentity(candidate);
+          if (!existingKeys.has(candidateKey)) {
+            hasPotentialNewAssociations = true;
+            break;
+          }
+        }
+
+        const processedAssociations: any[] = [];
+        const newlyAdded: any[] = [];
+
+        for (let i = 0; i < Associations.length; i++) {
+          let associationInstance = Associations[i];
+          if (!associationInstance.isInstance) {
+            associationInstance = new association.model(associationInstance);
           }
 
-          return run();
-        });
-      }
+          const hookOpts = Object.keys(association.props).length > 0 ? optsArg : undefined;
+          await Hook.wait(associationInstance, association.hooks.beforeSave, hookOpts);
+          await associationInstance.save({}, { saveAssociations: false });
 
-      return this;
+          const associationKey = getAssociationIdentity(associationInstance);
+          if (hasPotentialNewAssociations && existingKeys.has(associationKey)) {
+            processedAssociations.push(associationInstance);
+            continue;
+          }
+
+          const data: Record<string, any> = {};
+          for (const k in optsArg) {
+            if (k in association.props && Driver.propertyToValue) {
+              data[k] = Driver.propertyToValue(optsArg[k], association.props[k]);
+            } else {
+              data[k] = optsArg[k];
+            }
+          }
+
+          const driverResult = await callDriverHasMany('add', self, associationInstance, data);
+          if (typeof driverResult === 'undefined') {
+            util.populateConditions(Model, Object.keys(association.mergeId), self, data);
+            util.populateConditions(association.model, Object.keys(association.mergeAssocId), associationInstance, data);
+            await callMaybeCallback(Driver.insert.bind(Driver), Driver, [association.mergeTable, data, null]);
+          }
+
+          existingKeys.add(associationKey);
+          newlyAdded.push(associationInstance);
+          processedAssociations.push(associationInstance);
+        }
+
+        if (newlyAdded.length > 0) {
+          const associationState = self.__opts.associations[association.name];
+          if (associationState) {
+            const cachedValue = Array.isArray(associationState.value) ? associationState.value.slice() : [];
+            const cacheKeys = new Set<string>(cachedValue.map(getAssociationIdentity));
+            let cacheChanged = false;
+            for (const item of newlyAdded) {
+              const key = getAssociationIdentity(item);
+              if (!cacheKeys.has(key)) {
+                cachedValue.push(item);
+                cacheKeys.add(key);
+                cacheChanged = true;
+              }
+            }
+            if (cacheChanged) {
+              associationState.value = cachedValue;
+            }
+          }
+        }
+
+        return processedAssociations;
+      })();
+
+      return wrapWithCallback(promise, callback, self);
     },
     enumerable: false,
     writable: true
@@ -522,13 +636,17 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
     enumerable: true
   });
 
-  for (let y = 0; y < ACCESSOR_METHODS.length; y++) {
-    const accessorMethodName = ACCESSOR_METHODS[y];
-    Object.defineProperty(Instance, association[accessorMethodName] + promiseFunctionPostfix, {
-      value: promisify(Instance[association[accessorMethodName]]),
-      enumerable: false,
-      writable: true
-    });
+  if (promiseFunctionPostfix) {
+    for (let y = 0; y < ACCESSOR_METHODS.length; y++) {
+      const accessorMethodName = ACCESSOR_METHODS[y];
+      const baseFn = Instance[association[accessorMethodName]];
+      if (!baseFn) continue;
+      Object.defineProperty(Instance, association[accessorMethodName] + promiseFunctionPostfix, {
+        value: baseFn,
+        enumerable: false,
+        writable: true
+      });
+    }
   }
 }
 
@@ -558,9 +676,6 @@ function ucfirst(text: string): string {
   return text[0].toUpperCase() + text.substr(1).replace(/_([a-z])/, (m, l) => {
     return l.toUpperCase();
   });
-}
-
-function noOperation(): void {
 }
 
 export default { prepare, extend, autoFetch };

@@ -3,14 +3,17 @@
  * 
  * Defines the contract that all database drivers must implement.
  * This enables type-safe driver development and better IDE support.
+ * 
+ * All methods now return Promises for consistency with async/await patterns.
  */
 
-import { DriverResult, DriverOptions, ErrorCallback, ResultCallback } from './Core';
+import { DriverResult, DriverOptions } from './Core';
 
 // ==================== Core Driver Interface ====================
 
 /**
  * Main driver interface that all database drivers must implement
+ * All methods are promise-based for async/await compatibility
  */
 export interface IDriver {
   /**
@@ -21,64 +24,49 @@ export interface IDriver {
     table: string,
     conditions: Record<string, unknown>,
     options: DriverOptions
-  ): void;
-
-  /**
-   * Execute a SELECT query with callback
-   */
-  find(
-    columns: string[],
-    table: string,
-    conditions: Record<string, unknown>,
-    options: DriverOptions,
-    cb: (err: Error | null, results?: DriverResult[]) => void
-  ): void;
+  ): Promise<DriverResult[]>;
 
   /**
    * Insert or update a record
    */
   save(
     table: string,
-    data: Record<string, unknown>,
-    cb: (err: Error | null, result?: DriverResult) => void
-  ): void;
+    data: Record<string, unknown>
+  ): Promise<DriverResult>;
 
   /**
    * Delete records
    */
   remove(
     table: string,
-    conditions: Record<string, unknown>,
-    cb: (err: Error | null) => void
-  ): void;
+    conditions: Record<string, unknown>
+  ): Promise<void>;
 
   /**
    * Count matching records
    */
   count(
     table: string,
-    conditions: Record<string, unknown>,
-    cb: (err: Error | null, count?: number) => void
-  ): void;
+    conditions: Record<string, unknown>
+  ): Promise<number>;
 
   /**
    * Check if record exists
    */
   exists(
     table: string,
-    conditions: Record<string, unknown>,
-    cb: (err: Error | null, exists?: boolean) => void
-  ): void;
+    conditions: Record<string, unknown>
+  ): Promise<boolean>;
 
   /**
    * Synchronize model with database
    */
-  sync(cb: (err: Error | null) => void): void;
+  sync(): Promise<void>;
 
   /**
    * Drop table
    */
-  drop(table: string, cb: (err: Error | null) => void): void;
+  drop(table: string): Promise<void>;
 
   /**
    * Define a model table
@@ -95,9 +83,8 @@ export interface IDriver {
    */
   execQuery(
     query: string,
-    params?: unknown[],
-    cb?: (err: Error | null, results?: DriverResult[]) => void
-  ): void;
+    params?: unknown[]
+  ): Promise<DriverResult[]>;
 
   /**
    * Get database connection
@@ -107,7 +94,17 @@ export interface IDriver {
   /**
    * Close database connection
    */
-  close(cb: (err?: Error | null) => void): void;
+  close(): Promise<void>;
+
+  /**
+   * Execute aggregate function (SUM, AVG, MIN, MAX, etc.)
+   */
+  aggregate(
+    table: string,
+    func: string,
+    column: string,
+    conditions?: Record<string, unknown>
+  ): Promise<unknown>;
 }
 
 // ==================== Model Definition ====================
@@ -341,17 +338,17 @@ export interface ITransaction {
   /**
    * Begin transaction
    */
-  begin(cb: ErrorCallback): void;
+  begin(): Promise<void>;
 
   /**
    * Commit transaction
    */
-  commit(cb: ErrorCallback): void;
+  commit(): Promise<void>;
 
   /**
    * Rollback transaction
    */
-  rollback(cb: ErrorCallback): void;
+  rollback(): Promise<void>;
 
   /**
    * Check if transaction is active
@@ -363,9 +360,8 @@ export interface ITransaction {
    */
   query(
     sql: string,
-    params: unknown[],
-    cb: ResultCallback<DriverResult[]>
-  ): void;
+    params: unknown[]
+  ): Promise<DriverResult[]>;
 }
 
 // ==================== Bulk Operations ====================
@@ -402,8 +398,8 @@ export interface BulkDeleteOptions {
  */
 export interface Migration {
   version: string;
-  up(db: unknown, cb: ErrorCallback): void;
-  down(db: unknown, cb: ErrorCallback): void;
+  up(db: unknown): Promise<void>;
+  down(db: unknown): Promise<void>;
 }
 
 /**
@@ -413,17 +409,17 @@ export interface IMigrationRunner {
   /**
    * Run pending migrations
    */
-  run(cb: ErrorCallback): void;
+  run(): Promise<void>;
 
   /**
    * Rollback migrations
    */
-  rollback(steps: number, cb: ErrorCallback): void;
+  rollback(steps: number): Promise<void>;
 
   /**
    * Get migration status
    */
-  status(cb: (err: Error | null, status?: MigrationStatus[]) => void): void;
+  status(): Promise<MigrationStatus[]>;
 }
 
 /**
