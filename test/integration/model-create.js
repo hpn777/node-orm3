@@ -21,15 +21,12 @@ describe("Model.create() - Async API", function() {
     };
   };
 
-  before(function (done) {
-    helper.connect(function (connection) {
-      db = connection;
-      return done();
-    });
+  before(async function () {
+    db = await new Promise(resolve => helper.connect(resolve));
   });
 
-  after(function () {
-    return db.close();
+  after(async function () {
+    await db.close();
   });
 
   afterEach(function () {

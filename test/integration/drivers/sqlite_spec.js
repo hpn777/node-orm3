@@ -20,12 +20,9 @@ describe("Sqlite driver", function() {
   });
 
   describe("execSimpleQuery", function () {
-    it("#execSimpleQuery should run query", function (done) {
-      driver.execSimpleQuery("SELECT count(*)", function (err, data) {
-        should.not.exist(err);
-        should.deepEqual(data, [{ 'count(*)': 1 }]);
-        done();
-      });
+    it("#execSimpleQuery should run query", async function () {
+      const data = await driver.execSimpleQuery("SELECT count(*)");
+      should.deepEqual(data, [{ 'count(*)': 1 }]);
     });
 
     it("#execSimpleQueryAsync should run query", async function () {
@@ -35,11 +32,8 @@ describe("Sqlite driver", function() {
   });
 
   describe("ping", function () {
-    it("#ping should work", function (done) {
-      driver.ping(function (err) {
-        should.not.exist(err);
-        done();
-      });
+    it("#ping should work", async function () {
+      await driver.ping();
     });
 
     it("#pingAsync should work", async function () {
@@ -54,12 +48,9 @@ describe("Sqlite driver", function() {
       await driver.execSimpleQueryAsync("INSERT INTO abc VALUES ('jane'), ('bob'), ('alice')");
     });
 
-    it("#find should work", function (done) {
-      driver.find(['name'], 'abc', { name: 'jane' }, {}, function (err, data) {
-        should.not.exist(err);
-        should.deepEqual(data, [{ name: 'jane' }]);
-        done();
-      });
+    it("#find should work", async function () {
+      const data = await driver.find(['name'], 'abc', { name: 'jane' }, {});
+      should.deepEqual(data, [{ name: 'jane' }]);
     });
 
     it("#findAsync should work", async function () {
@@ -75,12 +66,9 @@ describe("Sqlite driver", function() {
       await driver.execSimpleQueryAsync("INSERT INTO abc VALUES ('jane'), ('bob'), ('alice')");
     });
 
-    it("#count should work", function (done) {
-      driver.count('abc', {}, {}, function (err, data) {
-        should.not.exist(err);
-        should.deepEqual(data, [{ c: 3 }]);
-        done();
-      });
+    it("#count should work", async function () {
+      const data = await driver.count('abc', {}, {});
+      should.deepEqual(data, [{ c: 3 }]);
     });
 
     it("#countAsync should work", async function () {
@@ -95,15 +83,10 @@ describe("Sqlite driver", function() {
       await driver.execSimpleQueryAsync("CREATE TABLE abc (name varchar(100))");
     });
 
-    it("#insert should work", function (done) {
-      driver.insert('abc', { name: 'jane' }, null, function (err) {
-        should.not.exist(err);
-        driver.execSimpleQuery("SELECT count(*) FROM abc", function (err, data) {
-          should.not.exist(err);
-          should.deepEqual(data, [{ 'count(*)': 1 }]);
-          done();
-        });
-      });
+    it("#insert should work", async function () {
+      await driver.insert('abc', { name: 'jane' }, null);
+      const data = await driver.execSimpleQuery("SELECT count(*) FROM abc");
+      should.deepEqual(data, [{ 'count(*)': 1 }]);
     });
 
     it("#insertAsync should work", async function () {
@@ -120,15 +103,10 @@ describe("Sqlite driver", function() {
       await driver.execSimpleQueryAsync("INSERT INTO abc VALUES ('jane'), ('bob'), ('alice')");
     });
 
-    it("#update should work", function (done) {
-      driver.update('abc', { name: 'bob' }, { name: 'jane' }, function (err) {
-        should.not.exist(err);
-        driver.execSimpleQuery("SELECT count(*) FROM abc WHERE name = 'bob'", function (err, data) {
-          should.not.exist(err);
-          should.deepEqual(data, [{ 'count(*)': 2 }]);
-          done();
-        });
-      });
+    it("#update should work", async function () {
+      await driver.update('abc', { name: 'bob' }, { name: 'jane' });
+      const data = await driver.execSimpleQuery("SELECT count(*) FROM abc WHERE name = 'bob'");
+      should.deepEqual(data, [{ 'count(*)': 2 }]);
     });
 
     it("#updateAsync should work", async function () {
@@ -145,15 +123,10 @@ describe("Sqlite driver", function() {
       await driver.execSimpleQueryAsync("INSERT INTO abc VALUES ('jane'), ('bob'), ('alice')");
     });
 
-    it("#remove should work", function (done) {
-      driver.remove('abc', { name: 'bob' }, function (err) {
-        should.not.exist(err);
-        driver.execSimpleQuery("SELECT name FROM abc ORDER BY name", function (err, data) {
-          should.not.exist(err);
-          should.deepEqual(data, [{ name: 'alice' }, { name: 'jane' }]);
-          done();
-        });
-      });
+    it("#remove should work", async function () {
+      await driver.remove('abc', { name: 'bob' });
+      const data = await driver.execSimpleQuery("SELECT name FROM abc ORDER BY name");
+      should.deepEqual(data, [{ name: 'alice' }, { name: 'jane' }]);
     });
 
     it("#removeAsync should work", async function () {
@@ -171,15 +144,10 @@ describe("Sqlite driver", function() {
         await driver.execSimpleQueryAsync("INSERT INTO abc VALUES ('jane'), ('bob'), ('alice')");
       });
 
-      it("#clear should work", function (done) {
-        driver.clear('abc', function (err) {
-          should.not.exist(err);
-          driver.execSimpleQuery("SELECT count(*) FROM abc", function (err, data) {
-            should.not.exist(err);
-            should.deepEqual(data, [{ 'count(*)': 0 }]);
-            done();
-          });
-        });
+      it("#clear should work", async function () {
+        await driver.clear('abc');
+        const data = await driver.execSimpleQuery("SELECT count(*) FROM abc");
+        should.deepEqual(data, [{ 'count(*)': 0 }]);
       });
 
       it("#clearAsync should work", async function () {
@@ -196,15 +164,10 @@ describe("Sqlite driver", function() {
         await driver.execSimpleQueryAsync("INSERT INTO abc VALUES ('jane', null), ('bob', null), ('alice', null)");
       });
 
-      it("#clear should work", function (done) {
-        driver.clear('abc', function (err) {
-          should.not.exist(err);
-          driver.execSimpleQuery("SELECT count(*) FROM abc", function (err, data) {
-            should.not.exist(err);
-            should.deepEqual(data, [{ 'count(*)': 0 }]);
-            done();
-          });
-        });
+      it("#clear should work", async function () {
+        await driver.clear('abc');
+        const data = await driver.execSimpleQuery("SELECT count(*) FROM abc");
+        should.deepEqual(data, [{ 'count(*)': 0 }]);
       });
 
       it("#clearAsync should work", async function () {

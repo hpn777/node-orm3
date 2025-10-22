@@ -2,10 +2,6 @@
  * Lazy loading utilities
  */
 
-import { promisify } from './utils/promises';
-
-const LAZY_METHOD_NAMES = ["get", "remove", "set"];
-
 function ucfirst(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
@@ -16,78 +12,104 @@ function conditionAssign(instance: Record<string, any>, model: any): Record<stri
   return conditions;
 }
 
+async function saveEntity(entity: any): Promise<void> {
+  if (typeof entity.save !== 'function') {
+    throw new Error('LazyLoad operations expect related instances to expose a save() method.');
+  }
+
+  if (entity.save.length > 0) {
+    await new Promise<void>((resolve, reject) => {
+      entity.save((err?: Error | null) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve();
+      });
+    });
+    return;
+  }
+
+  const result = entity.save();
+  if (result && typeof result.then === 'function') {
+    await result;
+  }
+}
+
+async function fetchRelatedInstance(
+  owner: Record<string, any>,
+  Model: any,
+  property: string
+): Promise<Record<string, any> | null> {
+  const conditions = conditionAssign(owner, Model);
+
+  const item = await Model
+    .find(conditions, { identityCache: false })
+    .only(Model.id.concat(property))
+    .first();
+
+  return item ?? null;
+}
+
 function addLazyLoadProperty(name: string, Instance: Record<string, any>, Model: any, property: string): void {
   const method = ucfirst(name);
-  const promiseFunctionPostfix = Model.settings.get('promiseFunctionPostfix');
-  
-  const functionNames = {
-    get: {
-      callback: "get" + method,
-      promise: "get" + method + promiseFunctionPostfix
-    },
-    remove: {
-      callback: "remove" + method,
-      promise: "remove" + method + promiseFunctionPostfix
-    },
-    set: {
-      callback: "set" + method,
-      promise: "set" + method + promiseFunctionPostfix
-    }
+  const getterName = `get${method}`;
+  const removerName = `remove${method}`;
+  const setterName = `set${method}`;
+
+  const getterAsyncName = `${getterName}Async`;
+  const removerAsyncName = `${removerName}Async`;
+  const setterAsyncName = `${setterName}Async`;
+
+  const getter = async function (this: any): Promise<any> {
+    const item = await fetchRelatedInstance(this, Model, property);
+    return item ? item[property] : null;
   };
 
-  Object.defineProperty(Instance, functionNames.get.callback, {
-    value: function (this: any, cb: (err: Error | null, data?: any) => void) {
-      const conditions = conditionAssign(Instance, Model);
+  const remover = async function (this: any): Promise<void> {
+    const item = await fetchRelatedInstance(this, Model, property);
+    if (!item) return;
 
-      Model.find(conditions, { identityCache: false }).only(Model.id.concat(property)).first((err: Error | null, item: Record<string, any> | null) => {
-        return cb(err, item ? item[property] : null);
-      });
+    item[property] = null;
+    await saveEntity(item);
+  };
 
-      return this;
-    },
+  const setter = async function (this: any, data: any): Promise<void> {
+    const item = await fetchRelatedInstance(this, Model, property);
+    if (!item) return;
+
+    item[property] = data;
+    await saveEntity(item);
+  };
+
+  Object.defineProperty(Instance, getterAsyncName, {
+    value: getter,
     enumerable: false
   });
 
-  Object.defineProperty(Instance, functionNames.remove.callback, {
-    value: function (this: any, cb: (err: Error | null) => void) {
-      const conditions = conditionAssign(Instance, Model);
-
-      Model.find(conditions, { identityCache: false }).only(Model.id.concat(property)).first((err: Error | null, item: Record<string, any> | null) => {
-        if (err) return cb(err);
-        if (!item) return cb(null);
-
-        item[property] = null;
-        return item.save(cb);
-      });
-
-      return this;
-    },
+  Object.defineProperty(Instance, setterAsyncName, {
+    value: setter,
     enumerable: false
   });
 
-  Object.defineProperty(Instance, functionNames.set.callback, {
-    value: function (this: any, data: any, cb: (err: Error | null) => void) {
-      const conditions = conditionAssign(Instance, Model);
-
-      Model.find(conditions, { identityCache: false }).first((err: Error | null, item: Record<string, any> | null) => {
-        if (err) return cb(err);
-        if (!item) return cb(null);
-
-        item[property] = data;
-        return item.save(cb);
-      });
-
-      return this;
-    },
+  Object.defineProperty(Instance, removerAsyncName, {
+    value: remover,
     enumerable: false
   });
 
-  for (const methodName of LAZY_METHOD_NAMES) {
-    Object.defineProperty(Instance, functionNames[methodName as keyof typeof functionNames].promise, {
-      value: promisify(Instance[functionNames[methodName as keyof typeof functionNames].callback]),
-      enumerable: false
-    });
-  }
+  Object.defineProperty(Instance, getterName, {
+    value: getter,
+    enumerable: false
+  });
+
+  Object.defineProperty(Instance, setterName, {
+    value: setter,
+    enumerable: false
+  });
+
+  Object.defineProperty(Instance, removerName, {
+    value: remover,
+    enumerable: false
+  });
 }
 
 export function extend(Instance: any, Model: any, properties: Record<string, any>): void {

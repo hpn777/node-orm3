@@ -10,6 +10,12 @@ import type { AssociationType } from '../types/Core';
 
 const ACCESSOR_METHODS = ["hasAccessor", "getAccessor", "setAccessor", "delAccessor"];
 
+const rejectCallback = (context: string, args: any[]): void => {
+  if (args.some((arg) => typeof arg === 'function')) {
+    throw new TypeError(`${context} no longer accepts callbacks. Await the returned promise instead.`);
+  }
+};
+
 export function prepare(db: any, Model: any, associations: any[]): void {
   Model.extendsTo = function (name: string, properties: Record<string, any>, opts?: any): any {
     opts = opts || {};
@@ -49,22 +55,18 @@ export function prepare(db: any, Model: any, associations: any[]): void {
     associations.push(association);
 
     Model["findBy" + assocName] = function (...args: any[]): any {
-      let cb: Function | null = null;
+      rejectCallback(`${Model.modelName || Model.table}.findBy${assocName}`, args);
+
       let conditions: any = null;
       let options: any = {};
 
       for (let i = 0; i < args.length; i++) {
-        switch (typeof args[i]) {
-          case "function":
-            cb = args[i];
-            break;
-          case "object":
-            if (conditions === null) {
-              conditions = args[i];
-            } else {
-              options = args[i];
-            }
-            break;
+        if (typeof args[i] === "object" && args[i] !== null) {
+          if (conditions === null) {
+            conditions = args[i];
+          } else {
+            options = args[i];
+          }
         }
       }
 
@@ -80,12 +82,7 @@ export function prepare(db: any, Model: any, associations: any[]): void {
       };
       options.extra = [];
 
-      const chain = Model.find({}, options);
-      if (typeof cb === "function") {
-        chain.run(cb);
-        return chain;
-      }
-      return chain;
+      return Model.find({}, options);
     };
 
     return association.model;
@@ -130,17 +127,6 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
     return modelIds;
   };
 
-  const wrapCallback = <T>(promise: Promise<T>, callback?: (err?: Error | null, result?: T) => void, context?: any): any => {
-    if (typeof callback === 'function') {
-      promise.then(
-        (result) => callback.call(context, null, result),
-        (err) => callback.call(context, err || undefined as any)
-      );
-      return context || Instance;
-    }
-    return promise;
-  };
-
   const removeExtensionsForInstance = async (modelIds: string[]): Promise<void> => {
     const conditions: Record<string, any> = {};
     const fields = Object.keys(association.field);
@@ -164,8 +150,10 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
   };
 
   Object.defineProperty(Instance, association.hasAccessor, {
-    value: function (cb?: (err?: Error | null, result?: boolean) => void): any {
-      const promise = (async () => {
+    value: function (...args: any[]): any {
+      rejectCallback(`${Model.modelName || Model.table}.${association.hasAccessor}`, args);
+
+      return (async () => {
         const modelIds = ensurePersisted();
         try {
           await association.model.get(util.values(Instance, modelIds));
@@ -177,43 +165,37 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
           throw err;
         }
       })();
-
-      return wrapCallback<boolean>(promise, cb, this);
     },
     enumerable: false,
     writable: true
   });
 
   Object.defineProperty(Instance, association.getAccessor, {
-    value: function (opts?: any, cb?: (err?: Error | null, result?: any) => void): any {
-      let options = opts;
-      let callback = cb;
+    value: function (...args: any[]): any {
+      rejectCallback(`${Model.modelName || Model.table}.${association.getAccessor}`, args);
+      const options = args.length > 0 ? args[0] : undefined;
 
-      if (typeof options === 'function') {
-        callback = options;
-        options = {};
-      }
-
-      const promise = (async () => {
+      return (async () => {
         const modelIds = ensurePersisted();
         const values = util.values(Instance, modelIds);
         const normalized = options && typeof options === 'object' ? options : {};
-        const args: any[] = [values];
+        const queryArgs: any[] = [values];
         if (Object.keys(normalized).length) {
-          args.push(normalized);
+          queryArgs.push(normalized);
         }
-        return await association.model.get.apply(association.model, args);
+        return await association.model.get.apply(association.model, queryArgs);
       })();
-
-      return wrapCallback<any>(promise, callback, this);
     },
     enumerable: false,
     writable: true
   });
 
   Object.defineProperty(Instance, association.setAccessor, {
-    value: function (Extension: any, cb?: (err?: Error | null) => void): any {
-      const promise = (async () => {
+    value: function (...args: any[]): any {
+      rejectCallback(`${Model.modelName || Model.table}.${association.setAccessor}`, args);
+      const Extension = args[0];
+
+      return (async () => {
         const modelIds = ensurePersisted();
         const fields = Object.keys(association.field);
 
@@ -234,22 +216,20 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
         return Instance;
       })();
-
-      return wrapCallback<any>(promise, cb, this);
     },
     enumerable: false,
     writable: true
   });
 
   Object.defineProperty(Instance, association.delAccessor, {
-    value: function (cb?: (err?: Error | null) => void): any {
-      const promise = (async () => {
+    value: function (...args: any[]): any {
+      rejectCallback(`${Model.modelName || Model.table}.${association.delAccessor}`, args);
+
+      return (async () => {
         const modelIds = ensurePersisted();
         await removeExtensionsForInstance(modelIds);
         return Instance;
       })();
-
-      return wrapCallback<any>(promise, cb, this);
     },
     enumerable: false,
     writable: true
@@ -285,13 +265,14 @@ function autoFetchInstance(Instance: any, association: any, opts: any, cb: Funct
   }
 
   if (Instance.isPersisted()) {
-    Instance[association.getAccessor]({ autoFetchLimit: opts.autoFetchLimit - 1 }, (err?: Error, Assoc?: any) => {
-      if (!err) {
+    Instance[association.getAccessor]({ autoFetchLimit: opts.autoFetchLimit - 1 })
+      .then((Assoc: any) => {
         Instance[association.name] = Assoc;
-      }
-
-      return cb();
-    });
+      })
+      .catch(() => {
+        // ignore auto-fetch errors to align with legacy behavior
+      })
+      .finally(() => cb());
   } else {
     return cb();
   }

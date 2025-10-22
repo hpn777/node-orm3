@@ -1,6 +1,4 @@
 import _ from 'lodash';
-import async from 'async';
-import { promisify } from './utils/promises';
 import ChainFind from './ChainFind';
 import { Instance } from './Instance';
 import LazyLoad from './LazyLoad';
@@ -82,6 +80,19 @@ export default function Model(opts: ModelOptions): ModelType {
     };
   };
 
+  const assertNoCallback = (method: string, args: any[]): void => {
+    if (!args.length) {
+      return;
+    }
+
+    const lastArg = args[args.length - 1];
+    if (typeof lastArg === "function") {
+      throw new TypeError(
+        `${opts.table}.${method} no longer accepts callbacks. Await the returned promise instead.`
+      );
+    }
+  };
+
   const createInstance = function (
     data: InstanceData,
     instanceOpts: CreateInstanceOptions,
@@ -120,11 +131,9 @@ export default function Model(opts: ModelOptions): ModelType {
 
     const saveNewInstance = (instance: InstanceType, saveCb: Function): void => {
       // Call instance.save directly - let it handle hooks
-      (instance.save({}) as Promise<void>).then(() => {
-        return saveCb(null, instance);
-      }).catch((err: Error) => {
-        return cb(err);
-      });
+      instance.save({})
+        .then(() => saveCb(null, instance))
+        .catch((err: Error) => cb(err));
     };
 
     const instance = Instance(model, {
@@ -300,66 +309,16 @@ export default function Model(opts: ModelOptions): ModelType {
     enumerable: false
   });
 
-  const invokeLegacyCallback = <T>(callback: ((err: Error | null, result?: T) => void) | null | undefined, err: Error | null, result?: T): Error | null => {
-    if (typeof callback !== "function") {
-      return null;
-    }
+  model.drop = async function (): Promise<void> {
+    assertNoCallback("drop", Array.from(arguments));
 
-    try {
-      callback(err, result);
-      return null;
-    } catch (cbErr) {
-      return cbErr as Error;
-    }
-  };
-
-  const resolveWithCallback = <T>(promise: Promise<T>, callback?: ((err: Error | null, result?: T) => void) | null): Promise<T> => {
-    if (typeof callback !== "function") {
-      return promise;
-    }
-
-    return promise
-      .then((result) => {
-        const cbErr = invokeLegacyCallback<T>(callback, null, result);
-        if (cbErr) {
-          return Promise.reject(cbErr);
-        }
-        return result;
-      })
-      .catch((err) => {
-        const cbErr = invokeLegacyCallback<T>(callback, err as Error, undefined);
-        if (cbErr) {
-          return Promise.reject(cbErr);
-        }
-        return Promise.reject(err);
-      });
-  };
-
-  // Internal callback-based drop implementation
-  const _dropCallback = function (this: any, cb: (err?: Error | null) => void): ModelType {
-    opts.driver.drop({
-      table: opts.table,
-      properties: allProperties,
-      one_associations: one_associations,
-      many_associations: many_associations
-    }, cb);
-
-    return this;
-  };
-
-  // Public async-only interface
-  model.drop = function (cb?: (err?: Error | null) => void): Promise<void> {
-    return new Promise((resolve, reject) => {
-      _dropCallback.call(model, (err?: Error | null) => {
-        if (typeof cb === "function") {
-          try {
-            cb(err || undefined);
-          } catch (cbErr) {
-            reject(cbErr as Error);
-            return;
-          }
-        }
-
+    await new Promise<void>((resolve, reject) => {
+      opts.driver.drop({
+        table: opts.table,
+        properties: allProperties,
+        one_associations: one_associations,
+        many_associations: many_associations
+      }, (err?: Error | null) => {
         if (err) {
           reject(err);
         } else {
@@ -369,34 +328,19 @@ export default function Model(opts: ModelOptions): ModelType {
     });
   };
 
-  // Internal callback-based sync implementation
-  const _syncCallback = function (this: any, cb: (err?: Error | null) => void): ModelType {
-    opts.driver.sync({
-      id: keyProperties.map(p => p.name),
-      extension: opts.extension,
-      table: opts.table,
-      allProperties: allProperties,
-      one_associations: one_associations,
-      many_associations: many_associations,
-      extend_associations: extend_associations
-    }, cb);
+  model.sync = async function (): Promise<void> {
+    assertNoCallback("sync", Array.from(arguments));
 
-    return this;
-  };
-
-  // Public async-only interface
-  model.sync = function (cb?: (err?: Error | null) => void): Promise<void> {
-    return new Promise((resolve, reject) => {
-      _syncCallback.call(model, (err?: Error | null) => {
-        if (typeof cb === "function") {
-          try {
-            cb(err || undefined);
-          } catch (cbErr) {
-            reject(cbErr as Error);
-            return;
-          }
-        }
-
+    await new Promise<void>((resolve, reject) => {
+      opts.driver.sync({
+        id: keyProperties.map(p => p.name),
+        extension: opts.extension,
+        table: opts.table,
+        allProperties: allProperties,
+        one_associations: one_associations,
+        many_associations: many_associations,
+        extend_associations: extend_associations
+      }, (err?: Error | null) => {
         if (err) {
           reject(err);
         } else {
@@ -407,15 +351,13 @@ export default function Model(opts: ModelOptions): ModelType {
   };
 
   model.get = function (...params: any[]): Promise<InstanceType | null> {
-    const callback = (params.length > 0 && typeof params[params.length - 1] === "function")
-      ? (params.pop() as (err: Error | null, item?: InstanceType | null) => void)
-      : undefined;
+    assertNoCallback("get", params);
 
     const conditions: QueryConditions = {};
     const options: any = {};
     const keys = Array.isArray(opts.keys) ? opts.keys : [opts.keys!];
 
-    let ids: any[] = params;
+    let ids: any[] = params.slice();
 
     if (ids.length > 0 && typeof ids[ids.length - 1] === "object" && !Array.isArray(ids[ids.length - 1])) {
       const lastArg = ids[ids.length - 1];
@@ -455,7 +397,7 @@ export default function Model(opts: ModelOptions): ModelType {
 
     options.identityCache = options.hasOwnProperty("identityCache") ? options.identityCache : opts.settings!.get("instance.identityCache");
 
-    const promise = new Promise<InstanceType | null>((resolve, reject) => {
+    return new Promise<InstanceType | null>((resolve, reject) => {
       const uid = opts.driver.uid + "/" + opts.table + "/";
       const itemId = uid + keys.map((k: string) => conditions[k]).join("/");
 
@@ -483,17 +425,16 @@ export default function Model(opts: ModelOptions): ModelType {
         else resolve(item || null);
       });
     });
-
-    return resolveWithCallback(promise, callback);
   };
 
   model.find = function (...args: any[]): any {
+    assertNoCallback("find", args);
+
     const conditions: QueryConditions = {};
     let options: FindOptions = {};
     let limit: number | undefined = undefined;
     let order: any[] = [];
     let merge: any = null;
-    let cb: Function | null = null;
     const optionKeys = new Set([
       "limit",
       "order",
@@ -614,9 +555,6 @@ export default function Model(opts: ModelOptions): ModelType {
             }
           }
           break;
-        case "function":
-          cb = args[i];
-          break;
         case "string":
           if (args[i][0] === "-") {
             order.push([args[i].substr(1), "Z"]);
@@ -692,7 +630,7 @@ export default function Model(opts: ModelOptions): ModelType {
       offset: options.offset,
       properties: allProperties,
       keyProperties: keyProperties,
-      newInstance: function (data: InstanceData, cb: (err: Error | null, instance?: InstanceType) => void) {
+  newInstance: function (data: InstanceData, cb?: (err: Error | null, instance?: InstanceType) => void) {
         Utilities.renameDatastoreFieldsToPropertyNames(data, fieldToPropertyMap as any);
 
         const keys = Array.isArray(opts.keys) ? opts.keys : [opts.keys!];
@@ -738,7 +676,11 @@ export default function Model(opts: ModelOptions): ModelType {
             extra: options.extra,
             extra_info: extra_info_with_values
           }, createCb as any);
-        }, cb as any);
+        }, (err: Error | null, instance?: InstanceType) => {
+          if (cb) {
+            cb(err, instance);
+          }
+        });
       }
     });
 
@@ -748,11 +690,8 @@ export default function Model(opts: ModelOptions): ModelType {
   model.where = model.all = model.find;
 
 
-  // Public async-one method with legacy callback support
-  model.one = function (...args: any[]): Promise<InstanceType | null> {
-    const callback = (args.length > 0 && typeof args[args.length - 1] === "function")
-      ? (args.pop() as (err: Error | null, item?: InstanceType | null) => void)
-      : undefined;
+  model.one = async function (...args: any[]): Promise<InstanceType | null> {
+    assertNoCallback("one", args);
 
     let conditions: Record<string, unknown> = {};
     let options: FindOptions | undefined;
@@ -765,34 +704,21 @@ export default function Model(opts: ModelOptions): ModelType {
       options = args.shift();
     }
 
-    const promise = new Promise<InstanceType | null>((resolve, reject) => {
-      (async () => {
-        try {
-          const chain = model.find(conditions, options) as any;
-          chain.limit(1);
-          const results = await chain.run();
-          resolve(results && results.length ? results[0] : null);
-        } catch (err) {
-          reject(err);
-        }
-      })();
-    });
-
-    return resolveWithCallback(promise, callback);
+    const chain = model.find(conditions, options) as any;
+    chain.limit(1);
+    const results = await chain.run();
+    return results && results.length ? results[0] : null;
   };
 
-  // Public async-only count method with callback support
   model.count = function (...args: any[]): Promise<number> {
-    const callback = (args.length > 0 && typeof args[args.length - 1] === "function")
-      ? (args.pop() as (err: Error | null, count?: number) => void)
-      : undefined;
+    assertNoCallback("count", args);
 
     let conditions: Record<string, unknown> | undefined = undefined;
     if (args.length > 0 && typeof args[0] === "object" && !Array.isArray(args[0])) {
       conditions = args.shift();
     }
 
-    const promise = new Promise<number>((resolve, reject) => {
+    return new Promise<number>((resolve, reject) => {
       let checkConditions = conditions;
 
       if (conditions) {
@@ -806,8 +732,6 @@ export default function Model(opts: ModelOptions): ModelType {
         return resolve(data[0].c);
       });
     });
-
-    return resolveWithCallback(promise, callback);
   };
 
   model.aggregate = function (...args: any[]): any {
@@ -840,26 +764,25 @@ export default function Model(opts: ModelOptions): ModelType {
 
   // Public async-only exists method
   model.exists = function (...ids: any[]): Promise<boolean> {
-    const callback = (ids.length > 0 && typeof ids[ids.length - 1] === "function")
-      ? (ids.pop() as (err: Error | null, exists?: boolean) => void)
-      : undefined;
+    assertNoCallback("exists", ids);
 
-    const promise = new Promise<boolean>((resolve, reject) => {
+    return new Promise<boolean>((resolve, reject) => {
       let conditions: QueryConditions = {};
       let i: number;
       const keys = Array.isArray(opts.keys) ? opts.keys : [opts.keys!];
+      const params = ids.slice();
 
-      if (ids.length === 1 && typeof ids[0] === "object") {
-        if (Array.isArray(ids[0])) {
+      if (params.length === 1 && typeof params[0] === "object") {
+        if (Array.isArray(params[0])) {
           for (i = 0; i < keys.length; i++) {
-            conditions[keys[i]] = ids[0][i];
+            conditions[keys[i]] = (params[0] as any)[i];
           }
         } else {
-          conditions = ids[0];
+          conditions = params[0] as QueryConditions;
         }
       } else {
         for (i = 0; i < keys.length; i++) {
-          conditions[keys[i]] = ids[i];
+          conditions[keys[i]] = params[i];
         }
       }
 
@@ -874,15 +797,11 @@ export default function Model(opts: ModelOptions): ModelType {
         return resolve(data[0].c > 0);
       });
     });
-
-    return resolveWithCallback(promise, callback);
   };
 
-  model.create = function (...args: any[]): Promise<InstanceType | InstanceType[]> {
+  model.create = async function (...args: any[]): Promise<InstanceType | InstanceType[]> {
     const params = Array.from(args);
-    const callback = (params.length > 0 && typeof params[params.length - 1] === "function")
-      ? (params.pop() as (err: Error | null, result?: InstanceType | InstanceType[]) => void)
-      : undefined;
+    assertNoCallback("create", params);
 
     let itemsParams: any[] = [];
     let options: any = {};
@@ -903,52 +822,34 @@ export default function Model(opts: ModelOptions): ModelType {
       }
     }
 
-    const promise = (async () => {
-      const items: InstanceType[] = [];
+    const items: InstanceType[] = [];
 
-      for (let i = 0; i < itemsParams.length; i++) {
-        const itemParams = itemsParams[i];
-        
-        // Create instance without autoSave
-        const item = await new Promise<InstanceType>((resolve, reject) => {
-          createInstance(itemParams, {
-            is_new: true,
-            autoSave: false,
-            autoFetch: false
-          }, (err, inst) => {
-            if (err) reject(err);
-            else resolve(inst!);
-          });
+    for (let i = 0; i < itemsParams.length; i++) {
+      const itemParams = itemsParams[i];
+
+      const item = await new Promise<InstanceType>((resolve, reject) => {
+        createInstance(itemParams, {
+          is_new: true,
+          autoSave: false,
+          autoFetch: false
+        }, (err, inst) => {
+          if (err) reject(err);
+          else resolve(inst!);
         });
-        
-        // Manually save
-        try {
-          await (item.save({}, options) as Promise<void>);
-          items.push(item);
-        } catch (err) {
-          throw err;
-        }
-      }
+      });
 
-      return single ? items[0] : items;
-    })();
+  await item.save({}, options);
+      items.push(item);
+    }
 
-    return resolveWithCallback(promise, callback);
+    return single ? items[0] : items;
   };
 
-  // Internal callback-based implementation
-  const _clearCallback = function (this: any, cb: (err?: Error | null) => void): ModelType {
-    opts.driver.clear(opts.table, function (err?: Error | null) {
-      if (typeof cb === "function") cb(err);
-    });
+  model.clear = async function (): Promise<void> {
+    assertNoCallback("clear", Array.from(arguments));
 
-    return this;
-  };
-
-  // Public async-only interface - wrapped to return Promise<void>
-  model.clear = function (): Promise<void> {
-    return new Promise((resolve, reject) => {
-      _clearCallback.call(model, (err?: Error | null) => {
+    await new Promise<void>((resolve, reject) => {
+      opts.driver.clear(opts.table, function (err?: Error | null) {
         if (err) reject(err);
         else resolve();
       });

@@ -144,14 +144,6 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
     });
   }
 
-  const wrapWithCallback = <T>(promise: Promise<T>, callback: Function | undefined, context: any): Promise<T> | any => {
-    if (typeof callback === 'function') {
-      promise.then((result) => callback(null, result)).catch((err) => callback(err));
-      return context;
-    }
-    return promise;
-  };
-
   const resolveQueryResult = async (result: any): Promise<any> => {
     if (!result) {
       return result;
@@ -224,14 +216,28 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
   const ensureArray = <T>(value: T | T[]): T[] => Array.isArray(value) ? value : [value];
 
+  const disallowCallback = (accessor: string, args: any[]): void => {
+    if (args.length === 0) {
+      return;
+    }
+
+    const potentialCallback = _.last(args);
+    if (typeof potentialCallback === 'function') {
+      const accessorTarget = association?.model?.modelName || association?.model?.table || association?.name || Model.modelName || Model.table || 'Association';
+      throw new TypeError(
+        `${accessorTarget}.${accessor} no longer accepts callbacks. Await the returned promise instead.`
+      );
+    }
+  };
+
   Object.defineProperty(Instance, association.hasAccessor, {
     value: function (...args: any[]): any {
       const instanceArgs = Array.prototype.slice.call(args);
-      const callback = typeof _.last(instanceArgs) === 'function' ? instanceArgs.pop() : undefined;
+      disallowCallback(association.hasAccessor, instanceArgs);
       const targets = instanceArgs.length === 1 && Array.isArray(instanceArgs[0]) ? instanceArgs[0] : instanceArgs;
       const self = this;
 
-      const promise = (async () => {
+      return (async () => {
         const normalizedTargets = ensureArray(targets).filter((item) => item != null);
         if (normalizedTargets.length === 0) {
           return false;
@@ -298,8 +304,6 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
         return sameContents;
       })();
-
-      return wrapWithCallback(promise, callback, self);
     },
     enumerable: false,
     writable: true
@@ -308,7 +312,7 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
   Object.defineProperty(Instance, association.getAccessor, {
     value: function (...args: any[]): any {
       const parsedArgs = Array.prototype.slice.call(args);
-      const callback = typeof _.last(parsedArgs) === 'function' ? parsedArgs.pop() : undefined;
+      disallowCallback(association.getAccessor, parsedArgs);
       const self = this;
 
       let options: any = {};
@@ -351,7 +355,7 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
         conditions = {};
       }
 
-      const promise = (async () => {
+      return (async () => {
         const driverResult = await callDriverHasMany('get', self, conditions, options, createInstance);
         if (typeof driverResult !== 'undefined') {
           self.__opts.associations[association.name].value = driverResult;
@@ -398,8 +402,6 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
         self.__opts.associations[association.name].value = results;
         return results;
       })();
-
-      return wrapWithCallback(promise, callback, self);
     },
     enumerable: false,
     writable: true
@@ -408,19 +410,17 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
   Object.defineProperty(Instance, association.setAccessor, {
     value: function (...args: any[]): any {
       const flatArgs = _.flatten(args);
-      const callback = typeof _.last(flatArgs) === 'function' ? flatArgs.pop() : undefined;
+      disallowCallback(association.setAccessor, flatArgs);
       const targets = flatArgs.length === 1 && Array.isArray(flatArgs[0]) ? flatArgs[0] : flatArgs;
       const self = this;
 
-      const promise = (async () => {
+      return (async () => {
         await self[association.delAccessor]();
         if (targets.length) {
           await self[association.addAccessor](targets);
         }
         return self;
       })();
-
-      return wrapWithCallback(promise, callback, self);
     },
     enumerable: false,
     writable: true
@@ -430,24 +430,23 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
     value: function (...args: any[]): any {
       const self = this;
       let Associations: any[] = [];
-      let callback: Function | undefined;
 
-      for (let i = 0; i < args.length; i++) {
-        switch (typeof args[i]) {
-          case "function":
-            callback = args[i];
-            break;
+      const argList = Array.prototype.slice.call(args);
+      disallowCallback(association.delAccessor, argList);
+
+      for (let i = 0; i < argList.length; i++) {
+        switch (typeof argList[i]) {
           case "object":
-            if (Array.isArray(args[i])) {
-              Associations = Associations.concat(args[i]);
-            } else if (args[i].isInstance) {
-              Associations.push(args[i]);
+            if (Array.isArray(argList[i])) {
+              Associations = Associations.concat(argList[i]);
+            } else if (argList[i].isInstance) {
+              Associations.push(argList[i]);
             }
             break;
         }
       }
 
-      const promise = (async () => {
+      return (async () => {
         if (!self.saved()) {
           await self.save();
         }
@@ -472,8 +471,6 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
         await callMaybeCallback(Driver.remove.bind(Driver), Driver, [association.mergeTable, conditions]);
         return self;
       })();
-
-      return wrapWithCallback(promise, callback, self);
     },
     enumerable: false,
     writable: true
@@ -484,26 +481,25 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
       const self = this;
       let Associations: any[] = [];
       let optsArg: any = {};
-      let callback: Function | undefined;
 
-      for (let i = 0; i < args.length; i++) {
-        switch (typeof args[i]) {
-          case "function":
-            callback = args[i];
-            break;
+      const argList = Array.prototype.slice.call(args);
+      disallowCallback(association.addAccessor, argList);
+
+      for (let i = 0; i < argList.length; i++) {
+        switch (typeof argList[i]) {
           case "object":
-            if (Array.isArray(args[i])) {
-              Associations = Associations.concat(args[i]);
-            } else if (args[i].isInstance) {
-              Associations.push(args[i]);
+            if (Array.isArray(argList[i])) {
+              Associations = Associations.concat(argList[i]);
+            } else if (argList[i].isInstance) {
+              Associations.push(argList[i]);
             } else {
-              optsArg = args[i];
+              optsArg = argList[i];
             }
             break;
         }
       }
 
-      const promise = (async () => {
+      return (async () => {
         if (Associations.length === 0) {
           throw new ORMError.ORMError("No associations defined", 'PARAM_MISMATCH', { model: Model.name });
         }
@@ -618,8 +614,6 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
         return processedAssociations;
       })();
-
-      return wrapWithCallback(promise, callback, self);
     },
     enumerable: false,
     writable: true
@@ -663,13 +657,14 @@ function autoFetchInstance(Instance: any, association: any, opts: any, cb: Funct
     return cb();
   }
 
-  Instance[association.getAccessor]({}, { autoFetchLimit: opts.autoFetchLimit - 1 }, (err?: Error, Assoc?: any) => {
-    if (!err) {
+  Instance[association.getAccessor]({}, { autoFetchLimit: opts.autoFetchLimit - 1 })
+    .then((Assoc: any) => {
       Instance.__opts.associations[association.name].value = Assoc;
-    }
-
-    return cb();
-  });
+    })
+    .catch(() => {
+      // Ignore auto-fetch errors to preserve legacy behavior
+    })
+    .finally(() => cb());
 }
 
 function ucfirst(text: string): string {

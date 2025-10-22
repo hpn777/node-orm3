@@ -4,9 +4,11 @@
  * Central type definitions for hooks, validation, associations,
  * queries, connections, and properties. This file replaces scattered `any`
  * types throughout the codebase.
- * 
+ *
  * All callback-based patterns have been converted to promise-based for async/await.
  */
+
+import type { ChainInstanceCalls } from '../ChainInstance';
 
 // ==================== Hook Types ====================
 
@@ -212,16 +214,25 @@ export interface ORMInterface {
   driver_name: string;
   driver: any;
   tools: any;
-  models: Record<string, Model>;
+  models: Record<string, Model<any>>;
   plugins: Plugin[];
-  use(plugin: string | Plugin, options?: any): any;
-  define<T = any>(name: string, properties: Record<string, PropertyDefinition>, options?: ModelOptions<T>): Model<T>;
+  use(plugin: string | Plugin, options?: any): this;
+  define<T = any>(name: string, properties?: Record<string, PropertyDefinition>, options?: ModelOptions<T>): Model<T>;
   ping(): Promise<void>;
   close(): Promise<void>;
-  load(...files: string[]): Promise<void>;
+  load(...files: Array<string | string[]>): Promise<void>;
   sync(): Promise<void>;
   drop(): Promise<void>;
-  serial(...chains: any[]): { get: () => Promise<any[]> };
+  serial<T = Instance<any>>(...chains: ChainRunner<T>[]): SerialRunner<T>;
+}
+
+export interface ChainRunner<T = Instance<any>> {
+  run(): Promise<T[]>;
+}
+
+export interface SerialRunner<T = Instance<any>> {
+  get(): Promise<T[][]>;
+  get(cb: (err: Error | null, ...results: T[][]) => void): Promise<void>;
 }
 
 // ==================== Settings Interface ====================
@@ -523,10 +534,10 @@ export interface Instance<T = InstanceData> {
   saved(): boolean;
   model(): Model<T>;
   [key: string]: unknown;
-  save(): Promise<void>;
-  save(data: Partial<T>): Promise<void>;
-  save(data: Partial<T>, options: SaveOptions): Promise<void>;
-  remove(): Promise<void>;
+  save(): Promise<Instance<T>>;
+  save(data: Partial<T>): Promise<Instance<T>>;
+  save(data: Partial<T>, options: SaveOptions): Promise<Instance<T>>;
+  remove(): Promise<Instance<T>>;
   validate(): Promise<Error[]>;
   on(event: string, listener: (...args: any[]) => void): this;
   off(event: string, listener: (...args: any[]) => void): this;
@@ -549,9 +560,12 @@ export interface Model<T = any> {
   new (...ids: unknown[]): Instance<T>;
   sync(): Promise<void>;
   drop(): Promise<void>;
-  find(conditions?: Record<string, unknown>): ChainFind<T>;
-  find(conditions: Record<string, unknown>, options?: FindOptions): Promise<Instance<T>[]>;
-  all(conditions: Record<string, unknown>, options?: FindOptions): Promise<Instance<T>[]>;
+  find(): ChainFind<T>;
+  find(conditions: Record<string, unknown>): ChainFind<T>;
+  find(conditions: Record<string, unknown>, options: FindOptions): ChainFind<T>;
+  all(): ChainFind<T>;
+  all(conditions: Record<string, unknown>): ChainFind<T>;
+  all(conditions: Record<string, unknown>, options: FindOptions): ChainFind<T>;
   one(conditions: Record<string, unknown>, options?: FindOptions): Promise<Instance<T> | null>;
   get(...ids: unknown[]): Promise<Instance<T> | null>;
   count(conditions?: Record<string, unknown>): Promise<number>;
@@ -579,26 +593,36 @@ export interface Model<T = any> {
 /**
  * Fluent query interface for chaining find operations
  */
-export interface ChainFind<T = any> {
-  find(conditions: Record<string, any>): ChainFind<T>;
-  where(conditions: Record<string, any>): ChainFind<T>;
+export interface ChainFind<T = any> extends PromiseLike<Instance<T>[]> {
+  find(...args: any[]): ChainFind<T>;
+  where(...args: any[]): ChainFind<T>;
+  all(...args: any[]): ChainFind<T>;
   only(...fields: string[]): ChainFind<T>;
   omit(...fields: string[]): ChainFind<T>;
   limit(limit: number): ChainFind<T>;
   offset(offset: number): ChainFind<T>;
   skip(offset: number): ChainFind<T>;
-  order(...order: string[]): ChainFind<T>;
+  order(...order: Array<string | string[]>): ChainFind<T>;
   orderRaw(sql: string, args?: any[]): ChainFind<T>;
+  eager(...associations: string[]): ChainFind<T>;
   count(): Promise<number>;
   remove(): Promise<void>;
-  save(): Promise<void>;
   run(): Promise<Instance<T>[]>;
-  all(): Promise<Instance<T>[]>;
-  eager(...associations: string[]): ChainFind<T>;
-  each(cb: (instance: Instance<T>) => void): ChainFind<T>;
-  each(): ChainFind<T>;
-  filter(cb: (instance: Instance<T>) => boolean): ChainFind<T>;
-  sort(cb: (a: Instance<T>, b: Instance<T>) => number): ChainFind<T>;
+  first(): Promise<Instance<T> | null>;
+  last(): Promise<Instance<T> | null>;
+  each(): ChainInstanceCalls<Instance<T>>;
+  each(
+    cb: (instance: Instance<T>, index: number, items: Instance<T>[]) => void | Promise<void>
+  ): ChainInstanceCalls<Instance<T>>;
+  model: Model<T>;
+  options: Record<string, unknown>;
+  then<TResult1 = Instance<T>[], TResult2 = never>(
+    onfulfilled?: (value: Instance<T>[]) => TResult1 | PromiseLike<TResult1>,
+    onrejected?: (reason: any) => TResult2 | PromiseLike<TResult2>
+  ): Promise<TResult1 | TResult2>;
+  catch<TResult = never>(
+    onrejected?: (reason: any) => TResult | PromiseLike<TResult>
+  ): Promise<Instance<T>[] | TResult>;
 }
 
 /**

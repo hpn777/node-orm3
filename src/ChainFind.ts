@@ -19,7 +19,10 @@ export interface ChainFindOptions {
   properties: Record<string, any>;
   keyProperties: PropertyDefinition[];
   keys: string[];
-  newInstance: (data: Record<string, unknown>, cb: (err: Error | null, instance?: Instance) => void) => void;
+  newInstance: (
+    data: Record<string, unknown>,
+    cb?: (err: Error | null, instance?: Instance) => void
+  ) => Promise<Instance> | void;
   associations?: AssociationDefinition[];
   conditions?: QueryConditions & { __sql?: any[] };
   only?: string[];
@@ -38,7 +41,36 @@ export interface ChainFindOptions {
 }
 
 export function ChainFind(Model: any, opts: ChainFindOptions): any {
-  const promiseFunctionPostfix = Model.settings.get('promiseFunctionPostfix');
+
+  const ensureNoCallback = (method: string, args: any[]): void => {
+    if (!args || args.length === 0) {
+      return;
+    }
+    const lastArg = args[args.length - 1];
+    if (typeof lastArg === 'function') {
+      throw new Error(`${method} no longer accepts callback arguments. Use the returned promise instead.`);
+    }
+  };
+
+  const resolveNewInstance = async (data: Record<string, unknown>): Promise<Instance> => {
+    if (opts.newInstance.length >= 2) {
+      return await new Promise<Instance>((resolve, reject) => {
+        (opts.newInstance as any)(data, (err: Error | null, instance?: Instance) => {
+          if (err) {
+            return reject(err);
+          }
+          resolve(instance as Instance);
+        });
+      });
+    }
+
+    const result = (opts.newInstance as any)(data);
+    if (result && typeof result.then === 'function') {
+      return result;
+    }
+
+    throw new Error('newInstance must return a Promise when callbacks are removed.');
+  };
 
   const prepareConditions = (): Record<string, any> => {
     return Utilities.transformPropertyNames(opts.conditions || {}, opts.properties);
@@ -48,70 +80,47 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
     return Utilities.transformOrderPropertyNames((opts.order || []) as any, opts.properties);
   };
 
-  const executeFind = (
+  const executeFind = async (
     fields: string[],
     tableName: string,
     conditions: Record<string, any>,
     options: Record<string, any>
   ): Promise<any[]> => {
-    return new Promise<any[]>((resolve, reject) => {
-      try {
-        const driver: any = opts.driver;
-        driver.find(fields, tableName, conditions, options, (err: Error | null, data?: any[]) => {
-          if (err) return reject(err);
-          resolve(data || []);
-        });
-      } catch (err) {
-        reject(err as Error);
-      }
-    });
+    const driver: any = opts.driver;
+    const rows = await driver.find(fields, tableName, conditions, options);
+    return rows || [];
   };
 
-  const executeCount = (
+  const executeCount = async (
     tableName: string,
     conditions: Record<string, any>,
     options: Record<string, any>
   ): Promise<number> => {
-    return new Promise<number>((resolve, reject) => {
-      try {
-        const driver: any = opts.driver;
-        driver.count(tableName, conditions, options, (err: Error | null, data?: any[]) => {
-          if (err) return reject(err);
-          if (!data || data.length === 0) {
-            return resolve(0);
-          }
-          const row = data[0] as Record<string, any>;
-          const value = row?.c ?? row?.count ?? row?.C ?? row?.COUNT;
-          if (typeof value === 'number') {
-            return resolve(value);
-          }
-          if (typeof value === 'string') {
-            const parsed = parseInt(value, 10);
-            return resolve(isNaN(parsed) ? 0 : parsed);
-          }
-          return resolve(0);
-        });
-      } catch (err) {
-        reject(err as Error);
-      }
-    });
+    const driver: any = opts.driver;
+    const data = await driver.count(tableName, conditions, options);
+
+    if (!data || data.length === 0) {
+      return 0;
+    }
+
+    const row = data[0] as Record<string, any>;
+    const value = row?.c ?? row?.count ?? row?.C ?? row?.COUNT;
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = parseInt(value, 10);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
   };
 
-  const executeRemove = (
+  const executeRemove = async (
     tableName: string,
     conditions: Record<string, any>
   ): Promise<void> => {
-    return new Promise<void>((resolve, reject) => {
-      try {
-        const driver: any = opts.driver;
-        driver.remove(tableName, conditions, (err?: Error | null) => {
-          if (err) return reject(err);
-          resolve();
-        });
-      } catch (err) {
-        reject(err as Error);
-      }
-    });
+    const driver: any = opts.driver;
+    await driver.remove(tableName, conditions);
   };
 
   /**
@@ -140,12 +149,7 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
     // Convert raw data to model instances
     const instances: any[] = [];
     for (const item of dataItems) {
-      const instance = await new Promise<any>((resolve, reject) => {
-        opts.newInstance(item, (err: Error | null, inst?: Instance) => {
-          if (err) reject(err);
-          else resolve(inst);
-        });
-      });
+      const instance = await resolveNewInstance(item);
       instances.push(instance);
     }
 
@@ -167,10 +171,14 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
 
         const assocRows = await new Promise<any[]>((resolve, reject) => {
           try {
-            opts.driver.eagerQuery!(association, opts, keys, (err: Error | null, rows?: any[]) => {
+            const result = opts.driver.eagerQuery!(association, opts, keys, (err: Error | null, rows?: any[]) => {
               if (err) return reject(err);
               resolve(rows || []);
             });
+
+            if (result && typeof result.then === 'function') {
+              (result as Promise<any[]>).then(resolve).catch(reject);
+            }
           } catch (err) {
             reject(err as Error);
           }
@@ -193,26 +201,15 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
 
   const chain: any = {
     find(...args: any[]): any {
-      let cb: Function | null = null;
+      ensureNoCallback('find', args);
 
       opts.conditions = opts.conditions || {};
-
-      if (typeof _.last(args) === "function") {
-        cb = args.pop();
-      }
 
       if (typeof args[0] === "object") {
         _.extend(opts.conditions, args[0]);
       } else if (typeof args[0] === "string") {
         opts.conditions.__sql = opts.conditions.__sql || [];
         opts.conditions.__sql.push(args);
-      }
-
-      if (cb) {
-        chainRun().then(
-          (result) => cb(null, result),
-          (error) => cb(error)
-        );
       }
       return this;
     },
@@ -272,8 +269,9 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
       return this;
     },
 
-    count(cb?: (err: Error | null, count?: number) => void): any {
-      const promise = executeCount(
+    count(...args: any[]): Promise<number> {
+      ensureNoCallback('count', args);
+      return executeCount(
         opts.table,
         prepareConditions(),
         {
@@ -281,19 +279,10 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
           exists: opts.exists
         }
       );
-      if (cb) {
-        promise.then(
-          (count: number) => {
-            return cb(null, count);
-          },
-          (error: Error) => cb(error)
-        );
-        return this;
-      }
-      return promise;
     },
 
-    remove(cb?: (err: Error | null) => void): any {
+    remove(...args: any[]): Promise<void> {
+      ensureNoCallback('remove', args);
       const keys = _.map(opts.keyProperties, 'mapsTo') as string[];
 
       const promise = executeFind(keys, opts.table, prepareConditions(), {
@@ -320,58 +309,30 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
         return executeRemove(opts.table, conditions);
       });
 
-      if (cb) {
-        promise.then(
-          () => cb(null),
-          (error: Error) => cb(error)
-        );
-        return this;
-      }
-      return promise;
+      return promise as Promise<void>;
     },
 
-    first(cb?: (err: Error | null, item?: any) => void): any {
-      const promise = this.run().then((items: any[]) => {
+    first(...args: any[]): Promise<any | null> {
+      ensureNoCallback('first', args);
+      return this.run().then((items: any[]) => {
         return items && items.length > 0 ? items[0] : null;
       });
-      if (cb) {
-        promise.then(
-          (item: any) => cb(null, item),
-          (err: any) => cb(err)
-        );
-        return this;
-      }
-      return promise;
     },
 
-    last(cb?: (err: Error | null, item?: any) => void): any {
-      const promise = this.run().then((items: any[]) => {
+    last(...args: any[]): Promise<any | null> {
+      ensureNoCallback('last', args);
+      return this.run().then((items: any[]) => {
         return items && items.length > 0 ? items[items.length - 1] : null;
       });
-      if (cb) {
-        promise.then(
-          (item: any) => cb(null, item),
-          (err: any) => cb(err)
-        );
-        return this;
-      }
-      return promise;
     },
 
-    each(cb?: Function): any {
-      return new (ChainInstance as any)(this, cb);
+    each(cb?: (item: any, index: number, items: any[]) => void | Promise<void>): any {
+      return ChainInstance(() => this.run(), cb);
     },
 
-    run(cb?: (err: Error | null, items?: any[]) => void): any {
-      const promise = chainRun();
-      if (cb) {
-        promise.then(
-          (items: any[]) => cb(null, items),
-          (error: Error) => cb(error)
-        );
-        return this;
-      }
-      return promise;
+    run(...args: any[]): Promise<any[]> {
+      ensureNoCallback('run', args);
+      return chainRun();
     },
 
     eager(...args: any[]): any {
@@ -413,14 +374,12 @@ export function ChainFind(Model: any, opts: ChainFindOptions): any {
 
   // Make ChainFind thenable - automatically call run() when awaited
   chain.then = function(onFulfilled?: (value: any[]) => any, onRejected?: (reason?: any) => any): Promise<any> {
-    return chain.run().then(onFulfilled, onRejected);
+    return chainRun().then(onFulfilled, onRejected);
   };
 
   chain.catch = function(onRejected?: (reason?: any) => any): Promise<any> {
-    return chain.run().catch(onRejected);
+    return chainRun().catch(onRejected);
   };
-
-  // Methods now support both callback and Promise patterns - no promisify needed
 
   return chain;
 }

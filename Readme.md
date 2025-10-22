@@ -1,831 +1,366 @@
-# ORM3 - Node.js Object-Relational Mapping
+# ORM3
 
-A powerful and flexible Object-Relational Mapping (ORM) library for Node.js that provides seamless integration with multiple database systems.
+A batteries-included Object-Relational Mapper for Node.js with first-class async/await support, rich associations, and solid TypeScript types.
 
-## Features
+- **Why ORM3?** Multi-database support (MySQL/MariaDB, PostgreSQL, Amazon Redshift, SQLite), composable query chains, hookable lifecycle events, and identities cached out of the box.
+- **API style:** Promise-only. Every operation can be `await`ed and plays nicely with modern JavaScript.
+- **Works great with TypeScript:** Ship-shape `.d.ts` files, generics for models and instances, and expressive helper utilities.
 
-- **Multi-Database Support**: MySQL, MariaDB, PostgreSQL, Amazon Redshift, and SQLite
-- **Model Definition**: Define models with validation, hooks, and custom methods
-- **Associations**: Support for hasOne, hasMany, and extendsTo relationships
-- **Advanced Querying**: Chainable query interface with filtering, sorting, and aggregation
-- **Identity Caching**: Optional instance caching for improved performance
-- **Promise Support**: Full async/await support with `.Async` postfix methods
-- **Middleware Integration**: Express middleware for easy integration
-- **Type Safety**: TypeScript definitions included
+---
 
-## Quick Start
+## Table of contents
 
-### Installation
+1. [Overview](#overview)
+2. [Supported databases & requirements](#supported-databases--requirements)
+3. [Installation](#installation)
+4. [Quick start](#quick-start)
+5. [Core concepts](#core-concepts)
+   - [Models & properties](#models--properties)
+   - [Query chains](#query-chains)
+   - [Associations](#associations)
+   - [Hooks & validations](#hooks--validations)
+   - [Serial runners](#serial-runners)
+6. [Configuration & settings](#configuration--settings)
+7. [Express integration](#express-integration)
+8. [TypeScript usage](#typescript-usage)
+9. [Testing & quality gates](#testing--quality-gates)
+10. [Advanced topics](#advanced-topics)
+11. [Contributing](#contributing)
+12. [License](#license)
 
-```sh
-npm install orm
+---
+
+## Overview
+
+ORM3 lets you model relational data using plain JavaScript/TypeScript classes while keeping full control over SQL. Define models, compose queries with fluent builders, hook into lifecycle events, and work with associations without sacrificing performance or transparency.
+
+Key capabilities:
+
+- **Multiple drivers:** MySQL/MariaDB, PostgreSQL, Amazon Redshift, and SQLite.
+- **Composable queries:** Chain filters, projections, eager-loading, aggregates, and raw SQL fragments.
+- **Associations:** `hasOne`, `hasMany`, `extendsTo`, and polymorphic extensions.
+- **Validation & hooks:** Built in `enforce` validators plus per-model `beforeCreate`, `afterSave`, etc.
+- **Identity caching:** Opt-in caching ensures repeated queries resolve to the same in-memory object graph.
+- **Promise everywhere:** No callbacks. Everything returns a `Promise`, making async flows deterministic.
+
+---
+
+## Supported databases & requirements
+
+| Database           | Driver package        | Notes |
+| ------------------ | --------------------- | ----- |
+| MySQL / MariaDB    | `mysql@~2.18`         | Supports SSL and connection pools. |
+| PostgreSQL         | `pg@~8`               | Requires Node.js ≥ 18 and `pg` ≥ 8.1. |
+| Amazon Redshift    | `pg@~8`               | Uses the PostgreSQL driver with Redshift tweaks. |
+| SQLite             | `sqlite3@~5`          | Bundled with dev dependencies for quick local runs. |
+
+Runtime requirements:
+
+- **Node.js:** 18.0.0 or higher (LTS recommended)
+- **TypeScript:** 5.0+ for best typings (already bundled for development)
+- Ensure your database server is reachable from your application / Docker network when running integration suites.
+
+---
+
+## Installation
+
+Grab the package from npm (the module name is `orm3`).
+
+```bash
+npm install orm3
+# or
+pnpm add orm3
+# or
+yarn add orm3
 ```
 
-### Basic Example
+The package ships precompiled JavaScript under `dist/` and type declarations under `dist/*.d.ts`.
 
-```js
-const orm = require("orm");
+---
 
-orm.connect("mysql://username:password@host/database", function (err, db) {
-  if (err) throw err;
+## Quick start
 
-  const Person = db.define("person", {
-    name      : String,
-    surname   : String,
-    age       : Number,
-    male      : Boolean,
-    continent : [ "Europe", "America", "Asia", "Africa", "Australia", "Antarctica" ],
-    photo     : Buffer,
-    data      : Object
+Connect to a database, define a model, and start querying—all with async/await.
+
+```ts
+import { connect, Instance } from 'orm3';
+
+interface Person {
+  id: number;
+  name: string;
+  surname: string;
+  age: number;
+  createdAt: Date;
+}
+
+async function bootstrap() {
+  const db = await connect('postgres://user:pass@localhost:5432/people');
+
+  const PersonModel = db.define<Person>('person', {
+    name: String,
+    surname: String,
+    age: Number,
+    createdAt: { type: 'date', time: true, mapsTo: 'created_at' }
   }, {
-    methods: {
-      fullName: function () {
-        return this.name + ' ' + this.surname;
+    hooks: {
+      beforeCreate: async (person) => {
+        person.createdAt = new Date();
       }
-    },
-    validations: {
-      age: orm.enforce.ranges.number(18, undefined, "under-age")
     }
   });
 
-  db.sync(function(err) {
-    if (err) throw err;
+  await db.sync();
 
-    Person.create({ id: 1, name: "John", surname: "Doe", age: 27 }, function(err) {
-      if (err) throw err;
-
-      Person.find({ surname: "Doe" }, function (err, people) {
-        if (err) throw err;
-
-        console.log("People found: %d", people.length);
-        console.log("First person: %s, age %d", people[0].fullName(), people[0].age);
-      });
-    });
+  const john = await PersonModel.create({
+    name: 'John',
+    surname: 'Doe',
+    age: 27
   });
+
+  const does = await PersonModel.find({ surname: 'Doe' }).order('-age').all();
+  console.log(`Found ${does.length} Doe(s)`);
+
+  await db.close();
+}
+
+bootstrap().catch(console.error);
+```
+
+CommonJS usage works the same way:
+
+```js
+const orm = require('orm3');
+
+(async () => {
+  const db = await orm.connect('sqlite:///tmp/my.db');
+  const Pet = db.define('pet', { name: String });
+  await db.sync();
+  await Pet.create({ name: 'Fluffy' });
+})();
+```
+
+---
+
+## Core concepts
+
+### Models & properties
+
+Models map to database tables (or views). Property definitions can be plain constructors (`String`, `Number`, `Boolean`, `Date`, `Buffer`) or detailed objects describing type, key behaviour, default values, validations, and custom column names.
+
+```ts
+const Product = db.define<{ id: number; sku: string; price: number }>('product', {
+  id: { type: 'serial', key: true },
+  sku: { type: 'text', required: true, unique: true },
+  price: { type: 'number', rational: true, required: true }
+}, {
+  identityCache: true,
+  timestamp: true // adds createdAt / updatedAt
 });
 ```
 
-## Requirements
+Every model exposes methods such as `create`, `get`, `find`, `count`, `aggregate`, `remove`, and `drop`. Instances returned by these methods are strongly typed and come with `save`, `remove`, `validate`, and association helpers.
 
-- **Node.js**: 18.0.0 or higher
-- **PostgreSQL**: 8.1+ (when using `pg` driver with Node.js >= 14)
+### Query chains
 
-> **Note:** If using Node.js >= 14 with PostgreSQL, ensure you use `pg` driver >= 8.1. Version 7 has known issues with timeouts.
+Query methods return a chainable cursor (`ChainInstance`) that can be awaited directly or refined step-by-step:
 
-## Test Script Reference
-
-The following npm scripts are available for running tests:
-
-| Script                  | Description                                 |
-|-------------------------|---------------------------------------------|
-| npm test                | Run all tests locally (SQLite)              |
-| npm run test:sqlite     | Run tests with SQLite                       |
-| npm run test:mysql      | Run tests with MySQL/MariaDB                |
-| npm run test:postgres  | Run tests with PostgreSQL                   |
-| npm run test:redshift  | Run tests with Amazon Redshift              |
-| npm run test:docker:mysql     | Run MySQL/MariaDB tests in Docker      |
-| npm run test:docker:postgres | Run PostgreSQL tests in Docker          |
-| npm run test:docker:redshift | Run Redshift tests in Docker            |
-
-See `package.json` for the full list and details.
-
-> **Note:** The legacy Makefile-based test orchestration has been removed. All test commands are now managed via npm scripts in `package.json`.
-
-The following npm scripts are available for running tests:
-
-| Script                  | Description                                 |
-|-------------------------|---------------------------------------------|
-| npm test                | Run all tests locally (SQLite)              |
-| npm run test:sqlite     | Run tests with SQLite                       |
-| npm run test:mysql      | Run tests with MySQL/MariaDB                |
-| npm run test:postgres  | Run tests with PostgreSQL                   |
-| npm run test:redshift  | Run tests with Amazon Redshift              |
-| npm run test:docker:mysql     | Run MySQL/MariaDB tests in Docker      |
-| npm run test:docker:postgres | Run PostgreSQL tests in Docker          |
-| npm run test:docker:redshift | Run Redshift tests in Docker            |
-
-See `package.json` for the full list and details.
-
-## Install
-
-```sh
-npm install orm
+```ts
+const recentOrders = await Order
+  .find({ status: 'completed' })
+  .limit(25)
+  .offset(0)
+  .order('-completedAt')
+  .only('id', 'total', 'completedAt')
+  .eager('customer')
+  .all();
 ```
 
-## Node.js Version Support
+Need aggregates or raw snippets? Combine the fluent builder with helpers such as `where`, `orderRaw`, `groupBy`, and `aggregate`.
 
-Supported: 4.0 +
+### Associations
 
-If using Nodejs >= 14 & Postgres, you must use `pg` driver >= 8.1. v7 doesn't work correctly (tests time out).
+Link your models using `hasOne`, `hasMany`, or `extendsTo`:
 
+```ts
+const Person = db.define('person', { name: String });
+const Pet = db.define('pet', { name: String });
 
-## Running Tests
+Person.hasMany('pets', Pet, { reverse: 'owner', autoFetch: true });
 
-### Local Tests (SQLite)
+const owner = await Person.create({ name: 'Ada' });
+await owner.addPets([{ name: 'Tobi' }]);
 
-To run the test suite locally using SQLite:
-
-```sh
-npm test
+const withPets = await Person.find({ name: 'Ada' }).eager('pets').first();
 ```
 
-Or explicitly:
+Associations automatically create accessor methods such as `person.getPets()`, `pet.setOwner()`, or `person.removePets()`.
 
-```sh
-npm run test:sqlite
+### Hooks & validations
+
+Use hooks for lifecycle orchestration and `enforce`-powered validators to protect data integrity.
+
+```ts
+const orm = require('orm3');
+const { enforce } = orm;
+
+const Account = db.define('account', {
+  email: { type: 'text', required: true },
+  passwordHash: { type: 'text', mapsTo: 'password_hash' }
+}, {
+  hooks: {
+    beforeCreate: async (account) => {
+      account.passwordHash = await hash(account.passwordHash);
+    }
+  },
+  validations: {
+    email: enforce.ranges.length(5, 255)
+  }
+});
 ```
 
-### DBMS-Specific Local Tests
+### Serial runners
 
-You can run tests for a specific database locally (requires the DB running and accessible):
+Need to execute several query chains sequentially and gather their results? Use `db.serial()`:
 
-```sh
-npm run test:docker:mysql      # MySQL/MariaDB (Docker)
-npm run test:docker:postgres   # PostgreSQL (Docker)
-npm run test:docker:redshift   # Amazon Redshift (Docker)
+```ts
+const { get } = db.serial(
+  Person.find({ active: true }),
+  Order.find({ status: 'pending' })
+);
+
+const [people, pendingOrders] = await get();
 ```
 
-### Full Integration Test Matrix with Docker
+`serial()` accepts any number of chain runners (objects exposing `run()`), executes them one-by-one, and returns a `Promise` resolving to an array of result sets. For legacy compatibility you can still provide a Node-style callback.
 
-The integration suite expects MySQL, PostgreSQL/Redshift, and SQLite instances. To avoid installing them locally, you can launch disposable containers and execute tests inside an ephemeral Node runner:
+---
 
-```sh
-npm run test:docker:mysql      # MySQL/MariaDB (Docker)
-npm run test:docker:postgres   # PostgreSQL (Docker)
-npm run test:docker:redshift   # Amazon Redshift (Docker)
+## Configuration & settings
+
+Tune global behaviour through the shared settings container or per-model options.
+
+```ts
+// Global defaults
+orm.settings.set('properties.primary_key', 'id');
+orm.settings.set('instance.cache', true);
+
+// Per-connection tweaks
+const db = await connect(connectionString, {
+  pool: true,
+  debug: process.env.ORM_DEBUG === '1'
+});
+
+db.settings.set('autoFetchLimit', 2);
 ```
 
-Each command will build dependencies, run the tests, and tear down containers when finished. If you want to inspect the databases after a run, keep them alive by setting `SKIP_DOCKER_CLEANUP=1`:
+Useful flags:
 
-```sh
-SKIP_DOCKER_CLEANUP=1 npm run test:docker:mysql
-```
+- `identityCache` – caches retrieved instances per primary key.
+- `autoFetch` / `autoFetchLimit` – automatically pull in associations.
+- `cascadeRemove` – cascade deletes to child records.
+- `hooks` – register `beforeCreate`, `afterSave`, etc.
+- `timestamps` – automatically create `createdAt` / `updatedAt` columns.
 
-The Compose stack exposes the services on the default ports (`3306`, `5432`, `27017`) so you can connect with local tooling while the tests run.
+You can also load multiple model files at once using `db.load()`—ideal for modular project layouts.
 
-## Database Support
+---
 
-ORM3 supports a wide range of databases:
+## Express integration
 
-- **MySQL** & MariaDB
-- **PostgreSQL**
-- **Amazon Redshift**
-- **SQLite**
+```ts
+import express from 'express';
+import * as orm from 'orm3';
 
-## Core Capabilities
-
-- **Model Management**: Create, sync, drop, bulk create models with validation
-- **CRUD Operations**: Get, find, remove, count records with advanced filtering
-- **Associations**: hasOne, hasMany, and extendsTo relationship support
-- **Aggregation**: min, max, avg, sum, count functions with grouping
-- **Validation**: Built-in and custom validations using [enforce](http://github.com/dresende/node-enforce)
-- **Caching**: Identity pattern support for optimized data retrieval
-- **Plugins**: Extend functionality with [MySQL FTS](http://dresende.github.io/node-orm-mysql-fts), [Pagination](http://dresende.github.io/node-orm-paging), [Transaction](http://dresende.github.io/node-orm-transaction), [Timestamps](http://github.com/SPARTAN563/node-orm-timestamps)
-
-## Complete Example
-
-
-
--------
-
-## Express Integration
-
-If you're using Express, use the simple middleware to integrate ORM3 seamlessly:
-
-```js
-const express = require('express');
-const orm = require('orm');
 const app = express();
 
-app.use(orm.express("mysql://username:password@host/database", {
-	define: function (db, models, next) {
-		models.person = db.define("person", { 
-			name: String,
-			surname: String 
-		});
-		next();
-	}
+app.use(orm.express('mysql://user:pass@localhost/db', {
+  define: (db, models, next) => {
+    models.person = db.define('person', { name: String });
+    next();
+  }
 }));
 
-app.listen(80);
-
-app.get("/", function (req, res) {
-	// req.models is a reference to models defined above
-	req.models.person.find(...);
-});
-```
-
-You can call `orm.express` multiple times for multiple database connections. Models defined across connections will be joined together in `req.models`. **Use it before `app.use(app.router)`, preferably right after your assets public folder(s).**
-
-### Example Application
-
-See `examples/anontxt` for a complete Express-based application example.
-
-## Models
-
-A Model represents a table or collection in your database. Models support associations and behaviors for manipulating data.
-
-### Defining Models
-
-Models are defined with properties and optional configuration:
-
-```js
-const Person = db.define('person', {
-	name    : String,
-	age     : Number,
-	email   : String
-}, {
-	// Configuration options
-});
-```
-
-### Instance Methods
-
-Instance methods are available on model records:
-
-```js
-const Person = db.define('person', {
-	name    : String,
-	surname : String
-}, {
-	methods: {
-		fullName: function () {
-			return this.name + ' ' + this.surname;
-		}
-	}
+app.get('/', async (req, res) => {
+  const people = await req.models.person.find().limit(10).all();
+  res.json(people);
 });
 
-Person.get(4, function(err, person) {
-	console.log(person.fullName());
-});
+app.listen(3000);
 ```
 
-### Model Methods
+Mount the middleware before your routes. Every request receives a `req.db` connection and a `req.models` namespace containing all defined models.
 
-Define custom methods directly on the model:
+---
 
+## TypeScript usage
 
-```js
-const Person = db.define('person', {
-	name   : String,
-	height : { type: 'integer' }
-});
+The published package exports rich typings for connections, models, and chain instances. You can extend them with your own interfaces for end-to-end safety.
 
-Person.tallerThan = async function(height) {
-	return await this.find({ height: orm.gt(height) });
-};
+```ts
+import { connect, Model, Instance } from 'orm3';
 
-const tallPeople = await Person.tallerThan(192);
-console.log("Found", tallPeople.length, "people taller than 192cm");
-```
-
-## Advanced Configuration
-
-ORM3 allows advanced configuration via model settings.
-
-### Custom Primary Keys
-
-By default, each Model gets an auto-incrementing `id` column. Define your own with `key: true`:
-
-```js
-const Person = db.define("person", {
-	personId : { type: 'serial', key: true },
-	name     : String
-});
-
-// Or globally:
-db.settings.set("properties.primary_key", "UID");
-
-const Pet = db.define("pet", {
-	name : String
-	// Will have UID as primary key
-});
-```
-
-### Composite Keys
-
-Define multiple columns as keys:
-
-```js
-const Person = db.define("person", {
-	firstname : { type: 'text', key: true },
-	lastname  : { type: 'text', key: true }
-});
-```
-
-### Configuration Options
-
-- **`identityCache`**: Enable caching with optional timeout (in seconds)
-- **`autoSave`**: Automatically save instances after property changes
-- **`autoFetch`**: Automatically fetch associations when loading instances
-- **`autoFetchLimit`**: How many association levels to automatically fetch
-
-Example:
-
-```js
-const Person = db.define("person", {
-	name: String
-}, {
-	identityCache: true,  // Enable caching
-	autoFetch: true,
-	autoFetchLimit: 2
-});
-```
-
-### Loading Models from Modules
-
-Organize models in separate files:
-
-```js
-// main.js
-db.load("./models", function (err) {
-	const Person = db.models.person;
-	const Pet    = db.models.pet;
-});
-
-// models/index.js
-module.exports = function (db, cb) {
-	db.define('person', { name: String });
-	db.define('pet', { name: String });
-	cb();
-};
-```
-
-## Querying Data
-
-### Get a Single Record
-
-Use `Model.get()` to fetch a specific record by ID:
-
-```js
-const person = await Person.get(123);
-// person with id = 123
-```
-
-### Find Records
-
-Use `Model.find()` to query with conditions:
-
-```js
-Person.find({ name: "John", surname: "Doe" }, 3, function (err, people) {
-	// First 3 people named John Doe
-});
-```
-
-**Sorting:**
-
-```js
-Person.find({ surname: "Doe" }, "name", function (err, people) {
-	// Sorted by name ascending
-});
-
-Person.find({ surname: "Doe" }, [ "name", "Z" ], function (err, people) {
-	// Sorted by name descending ('Z' = DESC, 'A' = ASC)
-});
-```
-
-**Pagination:**
-
-```js
-Person.find({ surname: "Doe" }, { offset: 2 }, function (err, people) {
-	// Skip first 2, return the rest
-});
-```
-
-### Count Records
-
-```js
-Person.count({ surname: "Doe" }, function (err, count) {
-	console.log("Found %d Does", count);
-});
-```
-
-### Check Existence
-
-```js
-Person.exists({ surname: "Doe" }, function (err, exists) {
-	console.log(exists ? "Does exist" : "No Does found");
-});
-```
-
-### Aggregation
-
-Perform calculations on your data:
-
-```js
-Person.aggregate({ surname: "Doe" })
-	.min("age")
-	.max("age")
-	.get(function (err, min, max) {
-		console.log("Age range: %d - %d", min, max);
-	});
-
-// Group by age
-Person.aggregate(["age"], { country: "USA" })
-	.avg("salary")
-	.groupBy("age")
-	.get(function (err, stats) {
-		// stats[i].age and stats[i].avg_salary
-	});
-```
-
-**Aggregate functions:** `min`, `max`, `avg`, `sum`, `count`
-
-### Comparison Operators
-
-Use helper functions for advanced conditions:
-
-```js
-{ col1: orm.eq(123) }           // = 123 (default)
-{ col1: orm.ne(123) }           // <> 123
-{ col1: orm.gt(123) }           // > 123
-{ col1: orm.gte(123) }          // >= 123
-{ col1: orm.lt(123) }           // < 123
-{ col1: orm.lte(123) }          // <= 123
-{ col1: orm.between(100, 200) } // BETWEEN 100 AND 200
-{ col1: orm.like("john%") }     // LIKE 'john%'
-{ col1: orm.not_in([1, 4, 8]) } // NOT IN (1, 4, 8)
-```
-
-### Chaining Queries
-
-Build complex queries with method chaining:
-
-```js
-Person.find({ surname: "Doe" })
-	.limit(3)
-	.offset(2)
-	.only("name", "surname")
-	.run(function (err, people) {
-		// 3 people, skip first 2, return only name and surname
-	});
-```
-
-**Select/Omit fields:**
-
-```js
-Person.find({ age: 18 })
-	.omit("password", "ssn")  // Exclude fields
-	.run(callback);
-
-Person.find({ age: 18 })
-	.only("name", "email")    // Include only these
-	.run();
-```
-
-**Advanced filtering:**
-
-```js
-const people = await Person.find({ age: 18 })
-	.where("LOWER(surname) LIKE ?", ['dea%'])
-	.all();
-
-// Multiple where clauses
-const filtered = await Person.find()
-	.where("age > ?", [18])
-	.where("salary < ?", [50000])
-	.run();
-```
-
-**Ordering:**
-
-```js
-const ordered = await Person.find()
-	.order('-name')           // Descending
-	.run();
-
-const rawOrdered = await Person.find()
-	.orderRaw("?? DESC", ['age'])  // Raw SQL order
-	.run();
-```
-
-**Remove matching records:**
-
-```js
-await Person.find({ surname: "Doe" })
-	.remove();
-// All Does deleted
-```
-
-**Batch operations:**
-
-```js
-await Person.find({ surname: "Doe" })
-	.each(function (person) {
-		person.surname = "Dean";
-	})
-	.save();
-// All updated
-```
-
-### Raw SQL Queries
-
-```js
-db.driver.execQuery("SELECT id, email FROM user", function (err, data) { 
-	// Execute raw query
-});
-
-// With parameter substitution
-db.driver.execQuery(
-	"SELECT user.??, user.?? FROM user WHERE user.?? LIKE ? AND user.?? > ?",
-	['id', 'name', 'name', 'john', 'id', 55],
-	function (err, data) { ... }
-);
-```
-
-## Creating and Updating Data
-
-### Create Records
-
-```js
-Person.create([
-	{
-		name: "John",
-		surname: "Doe",
-		age: 25,
-		male: true
-	},
-	{
-		name: "Liza",
-		surname: "Kollan",
-		age: 19,
-		male: false
-	}
-], function (err, items) {
-	// items - array of inserted instances
-});
-```
-
-### Update Records
-
-```js
-Person.get(1, function (err, person) {
-	person.name = "Joe";
-	person.save(function (err) {
-		console.log("Updated!");
-	});
-});
-```
-
-**Update and save in one call:**
-
-```js
-Person.get(1, function (err, person) {
-	person.save({ name: "Joe", surname: "Doe" }, function (err) {
-		console.log("Updated!");
-	});
-});
-```
-
-### Delete Records
-
-```js
-Person.get(1, function (err, person) {
-	person.remove(function (err) {
-		console.log("Deleted!");
-	});
-});
-
-// Or via chaining (without hooks)
-Person.find({ surname: "Doe" }).remove(function (err) {
-	// All Does deleted
-});
-```
-
-## Identity Caching
-
-Enable the identity pattern to ensure multiple queries return the same object instance (changes propagate across all references):
-
-```js
-const Person = db.define('person', {
-	name: String
-}, {
-	identityCache: true  // or a timeout in seconds
-});
-
-// Globally:
-db.settings.set('instance.identityCache', true);
-```
-
-**Note:** This feature won't cache unsaved instances and may cause issues with complex autofetch relationships.
-
-## Associations
-
-Associations define relationships between models.
-
-### hasOne (Many-to-One)
-
-A **many to one** relationship. An animal has one owner, but a person can own many animals.
-
-```js
-Animal.hasOne('owner', Person);
-// Creates 'owner_id' in Animal table
-
-await animal.getOwner();         // Get owner
-await animal.setOwner(person);   // Set owner
-await animal.hasOwner();         // Check if owner exists
-animal.removeOwner();            // Remove owner
-```
-
-**Reverse access:**
-
-```js
-Animal.hasOne('owner', Person, { reverse: 'pets' });
-
-await person.getPets();          // Get all pets
-await person.setPets([pet1, pet2]);
-```
-
-**Chain find:**
-
-```js
-Animal.findByOwner({ /* options */ });
-```
-
-**Required association:**
-
-```js
-Animal.hasOne("owner", Person, { required: true });
-```
-
-### hasMany (Many-to-Many)
-
-A many-to-many relationship with a join table.
-
-```js
-Patient.hasMany('doctors', Doctor, 
-	{ why: String },              // Extra columns in join table
-	{ key: true, reverse: 'patients' }
-);
-
-await patient.getDoctors();
-await patient.addDoctors([doc1, doc2]);
-await patient.setDoctors([doc1]);         // Replace
-await patient.removeDoctors([doc1]);
-await patient.hasDoctors([doc1]);
-```
-
-**Add with extra data:**
-
-```js
-await patient.addDoctor(surgeon, { why: "appendix removal" });
-```
-
-**Chain find:**
-
-```js
-const doctors = await patient.getDoctors()
-	.order("name")
-	.offset(1)
-	.run();  // Returns ChainFind object
-```
-
-### extendsTo (Table Extension)
-
-Split optional properties into separate tables:
-
-```js
-const Person = db.define("person", { name: String });
-const PersonAddress = Person.extendsTo("address", {
-	street: String,
-	number: Number
-});
-
-await person.getAddress();
-await person.setAddress(address);
-```
-
-A new table `person_address` is created with columns: `person_id`, `street`, `number`.
-
-## Validation
-
-### Built-in Validations
-
-Use the [enforce](http://github.com/dresende/node-enforce) library:
-
-```js
-const Person = db.define('person', {
-	name: String,
-	age: Number,
-	email: String
-}, {
-	validations: {
-		age: orm.enforce.ranges.number(18, 65, "invalid-age"),
-		email: orm.enforce.patterns.email("invalid-email")
-	}
-});
-
-person.age = 16;
-person.save(function (err) {
-	// err.msg == "invalid-age"
-});
-```
-
-### Custom Validations
-
-```js
-const Person = db.define('person', {
-	email: String
-}, {
-	validations: {
-		email: function (v) {
-			if (!v.includes('@')) return "must have @";
-		}
-	}
-});
-```
-
-## Hooks
-
-Add custom logic during model lifecycle events:
-
-```js
-const Person = db.define('person', {
-	name: String
-}, {
-	hooks: {
-		beforeCreate: function () {
-			console.log("Creating person");
-		},
-		afterCreate: function () {
-			console.log("Person created");
-		},
-		beforeSave: function () {
-			console.log("Saving");
-		},
-		afterSave: function () {
-			console.log("Saved");
-		}
-	}
-});
-```
-
-**Async hooks with Promises:**
-
-```js
-hooks: {
-	beforeSave: function () {
-		return new Promise(function(resolve, reject) {
-			doAsyncStuff().then(resolve);
-		});
-	}
+interface Person {
+  id: number;
+  name: string;
+  age: number;
 }
+
+const db = await connect('sqlite:///tmp/dev.db');
+const PersonModel: Model<Person> = db.define('person', {
+  id: { type: 'serial', key: true },
+  name: String,
+  age: Number
+});
+
+const saved: Instance<Person> = await PersonModel.create({ name: 'Ana', age: 32 });
 ```
 
-## Promise and Async/Await Support
+Type helpers such as `ChainFind<T>`, `Instance<T>`, and `OrmDatabase<TModels>` are available from `orm3/dist/types` if you need finer control.
 
-All ORM methods return Promises and support async/await:
+---
 
-```js
-const db = await orm.connect("mysql://...");
-const person = await Person.get(1);
-console.log(person.name);
+## Testing & quality gates
 
-// Chain find also supports async/await
-const people = await Person.find({ age: 18 })
-	.where("salary > ?", [50000])
-	.all();
-console.log(people);
+All scripts live in `package.json` and rely on Node 18+.
 
-// Aggregation
-const [min, max] = await Person.aggregate({ surname: "Doe" })
-	.min("age")
-	.max("age")
-	.get();
-console.log(`Age: ${min} - ${max}`);
-```
+| Command | Description |
+| ------- | ----------- |
+| `npm run build` | Compile TypeScript to `dist/`. Automatically executed on install/publish. |
+| `npm test` | Run the SQLite-backed test suite locally. |
+| `npm run test:<driver>` | Run the suite against `sqlite`, `mysql`, `postgres`, or `redshift` (database must be reachable). |
+| `npm run test:docker:<driver>` | Spin up Docker containers, install dependencies, run the tests, and tear everything down. |
+| `npm run test:async-only` | Lightweight async API smoke test. |
 
-## Custom Adapters
+Docker-based runs accept `SKIP_DOCKER_CLEANUP=1` to keep containers around for debugging.
 
-Add custom database adapters to ORM3:
+Integration suites read configuration from `test/config.js`. Check that file if you want to point tests at non-default hosts or credentials.
 
-```js
-require('orm').addAdapter('cassandra', CassandraAdapter);
-```
+---
 
-For creating adapters, see [the adapter documentation](./Adapters.md).
+## Advanced topics
 
-## Plugins & Extensions
+- **Identity maps:** Keep instance caches scoped per-connection or per-model for consistent object graphs.
+- **Lazy loading:** Use `Model.one().eager()` or `instance.fetch()` to retrieve associations on demand.
+- **Custom drivers/adapters:** Implement the DDL and DML interfaces under `src/Drivers` and register them via `orm.addAdapter()`.
+- **Plugins:** Reuse community plugins (pagination, timestamping, FTS) or craft your own by hooking into `db.use()`.
+- **Raw SQL:** Drop down to `db.driver.execQuery()` when you need handcrafted statements without leaving the ORM ecosystem.
 
-Enhance ORM3 with official plugins:
-
-- **[MySQL FTS](http://dresende.github.io/node-orm-mysql-fts)** - Full-text search for MySQL
-- **[Pagination](http://dresende.github.io/node-orm-paging)** - Paginate results easily
-- **[Transactions](http://dresende.github.io/node-orm-transaction)** - Transaction support
-- **[Timestamps](http://github.com/SPARTAN563/node-orm-timestamps)** - Auto-manage created/updated fields
+---
 
 ## Contributing
 
-Contributions are welcome! Please see [Contributing.md](Contributing.md) for guidelines.
+Pull requests are welcome! Please read [`Contributing.md`](./Contributing.md) for environment setup, coding standards, and release guidelines. The short version:
+
+1. `npm install`
+2. `npm run build`
+3. Run the relevant `npm run test:*` suites (Docker helpers are available)
+4. Open a PR with a clear description and test evidence
+
+Bug reports and feature ideas are tracked in [GitHub issues](https://github.com/dresende/node-orm3/issues).
+
+---
 
 ## License
 
-MIT - See [License](License) file for details.
-
-## Resources
-
-- **GitHub**: [node-orm3](https://github.com/dresende/node-orm3)
-- **Issues**: [Report bugs or request features](https://github.com/dresende/node-orm3/issues)
-- **Examples**: Check `examples/` directory for sample applications
-```
+MIT © 2025 the ORM3 maintainers.
 

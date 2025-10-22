@@ -28,7 +28,7 @@ if (protocol != "sqlite") {
     };
 
     var setup = function () {
-      return function (done) {
+      return async function () {
         NumberSize = db.define("number_size", {
           int2   : { type: 'integer', size: 2 },
           int4   : { type: 'integer', size: 4 },
@@ -37,68 +37,64 @@ if (protocol != "sqlite") {
           float8 : { type: 'number',  size: 8 }
         });
 
-        helper.dropSyncAsync(NumberSize).then(async function () {
-          try {
-            await NumberSize.create(NumberData);
-            done();
-          } catch (e) {
-            done(e);
-          }
-        }).catch(done);
+        await helper.dropSyncAsync(NumberSize);
+        await NumberSize.create(NumberData);
       };
     };
 
-    before(function (done) {
-      helper.connect(function (connection) {
-        db = connection;
-
-        return done();
-      });
+    before(async function () {
+      db = await helper.connectAsync();
     });
 
-    after(function () {
-      return db.close();
+    after(async function () {
+      await db.close();
     });
 
     describe("when storing", function () {
       before(setup());
 
-      it("should be able to store near MAX sized values for each field", function (done) {
-        NumberSize.one(function (err, Item) {
-          should.equal(err, null);
+      it("should be able to store near MAX sized values for each field", async function () {
+        const Item = await NumberSize.one();
 
-          should(fuzzyEql(Item.int2,   NumberData.int2));
-          should(fuzzyEql(Item.int4,   NumberData.int4));
-          should(fuzzyEql(Item.int8,   NumberData.int8));
-          should(fuzzyEql(Item.float4, NumberData.float4));
-          should(fuzzyEql(Item.float8, NumberData.float8));
-
-          return done();
-        });
+        should(Item).be.ok();
+        should(fuzzyEql(Item.int2,   NumberData.int2));
+        should(fuzzyEql(Item.int4,   NumberData.int4));
+        should(fuzzyEql(Item.int8,   NumberData.int8));
+        should(fuzzyEql(Item.float4, NumberData.float4));
+        should(fuzzyEql(Item.float8, NumberData.float8));
       });
 
-      it("should not be able to store int2 values which are too large", function (done) {
-        NumberSize.create({ int2 : NumberData.int4 }, function (err, item) {
-          err.should.be.an.Object();
+      it("should not be able to store int2 values which are too large", async function () {
+        let err;
+        try {
+          await NumberSize.create({ int2 : NumberData.int4 });
+        } catch (e) {
+          err = e;
+        }
 
-          return done();
-        });
+        should(err).be.an.Object();
       });
 
-      it("should not be able to store int4 values which are too large", function (done) {
-        NumberSize.create({ int4 : NumberData.int8 }, function (err, item) {
-          err.should.be.a.Object();
+      it("should not be able to store int4 values which are too large", async function () {
+        let err;
+        try {
+          await NumberSize.create({ int4 : NumberData.int8 });
+        } catch (e) {
+          err = e;
+        }
 
-          return done();
-        });
+        should(err).be.an.Object();
       });
 
-      it("should not be able to store float4 values which are too large", function (done) {
-        NumberSize.create({ float4 : NumberData.float8 }, function (err, item) {
-          err.should.be.a.Object();
+      it("should not be able to store float4 values which are too large", async function () {
+        let err;
+        try {
+          await NumberSize.create({ float4 : NumberData.float8 });
+        } catch (e) {
+          err = e;
+        }
 
-          return done();
-        });
+        should(err).be.an.Object();
       });
     });
   });

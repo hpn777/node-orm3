@@ -73,68 +73,90 @@ export function unique(...args: Array<string | UniqueOptions>): ValidatorFunctio
   }
 
   return function (this: any, v: any, next: (err?: string) => void, ctx?: ValidationContext): void {
-    if (!ctx) {
-      return next();
-    }
+    const self = this;
 
-    if (typeof v === "undefined" || v === null) {
-      return next();
-    }
-
-    // Cannot process on database engines which don't support SQL syntax
-    if (!ctx.driver.isSql) {
-      return next('not-supported');
-    }
-
-    const chain = ctx.model.find();
-
-    const chainQuery = (prop: string, value: any): void => {
-      let query: any = null;
-
-      if (opts.ignoreCase === true && ctx.model.properties[prop] && ctx.model.properties[prop].type === 'text') {
-        query = util.format('LOWER(%s.%s) LIKE LOWER(?)',
-          ctx.driver.query.escapeId(ctx.model.table), ctx.driver.query.escapeId(prop)
-        );
-        chain.where(query, [value]);
-      } else {
-        query = {};
-        query[prop] = value;
-        chain.where(query);
+    const finish = (err?: string): void => {
+      try {
+        next(err);
+      } catch (_invokeErr) {
+        // Swallow downstream errors so validation pipeline isn't interrupted.
       }
     };
 
-    const handler = (err: Error | null, records?: any[]): void => {
-      if (err) {
-        return next();
+    (async () => {
+      if (!ctx) {
+        return finish();
       }
-      if (!records || records.length === 0) {
-        return next();
+
+      if (typeof v === "undefined" || v === null) {
+        return finish();
       }
-      if (records.length === 1 && records[0][ctx.model.id] === this[ctx.model.id]) {
-        return next();
+
+      if (!ctx.model.properties[ctx.property]) {
+        return finish();
       }
-      return next(msg || 'not-unique');
-    };
 
-    // Skip validation if the property doesn't exist in the model schema
-    if (!ctx.model.properties[ctx.property]) {
-      return next();
-    }
+      // Cannot process on database engines which don't support SQL syntax
+      if (!ctx.driver.isSql) {
+        return finish('not-supported');
+      }
 
-    chainQuery(ctx.property, v);
+      const chain = ctx.model.find();
 
-    if (opts.scope) {
-      for (const scopeProp of opts.scope) {
-        // In SQL unique index land, NULL values are not considered equal.
-        if (typeof ctx.instance[scopeProp] === 'undefined' || ctx.instance[scopeProp] === null) {
-          return next();
+      const chainQuery = (prop: string, value: any): void => {
+        let query: any = null;
+
+        if (opts.ignoreCase === true && ctx.model.properties[prop] && ctx.model.properties[prop].type === 'text') {
+          query = util.format('LOWER(%s.%s) LIKE LOWER(?)',
+            ctx.driver.query.escapeId(ctx.model.table), ctx.driver.query.escapeId(prop)
+          );
+          chain.where(query, [value]);
+        } else {
+          query = {};
+          query[prop] = value;
+          chain.where(query);
         }
+      };
 
-        chainQuery(scopeProp, ctx.instance[scopeProp]);
+      chainQuery(ctx.property, v);
+
+      if (opts.scope) {
+        for (const scopeProp of opts.scope) {
+          const scopedValue = ctx.instance[scopeProp];
+          if (typeof scopedValue === 'undefined' || scopedValue === null) {
+            return finish();
+          }
+
+          chainQuery(scopeProp, scopedValue);
+        }
       }
-    }
 
-    chain.all(handler.bind(this));
+      let records: any[];
+
+      try {
+        records = await chain.run();
+      } catch (err) {
+        // Treat query errors as non-blocking to avoid cascading validation failures
+        return finish();
+      }
+
+      if (!records || records.length === 0) {
+        return finish();
+      }
+
+      const modelId = ctx.model.id;
+      const idProperties = Array.isArray(modelId) ? modelId : [modelId];
+
+      const otherRecords = records.filter((record: any) => {
+        return !idProperties.every((prop) => record[prop] === self[prop]);
+      });
+
+      if (otherRecords.length === 0) {
+        return finish();
+      }
+
+      return finish(msg || 'not-unique');
+    })().catch(() => finish());
   };
 }
 

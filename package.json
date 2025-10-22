@@ -11,7 +11,7 @@
     "redshift",
     "sqlite"
   ],
-  "version": "9.1.0",
+  "version": "9.2.0",
   "license": "MIT",
   "homepage": "http://dresende.github.io/node-orm3",
   "repository": "http://github.com/dresende/node-orm3.git",
@@ -30,10 +30,7 @@
     "test:docker:mysql": "docker compose -f docker-compose.test.yml run --rm -e ORM_PROTOCOL=mysql test-runner bash -c 'npm ci && npm run build && ORM_PROTOCOL=mysql node test/run'",
     "test:docker:postgres": "docker compose -f docker-compose.test.yml run --rm -e ORM_PROTOCOL=postgres test-runner bash -c 'npm ci && npm run build && ORM_PROTOCOL=postgres node test/run'",
     "test:docker:redshift": "docker compose -f docker-compose.test.yml run --rm -e ORM_PROTOCOL=redshift test-runner bash -c 'npm ci && npm run build && ORM_PROTOCOL=redshift node test/run'",
-    "test:async-only": "npm run build && ORM_PROTOCOL=sqlite node_modules/.bin/mocha --require test/common.js test/integration/async-only-api.js",
-    "test:sanity": "npm run build && ORM_PROTOCOL=sqlite node_modules/.bin/mocha --require test/common.js test/integration/async-only-api.js",
     "test:full": "npm run build && c8 node test/run",
-    "test:coverage": "npm run build && c8 node test/run"
   },
   "engines": {
     "node": ">= 18.0.0"

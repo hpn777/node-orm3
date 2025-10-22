@@ -19,7 +19,16 @@ import Validators from './Validators';
 import type { Plugin, ConnectionConfig } from './types/Core';
 
 const Query = require('sql-query');
-import { ORMInterface, ModelOptions, ConnectionOptions, Plugin as LegacyPlugin, ConnectCallback } from './types/Core';
+import type {
+  ORMInterface,
+  ModelOptions,
+  ConnectionOptions,
+  ConnectCallback,
+  Model as ModelType,
+  ChainRunner,
+  SerialRunner,
+  Instance as OrmInstance
+} from './types/Core';
 
 const OPTS_TYPE_STRING = 'string';
 const OPTS_TYPE_OBJ = 'object';
@@ -282,7 +291,7 @@ class ORM extends EventEmitter implements ORMInterface {
   driver_name: string;
   driver: any;
   tools: any;
-  models: Record<string, any>;
+  models: Record<string, ModelType<any>>;
   plugins: Plugin[];
   customTypes: any;
 
@@ -490,15 +499,14 @@ class ORM extends EventEmitter implements ORMInterface {
   async sync(): Promise<void> {
     const modelIds = Object.keys(this.models);
     for (const modelId of modelIds) {
-      await new Promise<void>((resolve, reject) => {
-        this.models[modelId].sync((err?: Error | null) => {
-          if (err) {
-            (err as any).model = modelId;
-            return reject(err);
-          }
-          resolve();
-        });
-      });
+      try {
+        await this.models[modelId].sync();
+      } catch (err) {
+        if (err && typeof err === 'object') {
+          (err as any).model = modelId;
+        }
+        throw err;
+      }
     }
   }
 
@@ -509,15 +517,14 @@ class ORM extends EventEmitter implements ORMInterface {
   async drop(): Promise<void> {
     const modelIds = Object.keys(this.models);
     for (const modelId of modelIds) {
-      await new Promise<void>((resolve, reject) => {
-        this.models[modelId].drop((err?: Error | null) => {
-          if (err) {
-            (err as any).model = modelId;
-            return reject(err);
-          }
-          resolve();
-        });
-      });
+      try {
+        await this.models[modelId].drop();
+      } catch (err) {
+        if (err && typeof err === 'object') {
+          (err as any).model = modelId;
+        }
+        throw err;
+      }
     }
   }
 
@@ -529,36 +536,44 @@ class ORM extends EventEmitter implements ORMInterface {
     return this.drop();
   }
 
-  serial(...chains: any[]): any {
-    return {
-      get: async (cb?: (err: Error | null, ...results: any[]) => void) => {
-        try {
-          const results = [];
-          for (const chain of chains) {
-            const result = await new Promise<any[]>((resolve, reject) => {
-              chain.run((err: Error | null, instances?: any[]) => {
-                if (err) reject(err);
-                else resolve(instances || []);
-              });
-            });
-            results.push(result);
+  /**
+   * Execute a set of chain runners sequentially, collecting each result set.
+   *
+   * The returned runner can be awaited directly or invoked with a callback
+   * for legacy consumers. Results are typed according to the provided chain
+   * runners, preserving strong typing across chained queries.
+   */
+  serial<T = OrmInstance>(...chains: ChainRunner<T>[]): SerialRunner<T> {
+    function get(): Promise<T[][]>;
+    function get(cb: (err: Error | null, ...results: T[][]) => void): Promise<void>;
+    async function get(cb?: (err: Error | null, ...results: T[][]) => void): Promise<T[][] | void> {
+      try {
+        const results: T[][] = [];
+        for (const chain of chains) {
+          if (!chain || typeof (chain as any).run !== 'function') {
+            throw new TypeError('serial() expects chain-like arguments exposing run()');
           }
 
-          if (typeof cb === 'function') {
-            cb(null, ...results);
-            return;
-          }
-
-          return results;
-        } catch (err) {
-          if (typeof cb === 'function') {
-            cb(err as Error);
-            return;
-          }
-          throw err;
+          const instances = await chain.run();
+          results.push(instances || []);
         }
+
+        if (typeof cb === 'function') {
+          cb(null, ...results);
+          return;
+        }
+
+        return results;
+      } catch (err) {
+        if (typeof cb === 'function') {
+          cb(err as Error);
+          return;
+        }
+        throw err;
       }
-    };
+    }
+
+    return { get } as SerialRunner<T>;
   }
 }
 

@@ -10,32 +10,26 @@ describe("Property", function() {
   describe("type uuid", function () {
     var db = null;
 
-    before(function (done) {
-      helper.connect(function (connection) {
-        db = connection;
-
-        done();
-      });
+    before(async function () {
+      db = await helper.connectAsync();
     });
 
-    after(function () {
-      db.close();
+    after(async function () {
+      await db.close();
     });
 
     var Thing = null;
 
-    before(function (done) {
-      db.driver.execQuery('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";', function (err) {
-        should.not.exist(err);
+    before(async function () {
+      await db.driver.execQueryAsync('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
 
-        Thing = db.define('thing', {
-          id:   { type: 'uuid', key: true, defaultExpression: 'uuid_generate_v4()' },
-          //id:   { type: 'serial' },
-          name: { type: 'text' }
-        });
-
-        helper.dropSync(Thing, done);
+      Thing = db.define('thing', {
+        id:   { type: 'uuid', key: true, defaultExpression: 'uuid_generate_v4()' },
+        //id:   { type: 'serial' },
+        name: { type: 'text' }
       });
+
+      await helper.dropSyncAsync(Thing);
     });
 
     it("should create the table", function () {
@@ -44,71 +38,46 @@ describe("Property", function() {
 
     var infoSQL = "SELECT * FROM information_schema.columns WHERE table_name = 'thing' AND column_name = 'id'";
 
-    it("should have the correct type", function (done) {
-      db.driver.execQuery(infoSQL, function (err, cols) {
-        should.not.exist(err);
+    it("should have the correct type", async function () {
+      const cols = await db.driver.execQueryAsync(infoSQL);
 
-        var uuidCol = cols[0];
+      var uuidCol = cols[0];
 
-        should.exist(uuidCol);
-        should.equal(uuidCol.data_type, 'uuid');
-        done();
-      });
+      should.exist(uuidCol);
+      should.equal(uuidCol.data_type, 'uuid');
     });
 
-    it("should have the correct default value", function (done) {
-      db.driver.execQuery(infoSQL, function (err, cols) {
-        should.not.exist(err);
+    it("should have the correct default value", async function () {
+      const cols = await db.driver.execQueryAsync(infoSQL);
 
-        var uuidCol = cols[0];
+      var uuidCol = cols[0];
 
-        should.exist(uuidCol);
-        should.equal(uuidCol.column_default, 'uuid_generate_v4()');
-        done();
-      });
+      should.exist(uuidCol);
+      should.equal(uuidCol.column_default, 'uuid_generate_v4()');
     });
 
-    it("should set id automatically", function (done) {
-      var chair = new Thing({ name: 'chair' });
+    it("should set id automatically", async function () {
+      const chair = await Thing.create({ name: 'chair' });
 
-      chair.save(function (err) {
-        should.not.exist(err);
-
-        Thing.find().all(function (err, items) {
-          should.not.exist(err);
-          should.equal(items.length, 1);
-          should.equal(items[0].name, 'chair');
-          items[0].id.should.match(/^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i);
-
-          done();
-        });
-      });
+      const items = await Thing.find().run();
+      should.equal(items.length, 1);
+      should.equal(items[0].name, 'chair');
+      items[0].id.should.match(/^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i);
+      chair.id.should.equal(items[0].id);
     });
 
-    it("should save", function (done) {
-      var horse = new Thing({ name: 'horse' });
+    it("should save", async function () {
+      const horse = await Thing.create({ name: 'horse' });
 
-      horse.save(function (err) {
-        should.not.exist(err);
+      const fetched = await Thing.get(horse.id);
+      should.exist(fetched);
+      fetched.name = 'horsey';
+      await fetched.save();
 
-        Thing.get(horse.id, function (err, item) {
-          should.not.exist(err);
-
-          item.name = 'horsey';
-
-          item.save(function (err) {
-            should.not.exist(err);
-
-            Thing.get(horse.id, function (err, item) {
-              should.not.exist(err);
-              should.equal(item.id, horse.id);
-              should.equal(item.name, 'horsey');
-
-              done();
-            });
-          });
-        });
-      });
+      const updated = await Thing.get(horse.id);
+      should.exist(updated);
+      should.equal(updated.id, horse.id);
+      should.equal(updated.name, 'horsey');
     });
 
   });

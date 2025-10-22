@@ -211,12 +211,8 @@ describe("db.driver", function () {
         db.define("my_model2", {
           property: String
         });
-        var syncStub = sinon.stub(db.models['my_model'], 'sync').callsFake(function (cb) {
-          cb(null, {})
-        });
-        var syncStub2 = sinon.stub(db.models['my_model2'], 'sync').callsFake(function (cb) {
-          cb(null, {})
-        });
+        var syncStub = sinon.stub(db.models['my_model'], 'sync').resolves({});
+        var syncStub2 = sinon.stub(db.models['my_model2'], 'sync').resolves({});
         return db.syncPromise()
           .then(function () {
             should.equal(syncStub.calledOnce, true);
@@ -235,12 +231,8 @@ describe("db.driver", function () {
           property: String
         });
 
-        var dropStub = sinon.stub(db.models['my_model'], 'drop').callsFake(function (cb) {
-          cb(null, {})
-        });
-        var dropStub2 = sinon.stub(db.models['my_model2'], 'drop').callsFake(function (cb) {
-          cb(null, {})
-        });
+        var dropStub = sinon.stub(db.models['my_model'], 'drop').resolves({});
+        var dropStub2 = sinon.stub(db.models['my_model2'], 'drop').resolves({});
 
         return db.dropAsync()
           .then(function () {

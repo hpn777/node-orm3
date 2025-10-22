@@ -93,14 +93,10 @@ describe("Model.find() chaining - Async API", function() {
       people.should.have.property("length", 2);
     });
 
-    it("should support callback form", async function () {
-      await new Promise(function (resolve, reject) {
-        Person.find().limit(2).run(function (err, people) {
-          if (err) return reject(err);
-          people.should.have.property("length", 2);
-          return resolve();
-        });
-      });
+    it("should throw if callback provided", function () {
+      (function () {
+        Person.find().limit(2).run(function () {});
+      }).should.throw(/run no longer accepts callback/i);
     });
   });
 
@@ -217,15 +213,6 @@ describe("Model.find() chaining - Async API", function() {
       count.should.equal(3);
     });
 
-    it("should support callback form", async function () {
-      await new Promise(function (resolve, reject) {
-        Person.find({ surname: "Doe" }).count(function (err, count) {
-          if (err) return reject(err);
-          count.should.equal(2);
-          return resolve();
-        });
-      });
-    });
   });
 
   describe("first/last", function () {
@@ -237,15 +224,10 @@ describe("Model.find() chaining - Async API", function() {
       item.age.should.equal(18);
     });
 
-    it("should return the last item via callback", async function () {
-      await new Promise(function (resolve, reject) {
-        Person.find().order("age").last(function (err, item) {
-          if (err) return reject(err);
-          should.exist(item);
-          item.age.should.equal(20);
-          return resolve();
-        });
-      });
+    it("should return the last item", async function () {
+      var item = await Person.find().order("age").last();
+      should.exist(item);
+      item.age.should.equal(20);
     });
 
     it("should return null when nothing found", async function () {
@@ -262,14 +244,10 @@ describe("Model.find() chaining - Async API", function() {
       count.should.equal(1);
     });
 
-    it("should allow callback as second argument", async function () {
-      await new Promise(function (resolve, reject) {
-        Person.find().find({ age: 18 }, function (err, people) {
-          if (err) return reject(err);
-          people.should.have.property("length", 2);
-          return resolve();
-        });
-      });
+    it("should throw if a callback is supplied", function () {
+      (function () {
+        Person.find().find({ age: 18 }, function () {});
+      }).should.throw(/find no longer accepts callback/i);
     });
 
     it("should append raw sql conditions", async function () {
@@ -297,12 +275,7 @@ describe("Model.find() chaining - Async API", function() {
 
     ['find', 'where', 'all'].forEach(function (func) {
       it('.' + func + '()', async function () {
-        var items = await new Promise(function (resolve, reject) {
-          Person[func]({ name: "Mel" })[func]({ age: ORM.gt(20) })[func](function (err, results) {
-            if (err) return reject(err);
-            resolve(results);
-          });
-        });
+        var items = await Person[func]({ name: "Mel" })[func]({ age: ORM.gt(20) })[func]();
 
         should.equal(items.length, 2);
         items[0].surname.should.equal("Gibbs");
@@ -311,12 +284,7 @@ describe("Model.find() chaining - Async API", function() {
     });
 
     it("should allow mixing finders", async function () {
-      var items = await new Promise(function (resolve, reject) {
-        Person.all({ name: "Mel" }).where({ age: ORM.gt(20) }).find(function (err, results) {
-          if (err) return reject(err);
-          resolve(results);
-        });
-      });
+      var items = await Person.all({ name: "Mel" }).where({ age: ORM.gt(20) }).find();
 
       should.equal(items.length, 2);
       items[0].surname.should.equal("Gibbs");
@@ -350,43 +318,37 @@ describe("Model.find() chaining - Async API", function() {
     });
 
     it("should filter and count results", async function () {
-      await new Promise(function (resolve) {
-        Person.find().each().filter(function (person) {
+      var count = await Person.find().each()
+        .filter(function (person) {
           return person.age > 18;
-        }).count(function (count) {
-          count.should.equal(1);
-          resolve();
-        });
-      });
+        })
+        .count();
+
+      count.should.equal(1);
     });
 
     it("should sort results", async function () {
-      await new Promise(function (resolve) {
-        Person.find().each().sort(function (a, b) {
+      var people = await Person.find().each()
+        .sort(function (a, b) {
           return b.age - a.age;
-        }).get(function (people) {
-          people.should.be.an.Array();
-          people.length.should.equal(3);
-          people[0].age.should.equal(20);
-          people[2].age.should.equal(18);
-          resolve();
-        });
-      });
+        })
+        .get();
+
+      people.should.be.an.Array();
+      people.length.should.equal(3);
+      people[0].age.should.equal(20);
+      people[2].age.should.equal(18);
     });
 
     it("should save modified results", async function () {
-      await new Promise(function (resolve, reject) {
-        Person.find({ surname: "Dean" }).each(function (person) {
+      await Person.find({ surname: "Dean" })
+        .each(function (person) {
           person.age = 45;
-        }).save(function (err) {
-          if (err) return reject(err);
-          Person.find({ surname: "Dean" }).first(function (err2, person) {
-            if (err2) return reject(err2);
-            person.age.should.equal(45);
-            resolve();
-          });
-        });
-      });
+        })
+        .save();
+
+      var person = await Person.find({ surname: "Dean" }).first();
+      person.age.should.equal(45);
     });
   });
 
@@ -397,12 +359,7 @@ describe("Model.find() chaining - Async API", function() {
       var john = (await Person.find({ name: "John" }))[0];
       var justin = new Person({ name: "Justin", age: 45 });
 
-      await new Promise(function (resolve, reject) {
-        john.setParents([justin], function (err) {
-          if (err) return reject(err);
-          resolve();
-        });
-      });
+      await john.setParents([justin]);
 
       var people = await Person.find().hasParents(justin);
       people.should.have.property("length", 1);

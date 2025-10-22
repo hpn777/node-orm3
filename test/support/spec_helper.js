@@ -25,22 +25,17 @@ module.exports.connectAsync = function(opts) {
 };
 
 module.exports.dropSync = function (models, done) {
-  if (!Array.isArray(models)) {
-    models = [models];
-  }
-
-  async.eachSeries(models, function (item, cb) {
-    item.drop(function (err) {
-      if (err) throw err;
-
-      item.sync(cb);
+  module.exports.dropSyncAsync(models)
+    .then(function () {
+      done();
+    })
+    .catch(function (err) {
+      if (common.protocol() != 'sqlite') {
+        done(err);
+      } else {
+        done();
+      }
     });
-  }, function (err) {
-    if (common.protocol() != 'sqlite') {
-      if (err) throw err;
-    }
-    done(err);
-  });
 };
 
 module.exports.dropSyncAsync = async function (models) {

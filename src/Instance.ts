@@ -367,11 +367,11 @@ export function Instance(Model: any, opts: InstanceOptions): any {
       };
 
       try {
-        const possiblePromise = fn.call(instance, payload, (err?: Error | null) => finalize(err));
+        const possiblePromise = fn.call(instance, payload);
 
         if (possiblePromise && typeof possiblePromise.then === "function") {
           possiblePromise.then(() => finalize(), (err: Error) => finalize(err));
-        } else if (fn.length < 2) {
+        } else {
           finalize();
         }
       } catch (err) {

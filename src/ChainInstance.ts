@@ -1,122 +1,116 @@
 /**
- * Chain Instance - Chain operations on query results
+ * Chain Instance - Promise-based cursor over query results
  */
 
-export interface ChainInstanceCalls {
-  filter(cb: (item: any) => boolean): ChainInstanceCalls;
-  forEach(cb: (item: any) => void): ChainInstanceCalls;
-  sort(sortFn: (a: any, b: any) => number): ChainInstanceCalls;
-  count(cb: (count: number) => void): ChainInstanceCalls;
-  get(cb: (instances: any[]) => void): ChainInstanceCalls;
-  save(cb?: (err?: Error) => void): ChainInstanceCalls;
+export interface ChainInstanceCalls<T = any> {
+  filter(cb: (item: T, index: number, items: T[]) => boolean | Promise<boolean>): ChainInstanceCalls<T>;
+  forEach(cb: (item: T, index: number, items: T[]) => void | Promise<void>): ChainInstanceCalls<T>;
+  sort(sortFn: (a: T, b: T) => number): ChainInstanceCalls<T>;
+  count(): Promise<number>;
+  get(): Promise<T[]>;
+  save(): Promise<void>;
 }
 
-interface QueueItem {
-  hwd: Function;
-  args: IArguments | any[];
-}
+type Operation<T> = (items: T[]) => T[] | Promise<T[]>;
 
-function ChainInstance(chain: any, cb?: Function): ChainInstanceCalls {
-  let instances: any[] | null = null;
-  let loading = false;
-  const queue: QueueItem[] = [];
+class ChainCursor<T = any> implements ChainInstanceCalls<T> {
+  private operations: Array<Operation<T>> = [];
+  private cache: T[] | null = null;
 
-  const load = (): void => {
-    loading = true;
-    chain.run((err: Error | null, items?: any[]) => {
-      instances = items || [];
-      return next();
-    });
-  };
+  constructor(private readonly loader: () => Promise<T[]>) {}
 
-  const promise = (hwd: Function, next: Function): Function => {
-    return function (): ChainInstanceCalls {
-      if (!loading) {
-        load();
-      }
-
-      queue.push({ hwd: hwd, args: arguments });
-
-      return calls;
-    };
-  };
-
-  const next = (): void => {
-    if (queue.length === 0) return;
-
-    const item = queue.shift();
-    if (item) {
-      item.hwd.apply(calls, item.args);
-    }
-  };
-
-  const calls: any = {
-    filter: promise(function (cb: (item: any) => boolean) {
-      if (instances) {
-        instances = instances.filter(cb);
-      }
-      return next();
-    }, next),
-
-    forEach: promise(function (cb: (item: any) => void) {
-      if (instances) {
-        instances.forEach(cb);
-      }
-      return next();
-    }, next),
-
-    sort: promise(function (sortFn: (a: any, b: any) => number) {
-      if (instances) {
-        instances.sort(sortFn);
-      }
-      return next();
-    }, next),
-
-    count: promise(function (cb: (count: number) => void) {
-      if (instances) {
-        cb(instances.length);
-      }
-      return next();
-    }, next),
-
-    get: promise(function (cb: (instances: any[]) => void) {
-      if (instances) {
-        cb(instances);
-      }
-      return next();
-    }, next),
-
-    save: promise(function (cb?: (err?: Error) => void) {
-      if (!instances) return next();
-
-      const saveNext = (i: number): void => {
-        if (i >= instances!.length) {
-          if (typeof cb === "function") {
-            cb();
-          }
-          return next();
-        }
-
-        return instances![i].save((err?: Error) => {
-          if (err) {
-            if (typeof cb === "function") {
-              cb(err);
-            }
-            return next();
-          }
-
-          return saveNext(i + 1);
-        });
-      };
-
-      return saveNext(0);
-    }, next)
-  };
-
-  if (typeof cb === "function") {
-    return calls.forEach(cb);
+  private enqueue(operation: Operation<T>): this {
+    this.operations.push(operation);
+    this.cache = null; // invalidate cache when new operation is added
+    return this;
   }
-  return calls;
+
+  private async loadProcessed(): Promise<T[]> {
+    if (!this.cache) {
+      const baseItems = await this.loader();
+      let result = baseItems.slice();
+
+      for (const operation of this.operations) {
+        result = await operation(result);
+      }
+
+      this.cache = result;
+    }
+
+    return this.cache;
+  }
+
+  filter(cb: (item: T, index: number, items: T[]) => boolean | Promise<boolean>): this {
+    return this.enqueue(async (items) => {
+      const filtered: T[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (await cb(items[i], i, items)) {
+          filtered.push(items[i]);
+        }
+      }
+      return filtered;
+    });
+  }
+
+  forEach(cb: (item: T, index: number, items: T[]) => void | Promise<void>): this {
+    return this.enqueue(async (items) => {
+      for (let i = 0; i < items.length; i++) {
+        await cb(items[i], i, items);
+      }
+      return items;
+    });
+  }
+
+  sort(sortFn: (a: T, b: T) => number): this {
+    return this.enqueue((items) => {
+      return items.slice().sort(sortFn);
+    });
+  }
+
+  async count(): Promise<number> {
+    const items = await this.loadProcessed();
+    return items.length;
+  }
+
+  async get(): Promise<T[]> {
+    return this.loadProcessed();
+  }
+
+  async save(): Promise<void> {
+    const items = await this.loadProcessed();
+    for (const item of items) {
+      const candidate: any = item as any;
+      if (typeof candidate?.save !== 'function') {
+        throw new Error('ChainInstance.save() expects items with an async save() method.');
+      }
+      if (candidate.save.length > 0) {
+        await new Promise<void>((resolve, reject) => {
+          candidate.save((err?: Error | null) => {
+            if (err) {
+              return reject(err);
+            }
+            resolve();
+          });
+        });
+      } else {
+        const result = candidate.save();
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
+      }
+    }
+  }
+}
+
+function ChainInstance<T = any>(
+  loader: () => Promise<T[]>,
+  initialIterator?: (item: T, index: number, items: T[]) => void | Promise<void>
+): ChainInstanceCalls<T> {
+  const cursor = new ChainCursor<T>(loader);
+  if (typeof initialIterator === 'function') {
+    cursor.forEach(initialIterator);
+  }
+  return cursor;
 }
 
 export default ChainInstance;

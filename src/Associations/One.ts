@@ -10,6 +10,12 @@ import type { HookMap, AssociationType } from '../types/Core';
 const Accessors: Record<string, string> = { "get": "get", "set": "set", "has": "has", "del": "remove" };
 const ACCESSOR_METHODS = ["hasAccessor", "getAccessor", "setAccessor", "delAccessor"];
 
+const rejectCallback = (context: string, args: any[]): void => {
+  if (args.some((arg) => typeof arg === 'function')) {
+    throw new TypeError(`${context} no longer accepts callbacks. Await the returned promise instead.`);
+  }
+};
+
 export function prepare(Model: any, associations: any[]): void {
   Model.hasOne = function (...args: any[]): any {
     let assocName: string;
@@ -87,22 +93,18 @@ export function prepare(Model: any, associations: any[]): void {
     }
 
     Model["findBy" + assocTemplateName] = function (...args: any[]): any {
-      let cb: Function | null = null;
+      rejectCallback(`${Model.modelName || Model.table}.findBy${assocTemplateName}`, args);
+
       let conditions: any = null;
       let options: any = {};
 
       for (let i = 0; i < args.length; i++) {
-        switch (typeof args[i]) {
-          case "function":
-            cb = args[i];
-            break;
-          case "object":
-            if (conditions === null) {
-              conditions = args[i];
-            } else {
-              options = args[i];
-            }
-            break;
+        if (typeof args[i] === "object" && args[i] !== null) {
+          if (conditions === null) {
+            conditions = args[i];
+          } else {
+            options = args[i];
+          }
         }
       }
 
@@ -118,9 +120,6 @@ export function prepare(Model: any, associations: any[]): void {
       };
       options.extra = [];
 
-      if (typeof cb === "function") {
-        return Model.find({}, options, cb);
-      }
       return Model.find({}, options);
     };
 
@@ -168,27 +167,22 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
   };
 
   Object.defineProperty(Instance, association.hasAccessor, {
-    value: function (opts?: any, cb?: Function): any {
-      let options = opts;
-      let callback = cb;
+    value: function (...args: any[]): any {
+      rejectCallback(`${Model.modelName || Model.table}.${association.hasAccessor}`, args);
+      const options = args.length > 0 ? args[0] : undefined;
 
-      if (typeof options === 'function') {
-        callback = options;
-        options = {};
-      }
-
-      const promise = (async () => {
+      return (async () => {
         if (!util.hasValues(Instance, Object.keys(association.field))) {
           return false;
         }
 
         try {
-          const args: any[] = [util.values(Instance, Object.keys(association.field))];
+          const queryArgs: any[] = [util.values(Instance, Object.keys(association.field))];
           const normalized = normalizeOptions(options);
           if (Object.keys(normalized).length) {
-            args.push(normalized);
+            queryArgs.push(normalized);
           }
-          const related = await association.model.get.apply(association.model, args);
+          const related = await association.model.get.apply(association.model, queryArgs);
           return !!related;
         } catch (err) {
           if (isNotFoundError(err)) {
@@ -197,29 +191,17 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
           throw err;
         }
       })();
-
-      if (typeof callback === 'function') {
-        promise.then((result) => callback(null, result)).catch((err) => callback(err));
-        return this;
-      }
-
-      return promise;
     },
     enumerable: false,
     writable: true
   });
 
   Object.defineProperty(Instance, association.getAccessor, {
-    value: function (opts?: any, cb?: Function): any {
-      let options = opts;
-      let callback = cb;
+    value: function (...args: any[]): any {
+      rejectCallback(`${Model.modelName || Model.table}.${association.getAccessor}`, args);
+      const options = args.length > 0 ? args[0] : undefined;
 
-      if (typeof options === 'function') {
-        callback = options;
-        options = {};
-      }
-
-      const promise = (async () => {
+      return (async () => {
         const normalized = normalizeOptions(options);
 
         if (association.reversed) {
@@ -240,13 +222,13 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
             return null;
           }
 
-          const args: any[] = [util.values(target, Object.keys(association.field))];
+          const queryArgs: any[] = [util.values(target, Object.keys(association.field))];
           if (Object.keys(normalized).length) {
-            args.push(normalized);
+            queryArgs.push(normalized);
           }
 
           try {
-            const associated = await association.model.get.apply(association.model, args);
+            const associated = await association.model.get.apply(association.model, queryArgs);
             Instance[association.name] = associated;
             return associated;
           } catch (err) {
@@ -260,8 +242,8 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
         if (Instance.isShell()) {
           try {
-            const args: any[] = [util.values(Instance, Model.id)];
-            const modelInstance = await Model.get.apply(Model, args);
+            const queryArgs: any[] = [util.values(Instance, Model.id)];
+            const modelInstance = await Model.get.apply(Model, queryArgs);
             return await assignAssociated(modelInstance);
           } catch (err) {
             if (isNotFoundError(err)) {
@@ -277,23 +259,17 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
         return await assignAssociated(Instance);
       })();
-
-      if (typeof callback === 'function') {
-        promise.then((result) => callback(null, result)).catch((err) => callback(err));
-        return this;
-      }
-
-      return promise;
     },
     enumerable: false,
     writable: true
   });
 
   Object.defineProperty(Instance, association.setAccessor, {
-    value: function (OtherInstance: any, next?: Function): any {
-      const callback = typeof next === 'function' ? next : undefined;
+    value: function (...args: any[]): any {
+      rejectCallback(`${Model.modelName || Model.table}.${association.setAccessor}`, args);
+      const OtherInstance = args[0];
 
-      const promise = (async () => {
+      return (async () => {
         if (association.reversed) {
           await Instance.save();
 
@@ -312,13 +288,6 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
         util.populateConditions(association.model, Object.keys(association.field), OtherInstance, Instance);
         await Instance.save({}, { saveAssociations: false });
       })();
-
-      if (callback) {
-        promise.then(() => callback(null)).catch((err) => callback(err));
-        return this;
-      }
-
-      return promise;
     },
     enumerable: false,
     writable: true
@@ -326,10 +295,10 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
 
   if (!association.reversed) {
     Object.defineProperty(Instance, association.delAccessor, {
-      value: function (cb?: Function): any {
-        const callback = typeof cb === 'function' ? cb : undefined;
+      value: function (...args: any[]): any {
+        rejectCallback(`${Model.modelName || Model.table}.${association.delAccessor}`, args);
 
-        const promise = (async () => {
+        return (async () => {
           for (const k in association.field) {
             if (Object.prototype.hasOwnProperty.call(association.field, k)) {
               Instance[k] = null;
@@ -339,13 +308,6 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
           await Instance.save({}, { saveAssociations: false });
           delete Instance[association.name];
         })();
-
-        if (callback) {
-          promise.then(() => callback(null)).catch((err) => callback(err));
-          return this;
-        }
-
-        return promise;
       },
       enumerable: false,
       writable: true
@@ -383,7 +345,16 @@ function autoFetchInstance(Instance: any, association: any, opts: any, cb: Funct
   }
 
   if (Instance.isPersisted()) {
-    Instance[association.getAccessor]({ autoFetchLimit: opts.autoFetchLimit - 1 }, cb);
+    Instance[association.getAccessor]({ autoFetchLimit: opts.autoFetchLimit - 1 })
+      .then((Assoc: any) => {
+        if (Assoc !== undefined) {
+          Instance.__opts.associations[association.name].value = Assoc;
+        }
+      })
+      .catch(() => {
+        // ignore auto-fetch errors for backward compatibility
+      })
+      .finally(() => cb());
   } else {
     return cb();
   }
