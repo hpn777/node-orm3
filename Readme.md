@@ -11,37 +11,44 @@ A batteries-included Object-Relational Mapper for Node.js with first-class async
 ## Table of contents
 
 1. [Overview](#overview)
-2. [Supported databases & requirements](#supported-databases--requirements)
-3. [Installation](#installation)
-4. [Quick start](#quick-start)
-5. [Core concepts](#core-concepts)
-   - [Models & properties](#models--properties)
-   - [Query chains](#query-chains)
-   - [Associations](#associations)
-   - [Hooks & validations](#hooks--validations)
-   - [Serial runners](#serial-runners)
-6. [Configuration & settings](#configuration--settings)
-7. [Express integration](#express-integration)
-8. [TypeScript usage](#typescript-usage)
-9. [Testing & quality gates](#testing--quality-gates)
-10. [Advanced topics](#advanced-topics)
-11. [Contributing](#contributing)
-12. [License](#license)
+2. [Feature highlights](#feature-highlights)
+3. [Supported databases & requirements](#supported-databases--requirements)
+4. [Installation](#installation)
+5. [Quick start](#quick-start)
+6. [Core concepts](#core-concepts)
+  - [Models & properties](#models--properties)
+  - [Query chains](#query-chains)
+  - [Associations](#associations)
+  - [Hooks & validations](#hooks--validations)
+  - [Serial runners](#serial-runners)
+7. [Configuration & settings](#configuration--settings)
+8. [Express integration](#express-integration)
+9. [TypeScript usage](#typescript-usage)
+10. [Testing & quality gates](#testing--quality-gates)
+11. [Development workflow & scripts](#development-workflow--scripts)
+12. [Migration guide](#migration-guide)
+13. [Troubleshooting & FAQ](#troubleshooting--faq)
+14. [Advanced topics](#advanced-topics)
+15. [Community & support](#community--support)
+16. [Contributing](#contributing)
+17. [License](#license)
 
 ---
 
 ## Overview
 
-ORM3 lets you model relational data using plain JavaScript/TypeScript classes while keeping full control over SQL. Define models, compose queries with fluent builders, hook into lifecycle events, and work with associations without sacrificing performance or transparency.
+ORM3 lets you model relational data using plain JavaScript or TypeScript while keeping full control over SQL. Define models, compose fluent queries, hook into lifecycle events, and work with associations without giving up performance or transparency. The library embraces async/await from top to bottom—if you can `await` it, ORM3 supports it.
 
-Key capabilities:
+## Feature highlights
 
-- **Multiple drivers:** MySQL/MariaDB, PostgreSQL, Amazon Redshift, and SQLite.
-- **Composable queries:** Chain filters, projections, eager-loading, aggregates, and raw SQL fragments.
-- **Associations:** `hasOne`, `hasMany`, `extendsTo`, and polymorphic extensions.
-- **Validation & hooks:** Built in `enforce` validators plus per-model `beforeCreate`, `afterSave`, etc.
-- **Identity caching:** Opt-in caching ensures repeated queries resolve to the same in-memory object graph.
-- **Promise everywhere:** No callbacks. Everything returns a `Promise`, making async flows deterministic.
+- **Promise-first API:** Every public method resolves a `Promise`, making async code deterministic, testable, and easy to compose.
+- **Typed from the core:** Rich `.d.ts` files expose generics for models, instances, query chains, and helper utilities so your editor can follow along.
+- **Cross-database drivers:** Connect to MySQL/MariaDB, PostgreSQL, Amazon Redshift, or SQLite with a consistent API and per-driver tuning hooks.
+- **Powerful query builder:** Chain filters, ordering, eager-loading, aggregates, and raw SQL snippets without sacrificing readability.
+- **Associations that stay out of your way:** Mix `hasOne`, `hasMany`, and `extendsTo` relationships, including polymorphic extensions and cascading rules.
+- **Lifecycle hooks & validation:** Ship with `enforce` validators, before/after hooks, and lazy-loading helpers for modeling real-world workflows.
+- **Identity caching & lazy load:** Opt-in identity maps keep graph consistency, and lazy fetchers let you defer expensive joins until you need them.
+- **Production-ready tooling:** Express middleware, Docker-backed integration suites, and ergonomic settings make it straightforward to embed in real apps.
 
 ---
 
@@ -325,15 +332,60 @@ All scripts live in `package.json` and rely on Node 18+.
 
 | Command | Description |
 | ------- | ----------- |
-| `npm run build` | Compile TypeScript to `dist/`. Automatically executed on install/publish. |
-| `npm test` | Run the SQLite-backed test suite locally. |
-| `npm run test:<driver>` | Run the suite against `sqlite`, `mysql`, `postgres`, or `redshift` (database must be reachable). |
-| `npm run test:docker:<driver>` | Spin up Docker containers, install dependencies, run the tests, and tear everything down. |
-| `npm run test:async-only` | Lightweight async API smoke test. |
+| `npm run build` | Compile TypeScript to `dist/`. Automatically invoked on install/publish via `prepare`. |
+| `npm run build:watch` | Incremental TypeScript rebuilds while developing. |
+| `npm test` / `npm run test:sqlite` | Run the default SQLite-backed suite locally (no external DB required). |
+| `npm run test:<driver>` | Target a specific driver (`mysql`, `postgres`, `redshift`) against databases you have running locally or in CI. |
+| `npm run test:docker:<driver>` | Provision containers via Docker Compose, install deps, run tests, and clean up. Handy for hermetic integration runs. |
+| `npm run test:full` | Execute the entire integration harness once you have all backing services available. |
+| `npm run test:async-only` | Lightweight async API regression suite for quick smoke checks. |
 
 Docker-based runs accept `SKIP_DOCKER_CLEANUP=1` to keep containers around for debugging.
 
 Integration suites read configuration from `test/config.js`. Check that file if you want to point tests at non-default hosts or credentials.
+
+Environment variables worth knowing:
+
+- `ORM_PROTOCOL` – set to `mysql`, `postgres`, `redshift`, or `sqlite` to pick the driver for local runs (the scripts above set this automatically).
+- `DEBUG=orm` – enable verbose SQL logging when troubleshooting.
+- `ORM_DEBUG=1` – flip on internal logging for fine-grained diagnostics.
+
+---
+
+## Development workflow & scripts
+
+1. **Install dependencies:** `npm install` bootstraps TypeScript, test harnesses, and database client libraries.
+2. **Iterate with automatic builds:** run `npm run build:watch` in a background terminal while you develop. It keeps `dist/` synchronized with your TypeScript edits.
+3. **Exercise targeted drivers:** during feature work, reach for `npm run test:<driver>` to validate a specific adapter before running the heavier Docker suites.
+4. **Use Docker for parity:** `npm run test:docker:<driver>` mirrors CI by provisioning clean containers. Pair it with `SKIP_DOCKER_CLEANUP=1` when you need to inspect failing services.
+5. **Keep containers tidy:** `docker compose -f docker-compose.test.yml down` tears everything down if you stop the run manually.
+6. **Watch emitted typings:** check the generated files under `dist/*.d.ts` when you touch public APIs to ensure consumers get the right contracts.
+
+---
+
+## Migration guide
+
+Upgrading from older releases (or from the original `node-orm2`) mainly involves adopting the promise-based API and modern tooling. Recommended steps:
+
+1. **Require Node.js 18+:** the runtime, driver clients, and published artifacts assume modern Node features.
+2. **Replace callbacks with `await`:** every public method now returns a promise. Drop callback arguments and wrap usages in `try/catch` blocks instead.
+3. **Update custom plugins:** plugin hooks should return promises. Any `next(err)` patterns can become `throw err` or resolved values.
+4. **Adjust tests:** Sinon stubs should call `.resolves()` / `.rejects()` instead of invoking callback arguments manually (see `test/integration/db.js` for examples).
+5. **Rebuild typings:** regenerate or import the new `Instance<T>`, `Model<T>`, and `ChainFind<T>` helpers to capture type safety end-to-end.
+
+Still running legacy code? Wrap the new promise APIs with small adapters while you migrate, or hold the previous major version under an npm alias until you can refactor.
+
+---
+
+## Troubleshooting & FAQ
+
+- **`TypeError: cb is not a function` in tests** – make sure your stubs or plugins return promises rather than invoking callbacks. The core now expects async/await semantics everywhere.
+- **Docker-based suites cannot reach the database** – confirm the `orm3-test-net` network exists (`docker network ls`) or set it to `external: true` if you manage it yourself. You can also export `DB_HOST=host.docker.internal` for local services.
+- **`ECONNREFUSED` during local runs** – double-check `test/config.js`, ensure the server is running, and verify firewall rules. For Postgres, `pg_hba.conf` often needs host-based entries.
+- **Strange timezone behaviour** – set `db.settings.set('timezone', 'utc')` (or your preferred zone) and ensure your driver client is compiled with timezone support (especially for MySQL).
+- **Need verbose logging** – run with `DEBUG=orm npm run test:<driver>` to inspect generated SQL and driver-level chatter.
+
+Have something else? Open an issue with reproduction details or hop into discussions—links below.
 
 ---
 
@@ -344,6 +396,17 @@ Integration suites read configuration from `test/config.js`. Check that file if 
 - **Custom drivers/adapters:** Implement the DDL and DML interfaces under `src/Drivers` and register them via `orm.addAdapter()`.
 - **Plugins:** Reuse community plugins (pagination, timestamping, FTS) or craft your own by hooking into `db.use()`.
 - **Raw SQL:** Drop down to `db.driver.execQuery()` when you need handcrafted statements without leaving the ORM ecosystem.
+
+---
+
+## Community & support
+
+- **Issues & feature requests:** [github.com/dresende/node-orm3/issues](https://github.com/dresende/node-orm3/issues)
+- **Discussions & Q&A:** Start a thread on GitHub Discussions or check the historical [Gitter room](https://gitter.im/dresende/node-orm2) for tips from long-time users.
+- **Security reports:** Please email the maintainers (see `package.json` author) instead of opening a public issue.
+- **Release notes:** Tagged releases on GitHub capture changelog highlights and breaking migrations.
+
+If you build something neat—plugins, adapters, example apps—let us know so we can share it with the community.
 
 ---
 
