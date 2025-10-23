@@ -208,8 +208,8 @@ export interface ConnectionOptions {
  * Main ORM interface
  */
 export interface ORMInterface {
-  validators: any;
-  enforce: any;
+  validators: typeof import('../Validators')['default'];
+  enforce: typeof import('../vendor/enforce')['default'];
   settings: SettingsInterface;
   driver_name: string;
   driver: any;

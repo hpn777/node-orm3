@@ -1,8 +1,8 @@
 import _ from 'lodash';
 import async from 'async';
-import enforce from './shims/enforce';
+import enforce from './vendor/enforce';
 import { EventEmitter } from 'events';
-import hat from 'hat';
+import { randomUUID } from 'crypto';
 import { parse as parseUrl } from 'url';
 import { inherits } from 'util';
 import * as path from 'path';
@@ -302,8 +302,8 @@ class ORM extends EventEmitter implements ORMInterface {
     this.enforce = enforce;
     this.settings = settings;
     this.driver_name = driver_name;
-    this.driver = driver;
-    this.driver.uid = hat();
+  this.driver = driver;
+  this.driver.uid = randomUUID();
     this.tools = {};
     this.models = {};
     this.plugins = [];

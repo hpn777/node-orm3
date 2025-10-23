@@ -1,18 +1,3 @@
-declare module 'path-is-absolute' {
-  function pathIsAbsolute(path: string): boolean;
-  export = pathIsAbsolute;
-}
-
-declare module 'hat' {
-  function hat(bits?: number, base?: number): string;
-  export = hat;
-}
-
-declare module 'enforce' {
-  const enforce: any;
-  export = enforce;
-}
-
 declare module 'sql-query' {
   interface Query {
     create(): any;

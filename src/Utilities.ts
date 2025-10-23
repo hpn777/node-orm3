@@ -5,7 +5,6 @@
 import * as _ from 'lodash';
 import * as path from 'path';
 import { Buffer } from 'buffer';
-import pathIsAbsolute from 'path-is-absolute';
 import { Property } from './types/Core';
 
 const Query: any = require('sql-query');
@@ -427,7 +426,7 @@ export function getRealPath(path_str: string, stack_index?: number): string {
     }
   }
 
-  if (!pathIsAbsolute(path_str)) {
+  if (!path.isAbsolute(path_str)) {
     path_str = path.join(actualCwd, path_str);
   }
   if (path_str.substr(-1) === path.sep) {

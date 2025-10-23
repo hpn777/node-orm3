@@ -5,7 +5,7 @@
 import * as Utilities from './Utilities';
 import * as Property from './Property';
 import * as Hook from './Hook';
-import enforce from './shims/enforce';
+import enforce from './vendor/enforce';
 import { promisify } from './utils/promises';
 import type { InstanceData, HookMap, PropertyDefinition } from './types/Core';
 
