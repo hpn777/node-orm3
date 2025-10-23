@@ -396,6 +396,7 @@ Have something else? Open an issue with reproduction details or hop into discuss
 - **Custom drivers/adapters:** Implement the DDL and DML interfaces under `src/Drivers` and register them via `orm.addAdapter()`.
 - **Plugins:** Reuse community plugins (pagination, timestamping, FTS) or craft your own by hooking into `db.use()`.
 - **Raw SQL:** Drop down to `db.driver.execQuery()` when you need handcrafted statements without leaving the ORM ecosystem.
+- **Embedded DDL synchronizer:** The legacy `sql-ddl-sync` package now lives alongside the drivers at `src/Drivers/DDL/sync` (TypeScript), making it easier to tweak dialect rules or add datastore-specific DDL helpers without vendoring external code.
 
 ---
 

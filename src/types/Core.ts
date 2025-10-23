@@ -209,7 +209,7 @@ export interface ConnectionOptions {
  */
 export interface ORMInterface {
   validators: typeof import('../Validators')['default'];
-  enforce: typeof import('../vendor/enforce')['default'];
+  enforce: typeof import('../Validators')['default'];
   settings: SettingsInterface;
   driver_name: string;
   driver: any;

@@ -2,7 +2,7 @@
  * Validators module for ORM
  */
 
-import enforce from './vendor/enforce';
+import enforce from '.';
 import * as util from 'util';
 
 export type ValidatorFunction = (v: any, next: (err?: string) => void, ctx?: any) => void;

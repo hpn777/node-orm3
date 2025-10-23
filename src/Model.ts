@@ -9,7 +9,7 @@ import * as ExtendAssociation from './Associations/Extend';
 import Property from './Property';
 import * as Hook from './Hook';
 import * as Utilities from './Utilities';
-import Validators from './Validators';
+import Validators from './Validators/Validators';
 import Singleton from './Singleton';
 import {
   ModelOptions,

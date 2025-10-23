@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import async from 'async';
-import enforce from './vendor/enforce';
+import enforce from './Validators/index';
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
 import { parse as parseUrl } from 'url';
@@ -15,7 +15,7 @@ import Model from './Model';
 import Settings from './Settings';
 import Singleton from './Singleton';
 import * as Utilities from './Utilities';
-import Validators from './Validators';
+import Validators from './Validators/Validators';
 import type { Plugin, ConnectionConfig } from './types/Core';
 
 const Query = require('sql-query');

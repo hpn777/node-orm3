@@ -38,9 +38,8 @@
   "analyse": false,
   "dependencies": {
     "async": "~3.2.6",
-    "lodash": "^4.17.21",
-    "sql-ddl-sync": "0.3.18",
-    "sql-query": "0.1.28"
+  "lodash": "^4.17.21",
+  "sql-query": "0.1.28"
   },
   "devDependencies": {
     "@types/async": "^3.2.25",

@@ -11,13 +11,3 @@ declare module 'sql-query' {
   export = sqlQuery;
 }
 
-declare module 'sql-ddl-sync' {
-  class Sync {
-    constructor(options: any);
-    defineCollection(name: string, properties: any): void;
-    sync(callback: (err: Error | null) => void): void;
-    drop(callback: (err: Error | null) => void): void;
-  }
-  
-  export = Sync;
-}

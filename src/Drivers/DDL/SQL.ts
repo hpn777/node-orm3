@@ -3,8 +3,7 @@
  */
 
 import * as _ from 'lodash';
-const sqlDdlSync = require('sql-ddl-sync');
-const Sync = sqlDdlSync.Sync;
+import { Sync } from './sync';
 
 export interface SyncOptions {
   table: string;
@@ -42,7 +41,9 @@ export function sync(this: any, opts: SyncOptions, cb: (err?: Error) => void): a
     syncInstance.defineCollection(opts.many_associations[i].mergeTable, props);
   }
 
-  syncInstance.sync(cb);
+  syncInstance.sync((err?: Error | null) => {
+    cb(err === null ? undefined : err);
+  });
 
   return this;
 }
