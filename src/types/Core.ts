@@ -9,6 +9,7 @@
  */
 
 import type { ChainInstanceCalls } from '../ChainInstance';
+import type { MetadataInspector, MetadataOptions } from '../Drivers/DDL/meta';
 
 // ==================== Hook Types ====================
 
@@ -224,6 +225,7 @@ export interface ORMInterface {
   sync(): Promise<void>;
   drop(): Promise<void>;
   serial<T = Instance<any>>(...chains: ChainRunner<T>[]): SerialRunner<T>;
+  getMetadata(options?: MetadataOptions): MetadataInspector;
 }
 
 export interface ChainRunner<T = Instance<any>> {

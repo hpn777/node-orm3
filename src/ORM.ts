@@ -17,6 +17,7 @@ import Singleton from './Singleton';
 import * as Utilities from './Utilities';
 import Validators from './Validators/Validators';
 import type { Plugin, ConnectionConfig } from './types/Core';
+import type { MetadataInspector, MetadataOptions } from './Drivers/DDL/meta';
 
 import Query from './SQLQuery';
 import type {
@@ -534,6 +535,14 @@ class ORM extends EventEmitter implements ORMInterface {
 
   dropAsync(): Promise<void> {
     return this.drop();
+  }
+
+  getMetadata(options?: MetadataOptions): MetadataInspector {
+    if (typeof this.driver?.getMetadata !== 'function') {
+      throw new ORMError("Metadata inspection is not supported by this driver", 'NO_SUPPORT');
+    }
+
+    return this.driver.getMetadata(options);
   }
 
   /**

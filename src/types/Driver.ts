@@ -8,6 +8,7 @@
  */
 
 import { DriverResult, DriverOptions } from './Core';
+import type { MetadataInspector, MetadataOptions } from '../Drivers/DDL/meta';
 
 // ==================== Core Driver Interface ====================
 
@@ -105,6 +106,11 @@ export interface IDriver {
     column: string,
     conditions?: Record<string, unknown>
   ): Promise<unknown>;
+
+  /**
+   * Retrieve the metadata inspector for schema reflection
+   */
+  getMetadata(options?: MetadataOptions): MetadataInspector;
 }
 
 // ==================== Model Definition ====================

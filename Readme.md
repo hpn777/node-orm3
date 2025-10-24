@@ -29,6 +29,7 @@ A batteries-included Object-Relational Mapper for Node.js with first-class async
 12. [Migration guide](#migration-guide)
 13. [Troubleshooting & FAQ](#troubleshooting--faq)
 14. [Advanced topics](#advanced-topics)
+  - [Schema metadata inspection](#schema-metadata-inspection)
 15. [Community & support](#community--support)
 16. [Contributing](#contributing)
 17. [License](#license)
@@ -398,6 +399,24 @@ Have something else? Open an issue with reproduction details or hop into discuss
 - **Raw SQL:** Drop down to `db.driver.execQuery()` when you need handcrafted statements without leaving the ORM ecosystem.
 - **Embedded DDL synchronizer:** The legacy `sql-ddl-sync` package now lives alongside the drivers at `src/Drivers/DDL/sync` (TypeScript), making it easier to tweak dialect rules or add datastore-specific DDL helpers without vendoring external code.
 - **Typed SQL query builder:** The venerable `sql-query` library is now embedded and typed under `dist/SQLQuery`. Import it with `import Query from 'orm3/dist/SQLQuery'` (or `const { Query } = require('orm3/dist/SQLQuery')`) to craft standalone statements, use the comparator helpers, or plug the builders (`select()`, `insert()`, etc.) into custom tooling without pulling extra dependencies.
+- **Schema metadata inspection:** Use `db.getMetadata()` to enumerate tables, columns, indexes, and constraints through the existing driver without spinning up parallel connections.
+
+### Schema metadata inspection
+
+Need to peek at live schema details? The new metadata inspector wraps each SQL dialect's system catalogs and ships alongside the drivers.
+
+```ts
+const db = await orm.connect('postgres://user:pass@localhost:5432/app');
+const metadata = db.getMetadata({ schema: 'public' });
+
+const tables = await metadata.getTables();
+const users = await metadata.getColumns('users');
+const indexes = await metadata.getIndexes('users');
+
+console.log(`Running on ${await metadata.getVersion()}`);
+```
+
+Inspectors reuse the current connection pool, respect driver-specific configuration (database/catalog or schema), and expose consistent `Table`, `Column`, and `DatabaseIndex` models across MySQL, PostgreSQL, and SQLite.
 
 ---
 

@@ -4,12 +4,21 @@
 
 import * as _ from 'lodash';
 import { Sync } from './sync';
+import type { MetadataInspector, MetadataOptions } from './meta';
+import { MysqlMetadataDriver } from './meta/mysql/metadata';
+import { PostgresMetadataDriver } from './meta/postgresql/metadata';
+import { SqliteMetadataDriver } from './meta/sqlite/metadata';
 
 export interface SyncOptions {
   table: string;
   allProperties: Record<string, any>;
   many_associations: any[];
 }
+
+type MetadataDriverInstance =
+  | MysqlMetadataDriver
+  | PostgresMetadataDriver
+  | SqliteMetadataDriver;
 
 export function sync(this: any, opts: SyncOptions, cb: (err?: Error) => void): any {
   const syncInstance = new Sync({
@@ -72,4 +81,33 @@ export function drop(this: any, opts: SyncOptions, cb: (err?: Error) => void): a
   return this;
 }
 
-export default { sync, drop };
+export function getMetadata(this: any, options?: MetadataOptions): MetadataInspector {
+  const cacheKey = options?.schema ?? '__default__';
+  const cache: Map<string, MetadataDriverInstance> = this.__metadataCache ?? new Map();
+
+  if (cache.has(cacheKey)) {
+    return cache.get(cacheKey)!;
+  }
+
+  const inspector = createMetadataDriver(this, options?.schema);
+  cache.set(cacheKey, inspector);
+  this.__metadataCache = cache;
+
+  return inspector;
+}
+
+function createMetadataDriver(driver: any, schema?: string): MetadataDriverInstance {
+  switch (driver.dialect) {
+    case 'mysql':
+      return new MysqlMetadataDriver(driver, schema);
+    case 'postgres':
+    case 'postgresql':
+      return new PostgresMetadataDriver(driver, schema);
+    case 'sqlite':
+      return new SqliteMetadataDriver(driver);
+    default:
+      throw new Error(`Metadata inspection is not supported for dialect '${driver.dialect}'`);
+  }
+}
+
+export default { sync, drop, getMetadata };
