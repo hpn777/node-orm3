@@ -1,6 +1,6 @@
 import * as _ from "lodash";
 const mysql = require("mysql");
-const QueryLib = require("sql-query");
+import { Query } from "../../SQLQuery";
 import * as shared from "./_shared";
 import * as DDL from "../DDL/SQL";
 import { PropertyDefinition } from "../../types/Core";
@@ -34,7 +34,7 @@ function Driver(this: any, config: any, connection: any, opts: any) {
     this.config.timezone = "local";
   }
 
-  this.query  = new QueryLib.Query({ dialect: this.dialect, timezone: this.config.timezone });
+  this.query  = Query({ dialect: this.dialect, timezone: this.config.timezone });
 
   this.reconnect(null, connection);
 

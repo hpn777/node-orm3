@@ -397,6 +397,7 @@ Have something else? Open an issue with reproduction details or hop into discuss
 - **Plugins:** Reuse community plugins (pagination, timestamping, FTS) or craft your own by hooking into `db.use()`.
 - **Raw SQL:** Drop down to `db.driver.execQuery()` when you need handcrafted statements without leaving the ORM ecosystem.
 - **Embedded DDL synchronizer:** The legacy `sql-ddl-sync` package now lives alongside the drivers at `src/Drivers/DDL/sync` (TypeScript), making it easier to tweak dialect rules or add datastore-specific DDL helpers without vendoring external code.
+- **Typed SQL query builder:** The venerable `sql-query` library is now embedded and typed under `dist/SQLQuery`. Import it with `import Query from 'orm3/dist/SQLQuery'` (or `const { Query } = require('orm3/dist/SQLQuery')`) to craft standalone statements, use the comparator helpers, or plug the builders (`select()`, `insert()`, etc.) into custom tooling without pulling extra dependencies.
 
 ---
 

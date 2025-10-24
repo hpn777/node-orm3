@@ -7,7 +7,7 @@ import * as path from 'path';
 import { Buffer } from 'buffer';
 import { Property } from './types/Core';
 
-const Query: any = require('sql-query');
+import Query from './SQLQuery';
 
 interface OneAssociation {
   name: string;

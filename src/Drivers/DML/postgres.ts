@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import { Buffer } from 'buffer';
 const pg = require('pg');
-const QueryLib = require('sql-query');
+import { Query } from '../../SQLQuery';
 import * as shared from './_shared';
 import * as DDL from '../DDL/SQL';
 import type { IDriver, DriverSettings, DriverDefineOptions } from '../../types/Driver';
@@ -187,7 +187,7 @@ export function Driver(this: any, config?: DriverConfig, connection?: any, opts?
     this.config.timezone = "local";
   }
 
-  this.query = new QueryLib.Query({ dialect: this.dialect, timezone: this.config.timezone });
+  this.query = Query({ dialect: this.dialect, timezone: this.config.timezone });
   this.customTypes = {};
   this.connected = false;
 

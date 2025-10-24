@@ -18,7 +18,7 @@ import * as Utilities from './Utilities';
 import Validators from './Validators/Validators';
 import type { Plugin, ConnectionConfig } from './types/Core';
 
-const Query = require('sql-query');
+import Query from './SQLQuery';
 import type {
   ORMInterface,
   ModelOptions,
