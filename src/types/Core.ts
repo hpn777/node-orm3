@@ -9,7 +9,7 @@
  */
 
 import type { ChainInstanceCalls } from '../ChainInstance';
-import type { MetadataInspector, MetadataOptions } from '../Drivers/DDL/meta';
+import type { MetadataInspector, MetadataOptions, Table } from '../Drivers/DDL/meta';
 
 // ==================== Hook Types ====================
 
@@ -219,6 +219,8 @@ export interface ORMInterface {
   plugins: Plugin[];
   use(plugin: string | Plugin, options?: any): this;
   define<T = any>(name: string, properties?: Record<string, PropertyDefinition>, options?: ModelOptions<T>): Model<T>;
+  defineFromSchema<T = any>(table: string, options?: DefineModelFromSchemaOptions<T>): Promise<Model<T>>;
+  defineAllFromSchema(options?: DefineModelsFromSchemaOptions): Promise<Record<string, Model<any>>>;
   ping(): Promise<void>;
   close(): Promise<void>;
   load(...files: Array<string | string[]>): Promise<void>;
@@ -235,6 +237,41 @@ export interface ChainRunner<T = Instance<any>> {
 export interface SerialRunner<T = Instance<any>> {
   get(): Promise<T[][]>;
   get(cb: (err: Error | null, ...results: T[][]) => void): Promise<void>;
+}
+
+export type SchemaNamingStrategy = 'preserve' | 'camelCase';
+
+export interface DefineModelFromSchemaOptions<T = unknown> extends MetadataOptions {
+  /** Optional model name override */
+  name?: string;
+  /** Property naming strategy; defaults to 'preserve' */
+  namingStrategy?: SchemaNamingStrategy;
+  /** Overrides applied to generated property definitions */
+  propertyOverrides?: Record<string, Partial<PropertyDefinition>>;
+  /** Additional model options merged into the generated definition */
+  modelOptions?: Partial<ModelOptions<T>>;
+}
+
+export type ModelNamingStrategy = 'preserve' | 'camelCase' | 'pascalCase';
+
+export interface DefineModelFromSchemaOverrides<T = unknown> extends Partial<DefineModelFromSchemaOptions<T>> {
+  /** Skip generating a model for this table */
+  skip?: boolean;
+}
+
+export interface DefineModelsFromSchemaOptions<T = unknown> extends MetadataOptions {
+  /** Include database views when generating models */
+  includeViews?: boolean;
+  /** Table filter - list of names, regular expression, or predicate */
+  tables?: string[] | RegExp | ((tableName: string, table: Table) => boolean);
+  /** Naming strategy for generated model names */
+  modelNamingStrategy?: ModelNamingStrategy;
+  /** Optional prefix applied to generated model names */
+  modelNamePrefix?: string;
+  /** Default options passed to each generated model */
+  defineOptions?: Partial<DefineModelFromSchemaOptions<T>>;
+  /** Per-table overrides (keyed by table name) */
+  tableOptions?: Record<string, DefineModelFromSchemaOverrides<T>>;
 }
 
 // ==================== Settings Interface ====================

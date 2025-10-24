@@ -49,6 +49,7 @@ ORM3 lets you model relational data using plain JavaScript or TypeScript while k
 - **Associations that stay out of your way:** Mix `hasOne`, `hasMany`, and `extendsTo` relationships, including polymorphic extensions and cascading rules.
 - **Lifecycle hooks & validation:** Ship with `enforce` validators, before/after hooks, and lazy-loading helpers for modeling real-world workflows.
 - **Identity caching & lazy load:** Opt-in identity maps keep graph consistency, and lazy fetchers let you defer expensive joins until you need them.
+- **Metadata-driven model scaffolding:** Introspect existing tables and call `db.defineFromSchema()` (or `db.defineAllFromSchema()` for whole schemas) to generate typed models without hand-writing property maps.
 - **Production-ready tooling:** Express middleware, Docker-backed integration suites, and ergonomic settings make it straightforward to embed in real apps.
 
 ---
@@ -417,6 +418,53 @@ console.log(`Running on ${await metadata.getVersion()}`);
 ```
 
 Inspectors reuse the current connection pool, respect driver-specific configuration (database/catalog or schema), and expose consistent `Table`, `Column`, and `DatabaseIndex` models across MySQL, PostgreSQL, and SQLite.
+
+#### Bootstrap models from live schema
+
+Need an ORM model for an existing table? Let metadata do the heavy lifting:
+
+```ts
+const Inventory = await db.defineFromSchema('inventory_items', {
+  name: 'Inventory',              // optional model name override
+  namingStrategy: 'camelCase',    // auto-convert column names to camelCase properties
+  propertyOverrides: {
+    is_active: { defaultValue: false }, // override by column name
+    sku: { unique: true },              // or by generated property name (same here)
+  },
+  modelOptions: {
+    autoFetch: true,
+  }
+});
+
+const active = await Inventory.find({ isActive: true }).count();
+```
+
+`defineFromSchema()` inspects the table, maps column metadata to ORM properties, and automatically sets primary keys (including composites). Column names are preserved by default; switch to `camelCase` conversion or provide explicit property overrides to tweak types, defaults, or required flags. If your table lacks key metadata, pass `modelOptions.id` to identify the primary key columns manually.
+
+Behind the scenes the helper uses the same metadata inspector exposed above, so there are no extra connections to manage. You can still call `metadata.close()` when you're done, and you retain full control over associations or additional properties by editing the returned model definition.
+
+Looking to sweep an entire schema? Reach for `defineAllFromSchema()` and share defaults across every table:
+
+```ts
+const models = await db.defineAllFromSchema({
+  tables: (name) => name.startsWith('sales_'),
+  modelNamingStrategy: 'pascalCase',
+  defineOptions: {
+    namingStrategy: 'camelCase'
+  },
+  tableOptions: {
+    sales_orders: {
+      propertyOverrides: { total_cents: { type: 'number', rational: false } }
+    },
+    sales_legacy: { skip: true }
+  }
+});
+
+const Orders = models.SalesOrders;
+const count = await Orders.count({ status: 'pending' });
+```
+
+The bulk helper filters tables (by name, regex, or predicate), applies shared naming rules, and accepts per-table overrides—handy when seeding repositories or documenting large databases.
 
 ---
 

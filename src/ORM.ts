@@ -17,7 +17,9 @@ import Singleton from './Singleton';
 import * as Utilities from './Utilities';
 import Validators from './Validators/Validators';
 import type { Plugin, ConnectionConfig } from './types/Core';
-import type { MetadataInspector, MetadataOptions } from './Drivers/DDL/meta';
+import type { MetadataInspector, MetadataOptions, Table } from './Drivers/DDL/meta';
+import type { Column as MetadataColumn } from './Drivers/DDL/meta/column';
+import { mapColumnToProperty } from './Drivers/DDL/meta/propertyMapper';
 
 import Query from './SQLQuery';
 import type {
@@ -28,7 +30,12 @@ import type {
   Model as ModelType,
   ChainRunner,
   SerialRunner,
-  Instance as OrmInstance
+  Instance as OrmInstance,
+  PropertyDefinition,
+  DefineModelFromSchemaOptions,
+  SchemaNamingStrategy,
+  DefineModelsFromSchemaOptions,
+  ModelNamingStrategy
 } from './types/Core';
 
 const OPTS_TYPE_STRING = 'string';
@@ -545,6 +552,168 @@ class ORM extends EventEmitter implements ORMInterface {
     return this.driver.getMetadata(options);
   }
 
+  async defineFromSchema<T = any>(tableName: string, options?: DefineModelFromSchemaOptions<T>): Promise<ModelType<T>> {
+    if (typeof tableName !== 'string' || tableName.trim().length === 0) {
+      throw new ORMError("defineFromSchema() requires a non-empty table name", 'PARAM_MISMATCH');
+    }
+
+    const inspector = this.getMetadata(options);
+    const columns = await inspector.getColumns(tableName) as unknown as MetadataColumn[];
+
+    if (!Array.isArray(columns) || columns.length === 0) {
+      throw new ORMError(`Unable to inspect columns for table '${tableName}'`, 'BAD_MODEL', { table: tableName });
+    }
+
+    const namingStrategy: SchemaNamingStrategy = options?.namingStrategy ?? 'preserve';
+    const overrides = options?.propertyOverrides ?? {};
+    const properties: Record<string, PropertyDefinition> = {};
+    const primaryKeys = new Set<string>();
+    const usedNames = new Set<string>();
+
+    for (const column of columns) {
+      const columnName = column.getName();
+      const propertyName = reservePropertyName(columnName, namingStrategy, usedNames);
+
+      let property = mapColumnToProperty(column);
+
+      const columnOverride = overrides[columnName];
+      const propertyOverride = overrides[propertyName];
+      const overrideSources: Array<Partial<PropertyDefinition>> = [];
+
+      if (columnOverride) {
+        overrideSources.push(_.cloneDeep(columnOverride));
+      }
+
+      if (propertyOverride && propertyOverride !== columnOverride) {
+        overrideSources.push(_.cloneDeep(propertyOverride));
+      }
+
+      if (overrideSources.length) {
+        property = Object.assign(property, ...overrideSources);
+      }
+
+      if (column.isAutoIncrementing()) {
+        property.serial = true;
+        if (!property.type) {
+          property.type = 'serial';
+        }
+
+        if (!Object.prototype.hasOwnProperty.call(property, 'required')) {
+          property.required = false;
+        }
+      }
+
+      const hasDefault = Object.prototype.hasOwnProperty.call(property, 'defaultValue');
+      if (!Object.prototype.hasOwnProperty.call(property, 'required')) {
+        property.required = !column.isNullable() && property.serial !== true && !hasDefault;
+      }
+
+      if (column.isUnique() && !Object.prototype.hasOwnProperty.call(property, 'unique')) {
+        property.unique = true;
+      }
+
+      if (propertyName !== columnName && !Object.prototype.hasOwnProperty.call(property, 'mapsTo')) {
+        property.mapsTo = columnName;
+      }
+
+      if (column.isPrimaryKey() && property.key !== true) {
+        property.key = true;
+      }
+
+      properties[propertyName] = property;
+
+      if (property.key === true) {
+        primaryKeys.add(propertyName);
+      }
+    }
+
+    let resolvedKeys = Array.from(primaryKeys);
+    const optionId = options?.modelOptions?.id;
+
+    if (resolvedKeys.length === 0 && optionId) {
+      resolvedKeys = Array.isArray(optionId) ? optionId.slice() : [optionId];
+    }
+
+    if (resolvedKeys.length === 0) {
+      throw new ORMError(`Unable to determine primary key(s) for table '${tableName}'. Provide options.modelOptions.id to override.`, 'BAD_MODEL', { table: tableName });
+    }
+
+    for (const keyName of resolvedKeys) {
+      if (properties[keyName]) {
+        properties[keyName].key = true;
+      }
+    }
+
+    const baseModelOptions: Partial<ModelOptions<T>> = options?.modelOptions ? _.cloneDeep(options.modelOptions) : {};
+    const finalId = baseModelOptions.id ?? (resolvedKeys.length === 1 ? resolvedKeys[0] : resolvedKeys);
+    baseModelOptions.table = baseModelOptions.table ?? tableName;
+    baseModelOptions.id = finalId;
+
+    const model = this.define<T>(options?.name ?? tableName, properties, baseModelOptions as ModelOptions<T>);
+    return model;
+  }
+
+  async defineAllFromSchema(options?: DefineModelsFromSchemaOptions): Promise<Record<string, ModelType<any>>> {
+    const inspector = this.getMetadata(options);
+    try {
+      const tables = await inspector.getTables();
+
+      const includeViews = Boolean(options?.includeViews);
+      const matchTable = createTableMatcher(options?.tables);
+      const baseDefineOptions = options?.defineOptions ? _.cloneDeep(options.defineOptions) : undefined;
+      const tableOptions = options?.tableOptions ?? {};
+      const models: Record<string, ModelType<any>> = {};
+
+      for (const table of tables) {
+        if (!includeViews && table.getType() === 'VIEW') {
+          continue;
+        }
+
+        const tableName = table.getName();
+        if (!matchTable(tableName, table)) {
+          continue;
+        }
+
+        const tableOverride = tableOptions[tableName];
+        if (tableOverride?.skip) {
+          continue;
+        }
+
+        const { skip: _skip, ...restOverrides } = tableOverride ?? {};
+        const mergedOptions = mergeDefineModelOptions(baseDefineOptions, restOverrides);
+
+        if (!mergedOptions.schema && options?.schema) {
+          mergedOptions.schema = options.schema;
+        }
+
+        const modelName = mergedOptions.name
+          || buildModelName(tableName, options?.modelNamingStrategy, options?.modelNamePrefix);
+
+        if (this.models[modelName]) {
+          models[modelName] = this.models[modelName];
+          continue;
+        }
+
+        mergedOptions.name = modelName;
+
+        try {
+          const model = await this.defineFromSchema(tableName, mergedOptions);
+          models[modelName] = model;
+        } catch (err) {
+          if (err && typeof err === 'object') {
+            (err as any).table = tableName;
+            (err as any).operation = 'defineAllFromSchema';
+          }
+          throw err;
+        }
+      }
+
+      return models;
+    } finally {
+      await inspector.close();
+    }
+  }
+
   /**
    * Execute a set of chain runners sequentially, collecting each result set.
    *
@@ -614,6 +783,76 @@ function queryParamCast(val: any): any {
     }
   }
   return val;
+}
+
+function createTableMatcher(option?: DefineModelsFromSchemaOptions['tables']): (tableName: string, table: Table) => boolean {
+  if (!option) {
+    return () => true;
+  }
+
+  if (Array.isArray(option)) {
+    const normalized = new Set(option.map((name) => name.toLowerCase()));
+    return (tableName: string) => normalized.has(tableName.toLowerCase());
+  }
+
+  if (option instanceof RegExp) {
+    return (tableName: string) => option.test(tableName);
+  }
+
+  if (typeof option === 'function') {
+    return option;
+  }
+
+  return () => true;
+}
+
+function mergeDefineModelOptions(
+  base?: Partial<DefineModelFromSchemaOptions<any>>,
+  override?: Partial<DefineModelFromSchemaOptions<any>>,
+): DefineModelFromSchemaOptions<any> {
+  const merged = _.merge({}, _.cloneDeep(base ?? {}), _.cloneDeep(override ?? {}));
+  return merged as DefineModelFromSchemaOptions<any>;
+}
+
+function buildModelName(
+  tableName: string,
+  strategy: ModelNamingStrategy = 'pascalCase',
+  prefix = '',
+): string {
+  let core: string;
+
+  switch (strategy) {
+    case 'preserve':
+      core = tableName;
+      break;
+    case 'camelCase':
+      core = _.camelCase(tableName);
+      break;
+    case 'pascalCase':
+    default:
+      core = _.upperFirst(_.camelCase(tableName));
+      break;
+  }
+
+  if (prefix && !core.startsWith(prefix)) {
+    return `${prefix}${core}`;
+  }
+
+  return core;
+}
+
+function reservePropertyName(columnName: string, strategy: SchemaNamingStrategy, usedNames: Set<string>): string {
+  const baseName = strategy === 'camelCase' ? (_.camelCase(columnName) || columnName) : columnName;
+  let candidate = baseName;
+  let attempt = 1;
+
+  while (usedNames.has(candidate)) {
+    candidate = `${baseName}_${attempt}`;
+    attempt += 1;
+  }
+
+  usedNames.add(candidate);
+  return candidate;
 }
 
 export default ORM;
