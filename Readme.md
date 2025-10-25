@@ -42,7 +42,7 @@ ORM3 lets you model relational data using plain JavaScript or TypeScript while k
 
 ## Feature highlights
 
-- **Promise-first API:** Every public method resolves a `Promise`, making async code deterministic, testable, and easy to compose.
+- **Promise-only API:** Every public method resolves a `Promise`, making async code deterministic, testable, and easy to compose—no callback shims or `Async`-suffixed helpers required.
 - **Typed from the core:** Rich `.d.ts` files expose generics for models, instances, query chains, and helper utilities so your editor can follow along.
 - **Cross-database drivers:** Connect to MySQL/MariaDB, PostgreSQL, Amazon Redshift, or SQLite with a consistent API and per-driver tuning hooks.
 - **Powerful query builder:** Chain filters, ordering, eager-loading, aggregates, and raw SQL snippets without sacrificing readability.
@@ -340,7 +340,6 @@ All scripts live in `package.json` and rely on Node 18+.
 | `npm run test:<driver>` | Target a specific driver (`mysql`, `postgres`, `redshift`) against databases you have running locally or in CI. |
 | `npm run test:docker:<driver>` | Provision containers via Docker Compose, install deps, run tests, and clean up. Handy for hermetic integration runs. |
 | `npm run test:full` | Execute the entire integration harness once you have all backing services available. |
-| `npm run test:async-only` | Lightweight async API regression suite for quick smoke checks. |
 
 Docker-based runs accept `SKIP_DOCKER_CLEANUP=1` to keep containers around for debugging.
 
@@ -371,9 +370,10 @@ Upgrading from older releases (or from the original `node-orm2`) mainly involves
 
 1. **Require Node.js 18+:** the runtime, driver clients, and published artifacts assume modern Node features.
 2. **Replace callbacks with `await`:** every public method now returns a promise. Drop callback arguments and wrap usages in `try/catch` blocks instead.
-3. **Update custom plugins:** plugin hooks should return promises. Any `next(err)` patterns can become `throw err` or resolved values.
-4. **Adjust tests:** Sinon stubs should call `.resolves()` / `.rejects()` instead of invoking callback arguments manually (see `test/integration/db.js` for examples).
-5. **Rebuild typings:** regenerate or import the new `Instance<T>`, `Model<T>`, and `ChainFind<T>` helpers to capture type safety end-to-end.
+3. **Rename Async helpers:** accessor aliases such as `getFooAsync`, `setBarAsync`, or driver helpers like `connectAsync` have been removed. Use their base counterparts (`getFoo`, `setBar`, `connect`) which now return promises.
+4. **Update custom plugins:** plugin hooks should return promises. Any `next(err)` patterns can become `throw err` or resolved values.
+5. **Adjust tests:** Sinon stubs should call `.resolves()` / `.rejects()` instead of invoking callback arguments manually (see `test/integration/db.js` for examples).
+6. **Rebuild typings:** regenerate or import the new `Instance<T>`, `Model<T>`, and `ChainFind<T>` helpers to capture type safety end-to-end.
 
 Still running legacy code? Wrap the new promise APIs with small adapters while you migrate, or hold the previous major version under an npm alias until you can refactor.
 
