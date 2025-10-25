@@ -9,7 +9,7 @@ describe("hasMany", function () {
   var Pet    = null;
 
   before(async function() {
-    db = await helper.connectAsync();
+  db = await helper.connect();
   });
 
   after(async function() {
@@ -34,7 +34,7 @@ describe("hasMany", function () {
         });
         Person.hasMany('pets', Pet, {}, { autoFetch: opts.autoFetchPets });
 
-        await helper.dropSyncAsync([ Person, Pet]);
+  await helper.dropSync([ Person, Pet]);
 
         await Pet.create([{ name: "Cat" }, { name: "Dog" }]);
 
@@ -58,8 +58,8 @@ describe("hasMany", function () {
         
   const Deco = await Pet.create({ name: "Deco" });
   const Mutt = await Pet.create({ name: "Mutt" });
-  const result = await John.addPetsAsync(Deco, Mutt);
-  const johnPets = await John.getPetsAsync();
+  const result = await John.addPets(Deco, Mutt);
+  const johnPets = await John.getPets();
         
         const Jane = await Person.create({
           name    : "Jane",
@@ -73,17 +73,17 @@ describe("hasMany", function () {
           age     : 18
         });
 
-        await Jane.addPetsAsync(Mutt);
+  await Jane.addPets(Mutt);
       };
     };
 
-    describe("getAccessorAsync", function () {
+  describe("getAccessor", function () {
       before(setup());
 
       it("should allow to specify order as string", function () {
         return Person.find({ name: "John" })
           .then(function (people) {
-            return people[0].getPetsAsync("-name");
+            return people[0].getPets("-name");
           })
           .then(function (pets) {
             should(Array.isArray(pets));
@@ -97,7 +97,7 @@ describe("hasMany", function () {
       it("should return proper instance model", function(){
         return Person.find({ name: "John" })
           .then(function (people) {
-            return people[0].getPetsAsync("-name");
+            return people[0].getPets("-name");
           })
           .then(function (pets) {
             pets[0].model().should.equal(Pet);
@@ -107,7 +107,7 @@ describe("hasMany", function () {
       it("should allow to specify order as Array", function () {
         return Person.find({ name: "John" })
           .then(function (people) {
-            return people[0].getPetsAsync([ "name", "Z" ]);
+            return people[0].getPets([ "name", "Z" ]);
           })
           .then(function (pets) {
             should(Array.isArray(pets));
@@ -121,7 +121,7 @@ describe("hasMany", function () {
         return Person.find({ name: "John" })
           .first()
           .then(function (John) {
-            return John.getPetsAsync(1)
+            return John.getPets(1)
             })
           .then(function (pets) {
             should(Array.isArray(pets));
@@ -132,7 +132,7 @@ describe("hasMany", function () {
       it("should allow to specify conditions", function () {
         return Person.find({ name: "John" }).first()
           .then(function (John) {
-            return John.getPetsAsync({ name: "Mutt" });
+            return John.getPets({ name: "Mutt" });
           })
           .then(function (pets) {
             should(Array.isArray(pets));
@@ -146,7 +146,7 @@ describe("hasMany", function () {
       it("should allow chaining count()", function () {
         return Person.find({})
           .then(function (people) {
-            return Promise.all([people[1].getPetsAsync(), people[2].getPetsAsync(), people[3].getPetsAsync()]);
+            return Promise.all([people[1].getPets(), people[2].getPets(), people[3].getPets()]);
           })
           .then(function ([count1, count2, count3]) {
             should.strictEqual(count1.length, 2);
@@ -156,7 +156,7 @@ describe("hasMany", function () {
       });
     });
 
-    describe("hasAccessorAsync", function () {
+  describe("hasAccessor", function () {
       before(setup());
 
       it("should return true if instance has associated item", function () {
@@ -165,7 +165,7 @@ describe("hasMany", function () {
             return Promise.all([pets, Person.find({ name: "Jane" }).first()]);
           })
           .then(function ([pets, Jane]) {
-            return Jane.hasPetsAsync(pets[0]);
+            return Jane.hasPets(pets[0]);
           })
           .then(function (has_pets) {
             has_pets.should.be.true();
@@ -178,7 +178,7 @@ describe("hasMany", function () {
             return Promise.all([pets, Person.find({ name: "Jane" }).first()]);
           })
           .then(function ([pets, Jane]) {
-            return Jane.hasPetsAsync(pets);
+            return Jane.hasPets(pets);
           })
           .then(function (has_pets) {
             has_pets.should.be.false();
@@ -194,7 +194,7 @@ describe("hasMany", function () {
               return Promise.all([pets, Person.find({ name: "John" }).first()]);
             })
             .then(function ([pets, John]) {
-              return Promise.all([John, pets, John.hasPetsAsync(pets)]);
+              return Promise.all([John, pets, John.hasPets(pets)]);
             })
             .then(function ([John, pets, hasPets]) {
               should.equal(hasPets, true);
@@ -202,14 +202,20 @@ describe("hasMany", function () {
               return Promise.all([
                 John,
                 pets,
-                db.driver.execQueryAsync(
-                  "INSERT INTO person_pets (person_id, pets_id) VALUES (?,?), (?,?)",
-                  [John.id, pets[0].id, John.id, pets[1].id]
-                )
+                new Promise(function (resolve, reject) {
+                  db.driver.execQuery(
+                    "INSERT INTO person_pets (person_id, pets_id) VALUES (?,?), (?,?)",
+                    [John.id, pets[0].id, John.id, pets[1].id],
+                    function (err) {
+                      if (err) return reject(err);
+                      resolve();
+                    }
+                  );
+                })
               ]);
             })
             .then(function ([John, pets]) {
-              return John.hasPetsAsync(pets);
+              return John.hasPets(pets);
             })
             .then(function (hasPets) {
               should.equal(hasPets, true);
@@ -224,7 +230,7 @@ describe("hasMany", function () {
               return Promise.all([pets, Person.find({ name: "John" }).first()]);
             })
             .then(function ([pets, John]) {
-              return Promise.all([ John, pets, John.hasPetsAsync(pets)]);
+              return Promise.all([ John, pets, John.hasPets(pets)]);
             })
             .then(function ([John, pets, hasPets]) {
               should.equal(hasPets, true);
@@ -232,14 +238,20 @@ describe("hasMany", function () {
               return Promise.all([
                 John,
                 pets,
-                db.driver.execQueryAsync(
-                  "INSERT INTO person_pets (person_id, pets_id) VALUES (?,?), (?,?)",
-                  [John.id, pets[0].id, John.id, pets[1].id]
-                )
+                new Promise(function (resolve, reject) {
+                  db.driver.execQuery(
+                    "INSERT INTO person_pets (person_id, pets_id) VALUES (?,?), (?,?)",
+                    [John.id, pets[0].id, John.id, pets[1].id],
+                    function (err) {
+                      if (err) return reject(err);
+                      resolve();
+                    }
+                  );
+                })
               ]);
             })
             .then(function ([John, pets]) {
-              return John.hasPetsAsync(pets);
+              return John.hasPets(pets);
             })
             .then(function (hasPets) {
               should.equal(hasPets, true);
@@ -248,7 +260,7 @@ describe("hasMany", function () {
       }
     });
 
-    describe("delAccessorAsync", function () {
+    describe("delAccessor", function () {
       before(setup());
 
       it("should accept arguments in different orders", function () {
@@ -257,10 +269,10 @@ describe("hasMany", function () {
             return Promise.all([pets, Person.find({ name: "John" })]);
           })
           .then(function ([pets, people]) {
-            return Promise.all([people, people[0].removePetsAsync(pets[0])]);
+            return Promise.all([people, people[0].removePets(pets[0])]);
           })
           .then(function ([people]) {
-            return people[0].getPetsAsync();
+            return people[0].getPets();
           })
           .then(function (pets) {
             should(Array.isArray(pets));
@@ -275,10 +287,10 @@ describe("hasMany", function () {
             return Promise.all([pets, Person.find({ name: "John" })]);
           })
           .then(function ([pets, people]) {
-            return Promise.all([people, people[0].removePetsAsync(pets[0])]);
+            return Promise.all([people, people[0].removePets(pets[0])]);
           })
           .then(function ([people]) {
-            return people[0].getPetsAsync();
+            return people[0].getPets();
           })
           .then(function (pets) {
             should(Array.isArray(pets));
@@ -290,10 +302,10 @@ describe("hasMany", function () {
       it("should remove all associations if none passed", function () {
         return Person.find({ name: "John" }).first()
           .then(function (John) {
-            return Promise.all([John, John.removePetsAsync()]);
+            return Promise.all([John, John.removePets()]);
           })
           .then(function ([John]) {
-            return John.getPetsAsync();
+            return John.getPets();
           })
           .then(function (pets) {
             should(Array.isArray(pets));
@@ -302,7 +314,7 @@ describe("hasMany", function () {
       });
     });
 
-    describe("addAccessorAsync", function () {
+    describe("addAccessor", function () {
       before(setup());
 
       if (common.protocol() != "mongodb") {
@@ -313,10 +325,10 @@ describe("hasMany", function () {
               return Promise.all([pets, Person.find({ name: "Jane" })]);
             })
             .then(function ([pets, people]) {
-              return Promise.all([people, people[0].addPetsAsync(pets[0])]);
+              return Promise.all([people, people[0].addPets(pets[0])]);
             })
             .then(function ([people]) {
-              return people[0].getPetsAsync("name");
+              return people[0].getPets("name");
             })
             .then(function (pets) {
               should(Array.isArray(pets));
@@ -333,15 +345,15 @@ describe("hasMany", function () {
             return Promise.all([Deco, Person.find({ name: "Jane" }).first()]);
           })
           .then(function ([Deco, Jane]) {
-            return Promise.all([Jane, Deco, Jane.getPetsAsync()])
+            return Promise.all([Jane, Deco, Jane.getPets()])
           })
           .then(function ([Jane, Deco, janesPets]) {
             var petsAtStart = janesPets.length;
 
-            return Promise.all([petsAtStart, Jane, Jane.addPetsAsync(Deco)]);
+            return Promise.all([petsAtStart, Jane, Jane.addPets(Deco)]);
           })
           .then(function ([petsAtStart, Jane]) {
-            return Promise.all([petsAtStart, Jane.getPetsAsync("name")]);
+            return Promise.all([petsAtStart, Jane.getPets("name")]);
           })
           .then(function ([petsAtStart, pets]) {
             should(Array.isArray(pets));
@@ -357,10 +369,10 @@ describe("hasMany", function () {
             return Promise.all([pets, Person.find({ name: "Justin" }).first()]);
           })
           .then(function ([pets, Justin]) {
-            return Promise.all([Justin, Justin.addPetsAsync(pets[0], pets[1])]);
+            return Promise.all([Justin, Justin.addPets(pets[0], pets[1])]);
           })
           .then(function ([Justin]) {
-            return Justin.getPetsAsync();
+            return Justin.getPets();
           })
           .then(function (pets) {
             should(Array.isArray(pets));
@@ -374,15 +386,15 @@ describe("hasMany", function () {
             return Promise.all([pets, Person.find({ name: "Justin" }).first()]);
           })
           .then(function ([pets, Justin]) {
-            return Promise.all([pets, Justin, Justin.getPetsAsync()]);
+            return Promise.all([pets, Justin, Justin.getPets()]);
           })
           .then(function ([pets, Justin, justinsPets]) {
             var petCount = justinsPets.length;
 
-            return Promise.all([Justin, petCount, Justin.addPetsAsync(pets)]);
+            return Promise.all([Justin, petCount, Justin.addPets(pets)]);
           })
           .then(function ([Justin, petCount]) {
-            return Promise.all([petCount, Justin.getPetsAsync()]);
+            return Promise.all([petCount, Justin.getPets()]);
           })
           .then(function ([petCount, justinsPets]) {
             should(Array.isArray(justinsPets));
@@ -392,7 +404,7 @@ describe("hasMany", function () {
       });
     });
 
-    describe("setAccessorAsync", function () {
+    describe("setAccessor", function () {
       before(setup());
 
       it("should accept several arguments as associations", function () {
@@ -401,10 +413,10 @@ describe("hasMany", function () {
             return Promise.all([pets, Person.find({ name: "Justin" }).first()]);
           })
           .then(function ([pets, Justin]) {
-            return Promise.all([Justin, Justin.setPetsAsync(pets[0], pets[1])])
+            return Promise.all([Justin, Justin.setPets(pets[0], pets[1])])
           })
           .then(function ([Justin]) {
-            return Justin.getPetsAsync();
+            return Justin.getPets();
           })
           .then(function (pets) {
             should(Array.isArray(pets));
@@ -418,10 +430,10 @@ describe("hasMany", function () {
             return Promise.all([pets, Person.find({ name: "Justin" }).first()]);
           })
           .then(function ([pets, Justin]) {
-            return Promise.all([pets, Justin, Justin.setPetsAsync(pets)]);
+            return Promise.all([pets, Justin, Justin.setPets(pets)]);
           })
           .then(function ([pets, Justin]) {
-            return Promise.all([pets, Justin.getPetsAsync()]);
+            return Promise.all([pets, Justin.getPets()]);
           })
           .then(function ([pets, all_pets]) {
             should(Array.isArray(all_pets));
@@ -432,15 +444,15 @@ describe("hasMany", function () {
       it("should remove all associations if an empty array is passed", function () {
         return Person.find({ name: "Justin" }).first()
           .then(function (Justin) {
-            return Promise.all([Justin, Justin.getPetsAsync()]);
+            return Promise.all([Justin, Justin.getPets()]);
           })
           .then(function ([Justin, pets]) {
             should.equal(pets.length, 4);
 
-            return Promise.all([Justin, Justin.setPetsAsync([])]);
+            return Promise.all([Justin, Justin.setPets([])]);
           })
           .then(function ([Justin]) {
-            return Justin.getPetsAsync();
+            return Justin.getPets();
           })
           .then(function (pets) {
             should.equal(pets.length, 0);
@@ -455,17 +467,17 @@ describe("hasMany", function () {
             return Promise.all([Deco, Person.find({ name: "Jane" }).first()]);
           })
           .then(function ([Deco, Jane]) {
-            return Promise.all([Jane, Deco, Jane.getPetsAsync()]);
+            return Promise.all([Jane, Deco, Jane.getPets()]);
           })
           .then(function ([Jane, Deco, pets]) {
             should(Array.isArray(pets));
             pets.length.should.equal(1);
             pets[0].name.should.equal("Mutt");
 
-            return Promise.all([Jane, Deco, Jane.setPetsAsync(Deco)]);
+            return Promise.all([Jane, Deco, Jane.setPets(Deco)]);
           })
           .then(function ([Jane, Deco]) {
-            return Promise.all([Deco, Jane.getPetsAsync()]);
+            return Promise.all([Deco, Jane.getPets()]);
           })
           .then(function ([Deco, pets]) {
             should(Array.isArray(pets));
@@ -517,7 +529,7 @@ describe("hasMany", function () {
           .then(function ([pets, paul]) {
             should.equal(paul.pets.length, 0);
 
-            return paul.setPetsAsync(pets);
+            return paul.setPets(pets);
           })
           .then(function () {
             // reload paul to make sure we have 2 pets

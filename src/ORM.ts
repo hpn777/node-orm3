@@ -4,11 +4,9 @@ import enforce from './Validators/index';
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
 import { parse as parseUrl } from 'url';
-import { inherits } from 'util';
 import * as path from 'path';
-import { createRequire } from 'module';
 
-const adapters = require('./Adapters');
+import * as adapters from './Adapters';
 import DriverAliases from './Drivers/aliases';
 import ORMError from './Error';
 import Model from './Model';
@@ -16,7 +14,7 @@ import Settings from './Settings';
 import Singleton from './Singleton';
 import * as Utilities from './Utilities';
 import Validators from './Validators/Validators';
-import type { Plugin, ConnectionConfig } from './types/Core';
+import type { Plugin } from './types/Core';
 import type { MetadataInspector, MetadataOptions, Table } from './Drivers/DDL/meta';
 import type { Column as MetadataColumn } from './Drivers/DDL/meta/column';
 import { mapColumnToProperty } from './Drivers/DDL/meta/propertyMapper';
@@ -253,8 +251,6 @@ export async function connect(opts: string | ConnectionOptions): Promise<ORM> {
     }
   });
 }
-
-export const connectAsync = connect;
 
 export async function use(connection: any, proto: string, opts?: any): Promise<ORM> {
   if (DriverAliases[proto]) {
@@ -518,10 +514,6 @@ class ORM extends EventEmitter implements ORMInterface {
     }
   }
 
-  syncPromise(): Promise<void> {
-    return this.sync();
-  }
-
   async drop(): Promise<void> {
     const modelIds = Object.keys(this.models);
     for (const modelId of modelIds) {
@@ -534,14 +526,6 @@ class ORM extends EventEmitter implements ORMInterface {
         throw err;
       }
     }
-  }
-
-  loadAsync(...files: Array<string | string[]>): Promise<void> {
-    return this.load(...files);
-  }
-
-  dropAsync(): Promise<void> {
-    return this.drop();
   }
 
   getMetadata(options?: MetadataOptions): MetadataInspector {

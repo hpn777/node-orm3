@@ -34,7 +34,7 @@ describe("hasOne", function() {
       Leaf.hasOne('stalk', Stalk, { field: 'stalkId', mapsTo: 'stalk_id' });
       Leaf.hasOne('hole',  Hole,  { field: 'holeId' });
 
-      await helper.dropSyncAsync([Tree, Stalk, Hole, Leaf]);
+  await helper.dropSync([Tree, Stalk, Hole, Leaf]);
       
       const tree = await Tree.create({ type: 'pine' });
       treeId = tree[Tree.id];
@@ -54,7 +54,7 @@ describe("hasOne", function() {
   };
 
   before(async function() {
-    db = await helper.connectAsync();
+  db = await helper.connect();
   });
 
   after(async function() {

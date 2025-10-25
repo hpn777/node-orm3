@@ -56,10 +56,6 @@ function addLazyLoadProperty(name: string, Instance: Record<string, any>, Model:
   const removerName = `remove${method}`;
   const setterName = `set${method}`;
 
-  const getterAsyncName = `${getterName}Async`;
-  const removerAsyncName = `${removerName}Async`;
-  const setterAsyncName = `${setterName}Async`;
-
   const getter = async function (this: any): Promise<any> {
     const item = await fetchRelatedInstance(this, Model, property);
     return item ? item[property] : null;
@@ -80,21 +76,6 @@ function addLazyLoadProperty(name: string, Instance: Record<string, any>, Model:
     item[property] = data;
     await saveEntity(item);
   };
-
-  Object.defineProperty(Instance, getterAsyncName, {
-    value: getter,
-    enumerable: false
-  });
-
-  Object.defineProperty(Instance, setterAsyncName, {
-    value: setter,
-    enumerable: false
-  });
-
-  Object.defineProperty(Instance, removerAsyncName, {
-    value: remover,
-    enumerable: false
-  });
 
   Object.defineProperty(Instance, getterName, {
     value: getter,

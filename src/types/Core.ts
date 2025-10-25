@@ -305,7 +305,6 @@ export interface SettingsContainer {
     cascadeRemove: boolean;
     returnAllErrors: boolean;
     saveAssociationsByDefault: boolean;
-    promiseFunctionPostfix: string;
   };
   connection: {
     reconnect: boolean;

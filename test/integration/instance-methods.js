@@ -15,7 +15,7 @@ describe("Instance Methods - Async API", function() {
         email: String
       });
 
-      return helper.dropSyncAsync(Person).then(() => done());
+  return helper.dropSync(Person).then(() => done());
     });
   });
 

@@ -267,12 +267,12 @@ Driver.prototype.remove = function (this: any, table: string, conditions: any, c
 
 Driver.prototype.clear = function (this: any, table: string, cb?: (err: Error | null) => void): Promise<void> | void {
   const promise = (async () => {
-    await this.execQueryAsync("DELETE FROM ??", [table]);
-    const data = await this.execQueryAsync("SELECT count(*) FROM ?? WHERE type=? AND name=?;", ['sqlite_master', 'table', 'sqlite_sequence']);
+    await this.execQuery("DELETE FROM ??", [table]);
+    const data = await this.execQuery("SELECT count(*) FROM ?? WHERE type=? AND name=?;", ['sqlite_master', 'table', 'sqlite_sequence']);
 
     const hasSequence = data[0] && (data[0]['count(*)'] === 1 || data[0]['COUNT(*)'] === 1 || data[0]['count'] === 1);
     if (hasSequence) {
-      await this.execQueryAsync("DELETE FROM ?? WHERE NAME = ?", ['sqlite_sequence', table]);
+      await this.execQuery("DELETE FROM ?? WHERE NAME = ?", ['sqlite_sequence', table]);
     }
   })();
 
@@ -444,23 +444,6 @@ Driver.prototype.getConnection = function (this: any): unknown {
 Object.defineProperty(Driver.prototype, "isSql", {
     value: true
 });
-
-const asyncCompatMethods = [
-  'ping',
-  'execSimpleQuery',
-  'find',
-  'count',
-  'insert',
-  'update',
-  'remove',
-  'clear'
-];
-
-for (const method of asyncCompatMethods) {
-  (Driver.prototype as any)[`${method}Async`] = function (...args: any[]) {
-    return (this[method] as Function).apply(this, args);
-  };
-}
 
 function convertTimezone(tz: string): number | false {
   if (tz == "Z") return 0;

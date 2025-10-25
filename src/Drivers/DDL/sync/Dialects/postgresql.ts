@@ -394,7 +394,18 @@ export const getType = (collection: string, property: Record<string, any>, drive
       if (property.type === "date" && property.defaultValue === Date.now) {
         type += " DEFAULT now()";
       } else {
-        type += ` DEFAULT ${driver.query.escapeVal(property.defaultValue)}`;
+        let defaultValue = property.defaultValue;
+
+        if (property.type === "boolean") {
+          if (typeof defaultValue === "string") {
+            const normalized = defaultValue.trim().toLowerCase();
+            defaultValue = ["true", "1", "t", "yes", "y"].includes(normalized);
+          } else {
+            defaultValue = Boolean(defaultValue);
+          }
+        }
+
+        type += ` DEFAULT ${driver.query.escapeVal(defaultValue)}`;
       }
     }
 

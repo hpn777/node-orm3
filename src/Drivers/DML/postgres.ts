@@ -578,22 +578,3 @@ function convertTimezone(tz: string): number | false {
   }
   return false;
 }
-
-const asyncCompatMethods = [
-  "connect",
-  "execSimpleQuery",
-  "ping",
-  "find",
-  "count",
-  "insert",
-  "update",
-  "remove",
-  "clear",
-  "close"
-];
-
-for (const method of asyncCompatMethods) {
-  (Driver.prototype as any)[`${method}Async`] = function (...args: any[]) {
-    return (this as any)[method](...args);
-  };
-}

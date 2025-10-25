@@ -50,7 +50,7 @@ describe("ORM", function() {
   });
   describe('ORM.connect()', function () {
     it('should be a function', function () {
-      return ORM.connectAsync.should.be.a.Function()
+      ORM.connect.should.be.a.Function();
     });
 
     it('should throw error with correct message when protocol not supported', function () {
@@ -141,7 +141,7 @@ describe("ORM", function() {
         })
     });
 
-    describe('POOL via connectAsync', function () {
+  describe('POOL via connect', function () {
       var connStr = null;
 
       beforeEach(function () {

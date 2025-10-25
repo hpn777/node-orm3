@@ -17,7 +17,7 @@ describe("Model.create() - Async API", function() {
       });
       Person.hasMany("pets", Pet);
 
-      return helper.dropSyncAsync([Person, Pet]);
+  return helper.dropSync([Person, Pet]);
     };
   };
 

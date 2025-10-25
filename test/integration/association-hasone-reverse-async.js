@@ -21,14 +21,14 @@ describe("hasOne Async", function () {
         field: 'pet_id'
       }, opts || {}));
 
-      await helper.dropSyncAsync([Person, Pet]);
+  await helper.dropSync([Person, Pet]);
       await Person.create([{ name: "John Doe" }, { name: "Jane Doe" }]);
       await Pet.create([{ name: "Deco" }, { name: "Fido" }]);
     };
   };
 
   before(async function () {
-    db = await helper.connectAsync();
+  db = await helper.connect();
   });
 
   describe("reverse", function () {

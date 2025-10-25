@@ -26,7 +26,7 @@ describe("Validations", function() {
         }
       });
 
-      return await helper.dropSyncAsync(Person);
+  return await helper.dropSync(Person);
     };
   };
 
@@ -49,12 +49,12 @@ describe("Validations", function() {
           canbenull: notNull
         }
       });
-      return await helper.dropSyncAsync(Person2);
+  return await helper.dropSync(Person2);
     };
   };
 
   before(async function () {
-    db = await helper.connectAsync();
+  db = await helper.connect();
   });
 
   after(async function () {
@@ -109,7 +109,7 @@ describe("Validations", function() {
                     }, {
             cache: false
           });
-          await helper.dropSyncAsync(Supplier);
+          await helper.dropSync(Supplier);
 
           Product = db.define("productUnique", {
             instock  : { type: 'boolean', required: true, defaultValue: false },
@@ -125,7 +125,7 @@ describe("Validations", function() {
           });
           Product.hasOne('supplier',  Supplier,  { field: 'supplierId' });
 
-          return await helper.dropSyncAsync(Product);
+          return await helper.dropSync(Product);
         };
       };
 

@@ -17,7 +17,7 @@ describe("Async-Only API (v10)", function() {
 
   // Setup database connection and models
   before(async function() {
-    db = await helper.connectAsync();
+  db = await helper.connect();
   });
 
   // Teardown database connection
@@ -66,7 +66,7 @@ describe("Async-Only API (v10)", function() {
       ORM.singleton.clear();
 
       // Use async drop and sync
-      await helper.dropSyncAsync([Person, Animal]);
+  await helper.dropSync([Person, Animal]);
     });
 
     it("should define models", function() {
@@ -84,7 +84,7 @@ describe("Async-Only API (v10)", function() {
 
   describe("Create, Read, Update", function() {
     before(async function() {
-      await helper.dropSyncAsync(Person);
+  await helper.dropSync(Person);
     });
 
     it("should create instances with async create()", async function() {
@@ -153,7 +153,7 @@ describe("Async-Only API (v10)", function() {
     let testPerson;
 
     before(async function() {
-      await helper.dropSyncAsync(Person);
+  await helper.dropSync(Person);
       testPerson = await Person.create({ name: "Instance Test", age: 30 });
     });
 
@@ -186,7 +186,7 @@ describe("Async-Only API (v10)", function() {
 
   describe("Advanced Query Methods", function() {
     before(async function() {
-      await helper.dropSyncAsync(Person);
+  await helper.dropSync(Person);
       await Person.create([
         { name: "Alice", age: 25 },
         { name: "Bob", age: 30 },
@@ -217,7 +217,7 @@ describe("Async-Only API (v10)", function() {
 
   describe("Bulk Operations", function() {
     before(async function() {
-      await helper.dropSyncAsync(Person);
+  await helper.dropSync(Person);
     });
 
     it("should clear all records with async clear()", async function() {

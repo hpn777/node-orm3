@@ -11,7 +11,7 @@ describe("Property", function() {
     var db = null;
 
     before(async function () {
-      db = await helper.connectAsync();
+  db = await helper.connect();
     });
 
     after(async function () {
@@ -21,7 +21,7 @@ describe("Property", function() {
     var Thing = null;
 
     before(async function () {
-      await db.driver.execQueryAsync('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
+  await db.driver.execQuery('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
 
       Thing = db.define('thing', {
         id:   { type: 'uuid', key: true, defaultExpression: 'uuid_generate_v4()' },
@@ -29,7 +29,7 @@ describe("Property", function() {
         name: { type: 'text' }
       });
 
-      await helper.dropSyncAsync(Thing);
+  await helper.dropSync(Thing);
     });
 
     it("should create the table", function () {
@@ -39,7 +39,7 @@ describe("Property", function() {
     var infoSQL = "SELECT * FROM information_schema.columns WHERE table_name = 'thing' AND column_name = 'id'";
 
     it("should have the correct type", async function () {
-      const cols = await db.driver.execQueryAsync(infoSQL);
+  const cols = await db.driver.execQuery(infoSQL);
 
       var uuidCol = cols[0];
 
@@ -48,7 +48,7 @@ describe("Property", function() {
     });
 
     it("should have the correct default value", async function () {
-      const cols = await db.driver.execQueryAsync(infoSQL);
+  const cols = await db.driver.execQuery(infoSQL);
 
       var uuidCol = cols[0];
 

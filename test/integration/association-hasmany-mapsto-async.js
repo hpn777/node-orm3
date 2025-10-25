@@ -8,7 +8,7 @@ describe("hasMany with MapsTo Async", function () {
   var Pet    = null;
 
   before(async function() {
-    db = await helper.connectAsync();
+     db = await helper.connect();
   });
 
   after(async function() {
@@ -39,7 +39,7 @@ describe("hasMany with MapsTo Async", function () {
           mergeId: 'person_id',
           mergeAssocId: 'pet_id'});
 
-      await helper.dropSyncAsync([ Person, Pet ]);
+  await helper.dropSync([ Person, Pet ]);
       
       //
       // John --+---> Deco
@@ -55,7 +55,7 @@ describe("hasMany with MapsTo Async", function () {
       
       const Deco = await Pet.create({ petName: "Deco" });
       const Mutt = await Pet.create({ petName: "Mutt" });
-      await John.addPetsAsync(Deco, Mutt);
+  await John.addPets(Deco, Mutt);
       
       const Jane = await Person.create({
         firstName  : "Jane",
@@ -69,17 +69,17 @@ describe("hasMany with MapsTo Async", function () {
         ageYears  : 18
       });
       
-      await Jane.addPetsAsync(Mutt);
+    await Jane.addPets(Mutt);
     };
   };
 
-  describe("getAccessorAsync", function () {
+  describe("getAccessor", function () {
     before(setup());
 
     it("should allow to specify order as string", function () {
       return Person.find({ firstName: "John" })
         .then(function (people) {
-          return people[0].getPetsAsync("-petName");
+          return people[0].getPets("-petName");
         })
         .then(function (pets) {
           should(Array.isArray(pets));
@@ -93,7 +93,7 @@ describe("hasMany with MapsTo Async", function () {
     it("should return proper instance model", function(){
       return Person.find({ firstName: "John" })
         .then(function (people) {
-          return people[0].getPetsAsync("-petName");
+          return people[0].getPets("-petName");
         })
         .then(function (pets) {
           pets[0].model().should.equal(Pet);
@@ -103,7 +103,7 @@ describe("hasMany with MapsTo Async", function () {
     it("should allow to specify order as Array", function () {
       return Person.find({ firstName: "John" })
         .then(function (people) {
-          return people[0].getPetsAsync([ "petName", "Z" ]);
+          return people[0].getPets([ "petName", "Z" ]);
         })
         .then(function (pets) {
 
@@ -117,7 +117,7 @@ describe("hasMany with MapsTo Async", function () {
     it("should allow to specify a limit", function () {
       return Person.find({ firstName: "John" }).first()
         .then(function (John) {
-          return John.getPetsAsync(1);
+          return John.getPets(1);
         })
         .then(function (pets) {
           should(Array.isArray(pets));
@@ -128,7 +128,7 @@ describe("hasMany with MapsTo Async", function () {
     it("should allow to specify conditions", function () {
       return Person.find({ firstName: "John" }).first()
         .then(function (John) {
-          return John.getPetsAsync({ petName: "Mutt" });
+          return John.getPets({ petName: "Mutt" });
         })
         .then(function (pets) {
           should(Array.isArray(pets));
@@ -140,15 +140,15 @@ describe("hasMany with MapsTo Async", function () {
     it("should allow chaining count()", function () {
       return Person.find({})
         .then(function (people) {
-          return Promise.all([people, people[0].getPetsAsync()]);
+          return Promise.all([people, people[0].getPets()]);
         })
         .then(function ([people, count]) {
           should.strictEqual(count.length, 2);
-          return Promise.all([people, people[1].getPetsAsync()]);
+          return Promise.all([people, people[1].getPets()]);
         })
         .then(function ([people, count]) {
           should.strictEqual(count.length, 1);
-          return people[2].getPetsAsync();
+          return people[2].getPets();
         })
         .then(function (count) {
           should.strictEqual(count.length, 0);
@@ -156,7 +156,7 @@ describe("hasMany with MapsTo Async", function () {
     });
   });
 
-  describe("hasAccessorAsync", function () {
+  describe("hasAccessor", function () {
     before(setup());
 
     it("should return true if instance has associated item", function () {
@@ -165,7 +165,7 @@ describe("hasMany with MapsTo Async", function () {
           return Promise.all([pets, Person.find({ firstName: "Jane" }).first()]);
         })
         .then(function ([pets, Jane]) {
-          return Jane.hasPetsAsync(pets[0]);
+          return Jane.hasPets(pets[0]);
         })
         .then(function (has_pets) {
           has_pets.should.equal(true);
@@ -178,7 +178,7 @@ describe("hasMany with MapsTo Async", function () {
           return Promise.all([pets, Person.find({ firstName: "Jane" }).first()]);
         })
         .then(function ([pets, Jane]) {
-          return Jane.hasPetsAsync(pets);
+          return Jane.hasPets(pets);
         })
         .then(function (has_pets) {
           has_pets.should.be.false();
@@ -186,7 +186,7 @@ describe("hasMany with MapsTo Async", function () {
     });
   });
 
-  describe("delAccessorAsync", function () {
+  describe("delAccessor", function () {
     before(setup());
 
     it("should accept arguments in different orders", function () {
@@ -195,10 +195,10 @@ describe("hasMany with MapsTo Async", function () {
           return Promise.all([pets, Person.find({ firstName: "John" })]);
         })
         .then(function ([pets, people]) {
-          return Promise.all([people, people[0].removePetsAsync(pets[0])]);
+          return Promise.all([people, people[0].removePets(pets[0])]);
         })
         .then(function ([people]) {
-          return people[0].getPetsAsync();
+          return people[0].getPets();
         })
         .then(function (pets) {
           should(Array.isArray(pets));
@@ -209,7 +209,7 @@ describe("hasMany with MapsTo Async", function () {
     });
   });
 
-  describe("delAccessorAsync", function () {
+  describe("delAccessor", function () {
     before(setup());
 
     it("should remove specific associations if passed", function () {
@@ -218,10 +218,10 @@ describe("hasMany with MapsTo Async", function () {
           return Promise.all([pets, Person.find({ firstName: "John" })]);
         })
         .then(function ([pets, people]) {
-          return Promise.all([people, people[0].removePetsAsync(pets[0])]);
+          return Promise.all([people, people[0].removePets(pets[0])]);
         })
         .then(function ([people]) {
-          return people[0].getPetsAsync();
+          return people[0].getPets();
         })
         .then(function (pets) {
           should(Array.isArray(pets));
@@ -233,10 +233,10 @@ describe("hasMany with MapsTo Async", function () {
     it("should remove all associations if none passed", function () {
       return Person.find({ firstName: "John" }).first()
         .then(function (John) {
-          return Promise.all([John, John.removePetsAsync()]);
+          return Promise.all([John, John.removePets()]);
         })
         .then(function ([John]) {
-          return John.getPetsAsync();
+          return John.getPets();
         })
         .then(function (pets) {
           should(Array.isArray(pets));
@@ -245,7 +245,7 @@ describe("hasMany with MapsTo Async", function () {
     });
   });
 
-  describe("addAccessorAsync", function () {
+  describe("addAccessor", function () {
     before(setup());
 
     it("might add duplicates", function () {
@@ -254,10 +254,10 @@ describe("hasMany with MapsTo Async", function () {
           return Promise.all([pets, Person.find({ firstName: "Jane" })]);
         })
         .then(function ([pets, people]) {
-          return Promise.all([people, people[0].addPetsAsync(pets[0])]);
+          return Promise.all([people, people[0].addPets(pets[0])]);
         })
         .then(function ([people]) {
-          return people[0].getPetsAsync("petName");
+          return people[0].getPets("petName");
         })
         .then(function (pets) {
           should(Array.isArray(pets));
@@ -273,20 +273,22 @@ describe("hasMany with MapsTo Async", function () {
           return Promise.all([Deco, Person.find({ firstName: "Jane" }).first()]);
         })
         .then(function ([Deco, Jane]) {
-          return Promise.all([Deco, Jane, Jane.getPetsAsync()]);
+          return Promise.all([Deco, Jane, Jane.getPets()]);
         })
         .then(function ([Deco, Jane, janesPets]) {
           var petsAtStart = janesPets.length;
-          return Promise.all([petsAtStart, Jane, Jane.addPetsAsync(Deco)]);
+          return Promise.all([petsAtStart, Jane, Jane.addPets(Deco)]);
         })
         .then(function ([petsAtStart, Jane]) {
-          return Promise.all([petsAtStart, Jane.getPetsAsync("petName")]);
+          return Promise.all([petsAtStart, Jane.getPets()]);
         })
         .then(function ([petsAtStart, pets]) {
           should(Array.isArray(pets));
           pets.length.should.equal(petsAtStart + 1);
-          pets[0].petName.should.equal("Deco");
-          pets[1].petName.should.equal("Mutt");
+          var petNames = pets.map(function (pet) { return pet.petName; });
+          petNames.should.containEql("Deco");
+          petNames.should.containEql("Mutt");
+          petNames.filter(function (name) { return name === "Deco"; }).length.should.equal(1);
         });
     });
 
@@ -296,10 +298,10 @@ describe("hasMany with MapsTo Async", function () {
           return Promise.all([pets, Person.find({ firstName: "Justin" }).first()]);
         })
         .then(function ([pets, Justin]) {
-          return Promise.all([Justin, Justin.addPetsAsync(pets[0], pets[1])]);
+          return Promise.all([Justin, Justin.addPets(pets[0], pets[1])]);
         })
         .then(function ([Justin]) {
-          return Justin.getPetsAsync();
+          return Justin.getPets();
         })
         .then(function (pets) {
           should(Array.isArray(pets));
@@ -313,33 +315,36 @@ describe("hasMany with MapsTo Async", function () {
           return Promise.all([pets, Person.find({ firstName: "Justin" }).first()]);
         })
         .then(function ([pets, Justin]) {
-          return Promise.all([Justin, pets, Justin.getPetsAsync()]);
+          return Promise.all([Justin, pets, Justin.getPets()]);
         })
         .then(function ([Justin, pets, justinsPets]) {
           var petCount = justinsPets.length;
-          return Promise.all([petCount, Justin, Justin.addPetsAsync(pets)]);
+          return Promise.all([petCount, Justin, Justin.addPets(pets)]);
         })
-        .then(function ([petCount, Justin]) {
-          return Promise.all([petCount, Justin.getPetsAsync()]);
+        .then(function ([petsAtStart, Jane]) {
+          return Promise.all([petsAtStart, Jane.getPets()]);
         })
-        .then(function ([petCount, justinsPets]) {
-          should(Array.isArray(justinsPets));
-          should.equal(justinsPets.length, petCount + 2);
+        .then(function ([petsAtStart, pets]) {
+          should(Array.isArray(pets));
+          should.equal(pets.length, petsAtStart + 2);
         });
     });
 
     it("should throw if no items passed", function () {
       return Person.one()
         .then(function (person) {
-          return person.addPetsAsync()
+          return person.addPets();
         })
-        .catch(function(err) {
-          should.exists(err);
+        .then(function () {
+          throw new Error("should have thrown");
+        })
+        .catch(function (err) {
+          should.exist(err);
         });
     });
   });
 
-  describe("setAccessorAsync", function () {
+  describe("setAccessor", function () {
     before(setup());
 
     it("should accept several arguments as associations", function () {
@@ -348,10 +353,10 @@ describe("hasMany with MapsTo Async", function () {
           return Promise.all([pets, Person.find({ firstName: "Justin" }).first()]);
         })
         .then(function ([pets, Justin]) {
-          return Promise.all([Justin, Justin.setPetsAsync(pets[0], pets[1])]);
+          return Promise.all([Justin, Justin.setPets(pets[0], pets[1])]);
         })
         .then(function ([Justin]) {
-          return Justin.getPetsAsync();
+          return Justin.getPets();
         })
         .then(function (pets) {
           should(Array.isArray(pets));
@@ -365,10 +370,10 @@ describe("hasMany with MapsTo Async", function () {
           return Promise.all([pets, Person.find({ firstName: "Justin" }).first()]);
         })
         .then(function ([pets, Justin]) {
-          return Promise.all([Justin, pets, Justin.setPetsAsync(pets)]);
+          return Promise.all([Justin, pets, Justin.setPets(pets)]);
         })
         .then(function ([Justin, pets]) {
-          return Promise.all([Justin.getPetsAsync(), pets]);
+          return Promise.all([Justin.getPets(), pets]);
         })
         .then(function ([all_pets, pets]) {
           should(Array.isArray(all_pets));
@@ -379,15 +384,15 @@ describe("hasMany with MapsTo Async", function () {
     it("should remove all associations if an empty array is passed", function () {
       return Person.find({ firstName: "Justin" }).first()
         .then(function (Justin) {
-          return Promise.all([Justin, Justin.getPetsAsync()]);
+          return Promise.all([Justin, Justin.getPets()]);
         })
         .then(function ([Justin, pets]) {
           should.equal(pets.length, 2);
 
-          return Promise.all([Justin, Justin.setPetsAsync([])]);
+          return Promise.all([Justin, Justin.setPets([])]);
         })
         .then(function ([Justin]) {
-          return Justin.getPetsAsync();
+          return Justin.getPets();
         })
         .then(function (pets) {
           should.equal(pets.length, 0);
@@ -402,17 +407,17 @@ describe("hasMany with MapsTo Async", function () {
           return Promise.all([Deco, Person.find({ firstName: "Jane" }).first()]);
         })
         .then(function ([Deco, Jane]) {
-          return Promise.all([Deco, Jane, Jane.getPetsAsync()]);
+          return Promise.all([Deco, Jane, Jane.getPets()]);
         })
         .then(function ([Deco, Jane, pets]) {
           should(Array.isArray(pets));
           pets.length.should.equal(1);
           pets[0].petName.should.equal("Mutt");
 
-          return Promise.all([pets, Jane, Deco, Jane.setPetsAsync(Deco)])
+          return Promise.all([pets, Jane, Deco, Jane.setPets(Deco)])
         })
         .then(function ([pets, Jane, Deco]) {
-          return Promise.all([Deco, Jane.getPetsAsync()]);
+          return Promise.all([Deco, Jane.getPets()]);
         })
         .then(function ([Deco, pets]) {
           should(Array.isArray(pets));
@@ -440,7 +445,7 @@ describe("hasMany with MapsTo Async", function () {
         .then(function ([pets, paul, paul2]) {
           should.equal(paul2.pets.length, 0);
 
-          return Promise.all([pets, paul, paul2, paul.setPetsAsync(pets)]);
+          return Promise.all([pets, paul, paul2, paul.setPets(pets)]);
         })
         .then(function ([pets, paul2]) {
 

@@ -14,7 +14,6 @@ const ACCESSOR_METHODS = ["hasAccessor", "getAccessor", "setAccessor", "delAcces
 
 export function prepare(db: any, Model: any, associations: any[]): void {
   Model.hasMany = function (...args: any[]): any {
-    const promiseFunctionPostfix = Model.settings.get('promiseFunctionPostfix');
     let name: string | undefined;
     let makeKey: boolean;
     let mergeId: any;
@@ -136,8 +135,6 @@ export function autoFetch(Instance: any, associations: any[], opts: Record<strin
 }
 
 function extendInstance(Model: any, Instance: any, Driver: any, association: any, opts: any, createInstance: Function): void {
-  const promiseFunctionPostfix = Model.settings.get('promiseFunctionPostfix');
-
   if (Model.settings.get("instance.cascadeRemove")) {
     Instance.on("beforeRemove", () => {
       Instance[association.delAccessor]();
@@ -630,18 +627,6 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
     enumerable: true
   });
 
-  if (promiseFunctionPostfix) {
-    for (let y = 0; y < ACCESSOR_METHODS.length; y++) {
-      const accessorMethodName = ACCESSOR_METHODS[y];
-      const baseFn = Instance[association[accessorMethodName]];
-      if (!baseFn) continue;
-      Object.defineProperty(Instance, association[accessorMethodName] + promiseFunctionPostfix, {
-        value: baseFn,
-        enumerable: false,
-        writable: true
-      });
-    }
-  }
 }
 
 function autoFetchInstance(Instance: any, association: any, opts: any, cb: Function): void {

@@ -11,7 +11,7 @@
     "redshift",
     "sqlite"
   ],
-  "version": "9.2.4",
+  "version": "9.3.0",
   "license": "MIT",
   "homepage": "http://dresende.github.io/node-orm3",
   "repository": "http://github.com/dresende/node-orm3.git",

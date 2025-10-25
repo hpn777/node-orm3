@@ -19,13 +19,13 @@ describe("Model.extendsTo()", function() {
 
       ORM.singleton.clear();
 
-      await helper.dropSyncAsync([ Person, PersonAddress ]);
-      
+      await helper.dropSync([ Person, PersonAddress ]);
+
       const person = await Person.create({
         name: "John Doe"
       });
 
-      await person.setAddressAsync(new PersonAddress({
+      await person.setAddress(new PersonAddress({
         street : "Liberty",
         number : 123
       }));
@@ -33,19 +33,19 @@ describe("Model.extendsTo()", function() {
   };
 
   before(async function () {
-    db = await helper.connectAsync();
+    db = await helper.connect();
   });
 
   after(async function () {
     await db.close();
   });
 
-  describe("when calling hasAccessorAsync", function () {
+  describe("when calling hasAccessor", function () {
     before(setup());
 
     it("should return true if found", async function () {
       const John = await Person.find().first();
-      const hasAddress = await John.hasAddressAsync();
+      const hasAddress = await John.hasAddress();
       should.equal(hasAddress, true);
     });
 
@@ -55,7 +55,7 @@ describe("Model.extendsTo()", function() {
       });
 
       try {
-        await Jane.hasAddressAsync();
+        await Jane.hasAddress();
         should.fail("Expected not defined error");
       } catch (err) {
         err.should.be.a.Object();
@@ -65,12 +65,12 @@ describe("Model.extendsTo()", function() {
     });
   });
 
-  describe("when calling getAccessorAsync", function () {
+  describe("when calling getAccessor", function () {
     before(setup());
 
     it("should return extension if found", async function () {
       const John = await Person.find().first();
-      const Address = await John.getAddressAsync();
+      const Address = await John.getAddress();
       Address.should.be.a.Object();
       should.equal(Array.isArray(Address), false);
       Address.should.have.property("street", "Liberty");
@@ -78,10 +78,10 @@ describe("Model.extendsTo()", function() {
 
     it("should return error if not found", async function () {
       const John = await Person.find().first();
-      await John.removeAddressAsync();
+      await John.removeAddress();
       
       try {
-        await John.getAddressAsync();
+        await John.getAddress();
         should.fail("Should have thrown an error");
       } catch(err) {
         err.should.be.a.Object();
@@ -94,7 +94,7 @@ describe("Model.extendsTo()", function() {
         name: "Jane"
       });
       try {
-        await Jane.getAddressAsync();
+        await Jane.getAddress();
         should.fail("Expected not defined error");
       } catch (err) {
         err.should.be.a.Object();
@@ -103,7 +103,7 @@ describe("Model.extendsTo()", function() {
     });
   });
 
-  describe("when calling setAccessorAsync", function () {
+  describe("when calling setAccessor", function () {
     before(setup());
 
     it("should remove any previous extension", async function () {
@@ -116,18 +116,18 @@ describe("Model.extendsTo()", function() {
         number : 4
       });
 
-  await John.setAddressAsync(addr);
-      const Address = await John.getAddressAsync();
+      await John.setAddress(addr);
+      const Address = await John.getAddress();
       Address.should.be.a.Object();
       should.equal(Array.isArray(Address), false);
       Address.should.have.property("street", addr.street);
       
-      const addres = await PersonAddress.find({ number: 123 }).run();
-      addres.length.should.equal(0);
+      const addresses = await PersonAddress.find({ number: 123 }).run();
+      addresses.length.should.equal(0);
     });
   });
 
-  describe("when calling delAccessor + Async", function () {
+  describe("when calling remove accessor", function () {
     before(setup());
 
     it("should remove any extension", async function () {
@@ -135,9 +135,9 @@ describe("Model.extendsTo()", function() {
       const count = await PersonAddress.find({ number: 123 }).count();
       count.should.equal(1);
 
-      await John.removeAddressAsync();
-      const addres = await PersonAddress.find({ number: 123 }).run();
-      addres.length.should.equal(0);
+      await John.removeAddress();
+      const addresses = await PersonAddress.find({ number: 123 }).run();
+      addresses.length.should.equal(0);
     });
 
     it("should return error if instance not with an ID", async function () {
@@ -145,7 +145,7 @@ describe("Model.extendsTo()", function() {
         name: "Jane"
       });
       try {
-        await Jane.removeAddressAsync();
+        await Jane.removeAddress();
         should.fail("Expected not defined error");
       } catch (err) {
         err.should.be.a.Object();

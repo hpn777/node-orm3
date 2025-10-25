@@ -44,7 +44,7 @@ describe("Smart types", function () {
       });
 
       ORM.singleton.clear();
-      await helper.dropSyncAsync([User, Profile, Group, Post]);
+      await helper.dropSync([User, Profile, Group, Post]);
 
       const billy = await User.create({
         username: 'billy',
@@ -52,18 +52,18 @@ describe("Smart types", function () {
       });
 
       const profile = new Profile({ firstname: 'William', lastname: 'Franklin' });
-  await billy.setProfileAsync(profile);
+      await billy.setProfile(profile);
 
       const groups = [new Group({ name: 'admins' }), new Group({ name: 'developers' })];
-  await billy.addGroupsAsync(groups);
+      await billy.addGroups(groups);
 
       const posts = new Post({ content: 'Hello world!' });
-  await billy.setPostsAsync(posts);
+      await billy.setPosts(posts);
     };
   };
 
   before(async function () {
-    db = await helper.connectAsync();
+    db = await helper.connect();
   });
 
   after(async function () {
@@ -73,33 +73,33 @@ describe("Smart types", function () {
   describe("extends", function () {
     before(setup());
 
-  it("should be able to get extendsTo with custom id", async function () {
-  var billy = await User.get('billy');
-    should.exist(billy);
+    it("should be able to get extendsTo with custom id", async function () {
+      var billy = await User.get('billy');
+      should.exist(billy);
 
-  var profile = await billy.getProfileAsync();
-    should.exist(profile);
-    should.equal(profile.firstname, 'William');
-    should.equal(profile.lastname, 'Franklin');
+      var profile = await billy.getProfile();
+      should.exist(profile);
+      should.equal(profile.firstname, 'William');
+      should.equal(profile.lastname, 'Franklin');
     });
 
-  it("should be able to get hasOne with custom id", async function () {
-  var billy = await User.get('billy');
-    should.exist(billy);
+    it("should be able to get hasOne with custom id", async function () {
+      var billy = await User.get('billy');
+      should.exist(billy);
 
-  var posts = await billy.getPostsAsync();
-    should.exist(posts);
-    should.equal(posts.length, 1);
-    should.equal(posts[0].content, 'Hello world!');
+      var posts = await billy.getPosts();
+      should.exist(posts);
+      should.equal(posts.length, 1);
+      should.equal(posts[0].content, 'Hello world!');
     });
 
-  it("should be able to get hasMany with custom id", async function () {
-  var billy = await User.get('billy');
-    should.exist(billy);
+    it("should be able to get hasMany with custom id", async function () {
+      var billy = await User.get('billy');
+      should.exist(billy);
 
-  var groups = await billy.getGroupsAsync();
-    should.exist(groups);
-    should.equal(groups.length, 2);
+      var groups = await billy.getGroups();
+      should.exist(groups);
+      should.equal(groups.length, 2);
     });
 
   });

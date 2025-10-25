@@ -93,7 +93,7 @@ describe("Timezones", function() {
       db = null;
 
       // Reconnect with different timezone using a fresh ORM instance
-      const db2 = await helper.connectAsync({ query: { timezone: '+0400' } });
+  const db2 = await helper.connect({ query: { timezone: '+0400' } });
       const Event2 = db2.define("event", {
         name : { type: 'text' },
         when : { type: 'date', time: true }

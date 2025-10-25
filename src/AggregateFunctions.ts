@@ -86,85 +86,81 @@ function AggregateFunctions(opts: any): any {
 
       return this;
     },
-    get: function (cb: (err: Error | null, ...args: any[]) => void) {
-      if (typeof cb !== "function") {
-        throw new ORMError('MISSING_CALLBACK', "You must pass a callback to Model.aggregate().get()");
-      }
-      if (aggregates[aggregates.length - 1].length === 0) {
-        aggregates.length -= 1;
-      }
-      if (aggregates.length === 0) {
-        throw new ORMError('PARAM_MISMATCH', "Missing aggregate functions");
-      }
-
-      var query = opts.driver.getQuery().select().from(opts.table).select(opts.propertyList);
-      var i: number, j: number;
-
-      for (i = 0; i < aggregates.length; i++) {
-        for (j = 0; j < aggregates[i].length; j++) {
-          query.fun(aggregates[i][j].f, aggregates[i][j].a, aggregates[i][j].alias);
+    get: function (cb?: (err: Error | null, ...args: any[]) => void) {
+      const execute = async (): Promise<any[]> => {
+        if (aggregates[aggregates.length - 1].length === 0) {
+          aggregates.length -= 1;
         }
-      }
-
-      query.where(opts.conditions);
-
-      if (group_by !== null) {
-        query.groupBy.apply(query, group_by);
-      }
-
-      if (opts.order) {
-        for (i = 0; i < opts.order.length; i++) {
-          query.order(opts.order[i][0], opts.order[i][1]);
+        if (aggregates.length === 0) {
+          throw new ORMError('PARAM_MISMATCH', "Missing aggregate functions");
         }
-      }
-      if (opts.limit) {
-        query.offset(opts.limit[0]).limit(opts.limit[1]);
-      }
 
-      query = query.build();
+        let query = opts.driver.getQuery().select().from(opts.table).select(opts.propertyList);
 
-      opts.driver.execQuery(query, function (err: Error | null, data: any[]) {
-        if (err) {
-          return cb(err);
+        for (let i = 0; i < aggregates.length; i++) {
+          for (let j = 0; j < aggregates[i].length; j++) {
+            query.fun(aggregates[i][j].f, aggregates[i][j].a, aggregates[i][j].alias);
+          }
         }
+
+        query.where(opts.conditions);
 
         if (group_by !== null) {
-          return cb(null, data);
+          query.groupBy.apply(query, group_by);
         }
 
-        var items: any[] = [], i: number;
+        if (opts.order) {
+          for (let i = 0; i < opts.order.length; i++) {
+            query.order(opts.order[i][0], opts.order[i][1]);
+          }
+        }
+        if (opts.limit) {
+          query.offset(opts.limit[0]).limit(opts.limit[1]);
+        }
+
+        query = query.build();
+
+        const data = await new Promise<any[]>((resolve, reject) => {
+          opts.driver.execQuery(query, function (err: Error | null, rows: any[]) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(rows);
+            }
+          });
+        });
+
+        if (group_by !== null) {
+          return [data];
+        }
 
         if (used_distinct && aggregates.length === 1) {
-          for (i = 0; i < data.length; i++) {
-            items.push(data[i][Object.keys(data[i]).pop()!]);
-          }
-
-          return cb(null, items);
+          const columnKey = data.length > 0 ? Object.keys(data[0] || {}).pop()! : undefined;
+          const items = data.map(item => (columnKey ? item[columnKey] : undefined));
+          return [items];
         }
 
-        for (i = 0; i < aggregates.length; i++) {
-          for (var j = 0; j < aggregates[i].length; j++) {
-            items.push(data[0][aggregates[i][j].alias] || null);
+        const items: any[] = [];
+        const row = data[0] || {};
+
+        for (let i = 0; i < aggregates.length; i++) {
+          for (let j = 0; j < aggregates[i].length; j++) {
+            items.push(row[aggregates[i][j].alias] ?? null);
           }
         }
 
-        items.unshift(null);
+        return items;
+      };
 
-        return cb.apply(null, items as any);
-      });
+      if (typeof cb === 'function') {
+        execute()
+          .then((values) => cb(null, ...values))
+          .catch((err) => cb(err));
+        return;
+      }
+
+      return execute();
     }
-  };
-
-  proto.getAsync = function () {
-    return new (Promise as any)(function(resolve: any, reject: any) {
-      proto.get(function () {
-        if (arguments[0]) {
-          return reject(arguments[0]);
-        } else {
-          resolve(Array.from(arguments).slice(1));
-        }
-      });
-    });
   };
 
   for (var i = 0; i < opts.driver.aggregate_functions.length; i++) {

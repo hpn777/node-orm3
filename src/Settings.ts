@@ -18,8 +18,7 @@ const default_settings = {
     autoFetchLimit: 1,
     cascadeRemove: true,
     returnAllErrors: false,
-    saveAssociationsByDefault: true,
-    promiseFunctionPostfix: "Async"
+    saveAssociationsByDefault: true
   },
   connection: {
     reconnect: true,

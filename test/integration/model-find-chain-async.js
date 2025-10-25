@@ -22,7 +22,7 @@ describe("Model.find() chaining - Async API", function() {
 
       ORM.singleton.clear();
 
-      await helper.dropSyncAsync(Person);
+  await helper.dropSync(Person);
       await Person.create([
         {
           name      : "John",
@@ -56,7 +56,7 @@ describe("Model.find() chaining - Async API", function() {
 
       ORM.singleton.clear();
 
-      await helper.dropSyncAsync(Dog);
+  await helper.dropSync(Dog);
 
       const fido = await Dog.create({ name: "Fido" });
       const thumper = await Dog.create({ name: "Thumper" });
@@ -77,7 +77,7 @@ describe("Model.find() chaining - Async API", function() {
   };
 
   before(async function () {
-    db = await helper.connectAsync();
+    db = await helper.connect();
   });
 
   after(function () {

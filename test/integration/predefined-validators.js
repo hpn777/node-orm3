@@ -32,7 +32,7 @@ describe("Predefined Validators", function () {
     var Person = null;
 
     before(async function () {
-      db = await helper.connectAsync();
+  db = await helper.connect();
       Person = db.define("person", {
         name    : String,
         surname : String
@@ -47,7 +47,7 @@ describe("Predefined Validators", function () {
 
     beforeEach(async function () {
       ORM.singleton.clear();
-      await helper.dropSyncAsync(Person);
+  await helper.dropSync(Person);
       await Person.create({
         name    : "John",
         surname : "Doe"

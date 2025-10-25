@@ -32,7 +32,7 @@ describe('Schema-driven model definitions', function () {
       id: 'id'
     });
 
-    await helper.dropSyncAsync([Seed, PetSeed]);
+  await helper.dropSync([Seed, PetSeed]);
   });
 
   after(async function () {

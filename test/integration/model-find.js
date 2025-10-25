@@ -15,7 +15,7 @@ describe("Model Query Methods - Async API", function() {
         male    : Boolean
       });
 
-      await helper.dropSyncAsync(Person);
+  await helper.dropSync(Person);
       
       await Person.create([{
         name    : "John",

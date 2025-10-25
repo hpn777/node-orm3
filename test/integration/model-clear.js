@@ -14,7 +14,7 @@ describe("Model.clear()", function() {
 
       ORM.singleton.clear();
 
-      await helper.dropSyncAsync(Person);
+  await helper.dropSync(Person);
       await Person.create([
         { name: "John Doe" },
         { name: "Jane Doe" }
@@ -23,7 +23,7 @@ describe("Model.clear()", function() {
   };
 
   before(async function () {
-    db = await helper.connectAsync();
+  db = await helper.connect();
   });
 
   after(async function () {

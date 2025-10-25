@@ -18,7 +18,7 @@ describe("db.driver", function () {
       });
 
       try {
-        await helper.dropSyncAsync(Log);
+        await helper.dropSync(Log);
         await Log.create([
           { what: "password reset", when: new Date('2013/04/07 12:33:05'), who: "jane" },
           { what: "user login", when: new Date('2013/04/07 13:01:44'), who: "jane" },
@@ -46,9 +46,9 @@ describe("db.driver", function () {
       should.exist(db.driver.query);
     });
 
-    describe('#execQueryAsync', function () {
+    describe('#execQuery', function () {
       it('should execute sql queries', function () {
-        return db.driver.execQueryAsync('SELECT id FROM log')
+        return db.driver.execQuery('SELECT id FROM log')
           .then(function (data) {
             should(JSON.stringify(data) === JSON.stringify([{ id: 1 }, { id: 2 }, { id: 3 }]));
           })
@@ -57,7 +57,7 @@ describe("db.driver", function () {
       it("should escape sql queries", function () {
         var query = "SELECT log.?? FROM log WHERE log.?? LIKE ? AND log.?? > ?";
         var args = ['what', 'who', 'jane', 'when', new Date('2013/04/07 12:40:00')];
-        return db.driver.execQueryAsync(query, args)
+        return db.driver.execQuery(query, args)
           .then(function (data) {
             should(JSON.stringify(data) === JSON.stringify([{ "what": "user login" }]));
           });
@@ -125,19 +125,23 @@ describe("db.driver", function () {
         });
       });
 
-      describe('async', function () {
+      describe('promise', function () {
         it('should build correct query', function () {
           var execSimpleQueryStub = sinon.stub(db.driver, 'execSimpleQuery')
             .callsFake(function (q, cb) {
-              cb();
+              if (typeof cb === 'function') {
+                cb();
+                return;
+              }
+
+              return Promise.resolve();
             });
-          return db.driver.eagerQueryAsync(fixture.association, fixture.opts, [1, 5])
+          return db.driver.eagerQuery(fixture.association, fixture.opts, [1, 5])
             .then(function () {
               should.equal(execSimpleQueryStub.calledOnce, true);
               should.equal(execSimpleQueryStub.lastCall.args[0], fixture.expectedQuery[common.protocol()]);
-              execSimpleQueryStub.restore();
             })
-            .catch(function () {
+            .finally(function () {
               execSimpleQueryStub.restore();
             });
         });
@@ -203,7 +207,7 @@ describe("db.driver", function () {
       return db.close();
     });
 
-    describe('db.syncPromise()', function () {
+    describe('db.sync()', function () {
       it('should call sync for each model', function () {
         db.define("my_model", {
           property: String
@@ -213,7 +217,7 @@ describe("db.driver", function () {
         });
         var syncStub = sinon.stub(db.models['my_model'], 'sync').resolves({});
         var syncStub2 = sinon.stub(db.models['my_model2'], 'sync').resolves({});
-        return db.syncPromise()
+  return db.sync()
           .then(function () {
             should.equal(syncStub.calledOnce, true);
             should.equal(syncStub2.calledOnce, true);
@@ -221,7 +225,7 @@ describe("db.driver", function () {
       });
     });
 
-    describe("db.dropAsync()", function () {
+  describe("db.drop()", function () {
       it('should should call drop for each model', function () {
         db.define("my_model", {
           property: String
@@ -234,7 +238,7 @@ describe("db.driver", function () {
         var dropStub = sinon.stub(db.models['my_model'], 'drop').resolves({});
         var dropStub2 = sinon.stub(db.models['my_model2'], 'drop').resolves({});
 
-        return db.dropAsync()
+  return db.drop()
           .then(function () {
             should.equal(dropStub.calledOnce, true);
             should.equal(dropStub2.calledOnce, true);
@@ -316,10 +320,10 @@ describe("db.driver", function () {
     });
   });
 
-  describe("db.loadAsync()", function () {
+  describe("db.load() as promise", function () {
     it("should require a file if array", function () {
       var filePath = "../support/spec_load";
-      return db.loadAsync([filePath])
+  return db.load([filePath])
         .then(function () {
           db.models.should.have.property("person");
           db.models.should.have.property("pet");
@@ -328,7 +332,7 @@ describe("db.driver", function () {
 
     it("should require a file if single file path string", function () {
       var filePath = "../support/spec_load";
-      return db.loadAsync(filePath)
+  return db.load(filePath)
         .then(function () {
           db.models.should.have.property("person");
           db.models.should.have.property("pet");
@@ -338,7 +342,7 @@ describe("db.driver", function () {
     it("should be able to load more than one file", function () {
       var filePaths = ["../support/spec_load_second", "../support/spec_load_third"];
 
-      return db.loadAsync(filePaths)
+  return db.load(filePaths)
         .then(function () {
           db.models.should.have.property("person");
           db.models.should.have.property("pet");
@@ -346,7 +350,7 @@ describe("db.driver", function () {
     });
 
     it("should throw error if files passed like arguments", function () {
-      return db.loadAsync("../support/spec_load_second", "../support/spec_load_third")
+  return db.load("../support/spec_load_second", "../support/spec_load_third")
         .then(function () {
           db.models.should.have.property("person");
           db.models.should.have.property("pet");
@@ -415,7 +419,7 @@ describe("db.driver", function () {
         name: String,
         surname: String
       });
-      await helper.dropSyncAsync(Person);
+  await helper.dropSync(Person);
       await Person.create([
         { name: "John", surname: "Doe" },
         { name: "Jane", surname: "Doe" }

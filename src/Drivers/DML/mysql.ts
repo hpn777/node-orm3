@@ -383,22 +383,3 @@ Driver.prototype.getConnection = function (this: any): unknown {
 Object.defineProperty(Driver.prototype, "isSql", {
     value: true
 });
-
-const asyncCompatMethods = [
-  "connect",
-  "execSimpleQuery",
-  "ping",
-  "find",
-  "count",
-  "insert",
-  "update",
-  "remove",
-  "clear",
-  "close"
-];
-
-for (const method of asyncCompatMethods) {
-  (Driver.prototype as any)[`${method}Async`] = function (...args: any[]) {
-    return (this as any)[method](...args);
-  };
-}

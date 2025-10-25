@@ -115,8 +115,6 @@ export function autoFetch(Instance: any, associations: any[], opts: Record<strin
 }
 
 function extendInstance(Model: any, Instance: any, Driver: any, association: any, opts: Record<string, unknown>): void {
-  const promiseFunctionPostfix = Model.settings.get('promiseFunctionPostfix');
-
   const getModelIds = (): string[] => Array.isArray(Model.id) ? Model.id : [Model.id];
 
   const ensurePersisted = (): string[] => {
@@ -235,20 +233,6 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
     writable: true
   });
 
-  if (promiseFunctionPostfix) {
-    for (let i = 0; i < ACCESSOR_METHODS.length; i++) {
-      const name = ACCESSOR_METHODS[i];
-      const baseName = association[name];
-      const asyncName = baseName + promiseFunctionPostfix;
-      if (!Object.prototype.hasOwnProperty.call(Instance, asyncName)) {
-        Object.defineProperty(Instance, asyncName, {
-          value: Instance[baseName],
-          enumerable: false,
-          writable: true
-        });
-      }
-    }
-  }
 }
 
 function autoFetchInstance(Instance: any, association: any, opts: any, cb: Function): void {

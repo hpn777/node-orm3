@@ -20,12 +20,12 @@ describe("hasOne Async", function() {
         field    : 'parentId'
       });
 
-      await helper.dropSyncAsync(Person);
+  await helper.dropSync(Person);
     };
   };
 
   before(async function() {
-    db = await helper.connectAsync();
+  db = await helper.connect();
   });
 
   describe("required", function () {

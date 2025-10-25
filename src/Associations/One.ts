@@ -153,7 +153,6 @@ export function autoFetch(Instance: any, associations: any[], opts: Record<strin
 }
 
 function extendInstance(Model: any, Instance: any, Driver: any, association: any): void {
-  const promiseFunctionPostfix = Model.settings.get('promiseFunctionPostfix');
 
   const normalizeOptions = (opts: any): Record<string, unknown> => {
     if (opts && typeof opts === 'object') {
@@ -314,21 +313,6 @@ function extendInstance(Model: any, Instance: any, Driver: any, association: any
     });
   }
 
-  if (promiseFunctionPostfix) {
-    for (let i = 0; i < ACCESSOR_METHODS.length; i++) {
-      const name = ACCESSOR_METHODS[i];
-      const base = Instance[association[name]];
-      if (!base) continue;
-      if (name === "delAccessor" && !Instance[association.delAccessor]) continue;
-      const asyncNameAccessorName = association[name] + promiseFunctionPostfix;
-
-      Object.defineProperty(Instance, asyncNameAccessorName, {
-        value: base,
-        enumerable: false,
-        writable: true
-      });
-    }
-  }
 }
 
 function autoFetchInstance(Instance: any, association: any, opts: any, cb: Function): void {

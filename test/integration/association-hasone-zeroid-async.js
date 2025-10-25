@@ -28,7 +28,7 @@ describe("hasOne promise-based methods", function() {
 
       Pet.hasOne('owner', Person, { field: 'ownerID', autoFetch: autoFetch });
 
-      await helper.dropSyncAsync([Person, Pet]);
+  await helper.dropSync([Person, Pet]);
 
       await Pet.create([
         {
@@ -54,7 +54,7 @@ describe("hasOne promise-based methods", function() {
   };
 
   before(async function() {
-    db = await helper.connectAsync();
+  db = await helper.connect();
   });
 
   after(async function() {
@@ -112,12 +112,12 @@ describe("hasOne promise-based methods", function() {
           pets.should.not.have.property("owner");
 
           // But we should be able to see if its there
-          return Promise.all([pets, pets.hasOwnerAsync()]);
+          return Promise.all([pets, pets.hasOwner()]);
         })
         .then(function([pets, hasOwner]) {
           should.equal(hasOwner, true);
           // ...and then get it
-          return pets.getOwnerAsync();
+          return pets.getOwner();
         })
         .then(function(petOwner) {
           petOwner.firstName.should.equal("Stuey");
@@ -138,13 +138,13 @@ describe("hasOne promise-based methods", function() {
           pets.should.not.have.property("owner");
 
           // But we should be able to see if its there
-          return Promise.all([pets, pets.hasOwnerAsync()]);
+          return Promise.all([pets, pets.hasOwner()]);
         })
         .then(function([pets, hasOwner]) {
           should.equal(hasOwner, true);
           
           // ...and then get it
-          return pets.getOwnerAsync();
+          return pets.getOwner();
         })
         .then(function(petOwner) {
           petOwner.firstName.should.equal("John");
