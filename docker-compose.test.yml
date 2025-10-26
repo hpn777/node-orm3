@@ -32,6 +32,14 @@ services:
         aliases:
           - redshift
 
+  questdb:
+    image: questdb/questdb:latest
+    environment:
+      QDB_PG_ENABLED: "true"
+      QDB_PG_READONLY_USER_ENABLED: "false"
+      QDB_PG_USER: admin
+      QDB_PG_PASSWORD: quest
+
   test-runner:
     image: node:24
     working_dir: /workspace
@@ -41,12 +49,15 @@ services:
       MYSQL_DB_URL: mysql://root:example@mysql:3306/orm_test
       POSTGRES_DB_URL: postgres://postgres:example@postgres:5432/orm_test
       REDSHIFT_DB_URL: redshift://postgres:example@redshift:5432/orm_test
+      QUESTDB_DB_URL: questdb://admin:quest@questdb:8812/qdb
       CI: "1"
     depends_on:
       mysql:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      questdb:
+        condition: service_started
     command: >-
       bash -lc "npm ci && npm run build && make test"
 

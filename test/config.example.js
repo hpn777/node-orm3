@@ -17,6 +17,13 @@ exports.postgres = {
   password : "",
   database : "test"
 };
+exports.questdb = {
+  user     : "admin",
+  password : "quest",
+  database : "qdb",
+  host     : "localhost",
+  port     : 8812
+};
 exports.redshift = {
   user      : "root",
   password  : "",

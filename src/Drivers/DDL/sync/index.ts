@@ -2,6 +2,7 @@ import _ from "lodash";
 import { Queue } from "./Queue";
 import mysqlDialect from "./Dialects/mysql";
 import postgresqlDialect from "./Dialects/postgresql";
+import questdbDialect from "./Dialects/questdb";
 import sqliteDialect from "./Dialects/sqlite";
 
 export type Callback<T = any> = (err?: Error | null, result?: T) => void;
@@ -32,6 +33,7 @@ type DialectModule = Record<string, any>;
 const DIALECTS: Record<string, DialectModule> = {
   mysql: mysqlDialect,
   postgresql: postgresqlDialect,
+  questdb: questdbDialect,
   sqlite: sqliteDialect,
 };
 
@@ -51,7 +53,7 @@ export class Sync {
     this.debug = typeof options.debug === "function" ? options.debug : noOp;
     this.suppressColumnDrop = Boolean(options.suppressColumnDrop);
 
-    const dialectName = this.driver && this.driver.dialect;
+  const dialectName = this.driver && (this.driver.ddlDialect || this.driver.dialect);
     this.dialect = DIALECTS[dialectName];
 
     if (!this.dialect) {

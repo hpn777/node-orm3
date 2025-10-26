@@ -396,6 +396,8 @@ export function convertPropToJoinKeyProp(
 
     if (prop.type === 'serial') {
       prop.type = 'integer';
+      delete (prop as any).serial;
+      (prop as any).__orm3PreferLong = true;
     }
     if (opts.makeKey) {
       prop.key = true;

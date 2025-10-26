@@ -1,5 +1,6 @@
 import * as Helpers from './Helpers';
 import { build as buildWhere } from './Where';
+import type { WhereExistsClause } from './Where';
 import type { Dialect, QueryOptions } from './types';
 
 const aggregateFunctions = [
@@ -40,7 +41,7 @@ export interface SelectQueryBuilder {
 export function SelectQuery(dialect: Dialect, opts: QueryOptions = {}): SelectQueryBuilder {
   const sql: {
     from: SelectFromEntry[];
-    where: { t: string | null; w: Record<string, any>; e?: { t: string; tl: string; l: any[] } }[];
+  where: { t: string | null; w: Record<string, any>; e?: WhereExistsClause }[];
     order: any[];
     group_by: any[] | null;
     found_rows: boolean;
@@ -66,6 +67,7 @@ export function SelectQuery(dialect: Dialect, opts: QueryOptions = {}): SelectQu
   };
 
   let functionStack: string[] = [];
+  let existsAliasCount = 0;
 
   const aggregateFun = (fun: AggregateFunction) => {
     return function aggregateFunction(this: SelectQueryBuilder, ...fnArgs: any[]): SelectQueryBuilder {
@@ -221,10 +223,12 @@ export function SelectQuery(dialect: Dialect, opts: QueryOptions = {}): SelectQu
     },
 
     whereExists(this: SelectQueryBuilder, table: string, tableLink: string, link: any[], conditions: Record<string, any>): SelectQueryBuilder {
+      existsAliasCount += 1;
+      const alias = `texists${existsAliasCount}`;
       sql.where.push({
         t: sql.from.length ? sql.from[sql.from.length - 1].a : null,
         w: conditions,
-        e: { t: table, tl: getTableAlias(tableLink), l: link }
+        e: { t: table, tl: getTableAlias(tableLink), l: link, a: alias }
       });
       sql.where_exists = true;
       return this;

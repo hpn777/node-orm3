@@ -26,6 +26,28 @@ function shouldRunTest(file) {
   var proto = common.protocol();
   var exclude = ['model-aggregate','property-number-size','smart-types'];
 
+  if (proto == 'questdb') {
+    // QuestDB support is currently partial. Only include tests that do not
+    // depend on full INSERT/DELETE/RETURNING semantics or heavy DDL behaviour.
+    // Keep the driver spec and a handful of safe, DB-agnostic suites.
+    var allowed = [
+      path.join('drivers', 'questdb_spec'),
+      'error_spec',
+      'orm-exports',
+      'settings',
+      'sql-ddl-sync-unit',
+      'big',
+      'model-create',
+      'model-find',
+      'model-clear',
+      'instance-methods'
+    ];
+
+    return allowed.some(function (pattern) {
+      return file.indexOf(pattern + '.js') >= 0;
+    });
+  }
+
   if (proto == "mongodb" && exclude.indexOf(name) >= 0) return false;
 
   return true;

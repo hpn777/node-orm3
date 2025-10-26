@@ -84,10 +84,15 @@ common.getConnectionString = function (opts) {
   const defaultUsers = {
     postgres: 'postgres',
     redshift: 'postgres',
+    questdb: 'admin',
     mongodb : ''
   };
   const defaultDatabases = {
-    mongodb: 'test'
+    mongodb: 'test',
+    questdb: 'qdb'
+  };
+  const defaultPorts = {
+    questdb: 8812
   };
 
   _.defaults(config, {
@@ -100,12 +105,24 @@ common.getConnectionString = function (opts) {
   });
   _.merge(config, opts || {});
 
+  if (config.port && typeof config.port === 'string') {
+    const parsedPort = parseInt(config.port, 10);
+    if (!Number.isNaN(parsedPort)) {
+      config.port = parsedPort;
+    }
+  }
+
+  if (!config.port && Object.prototype.hasOwnProperty.call(defaultPorts, protocol)) {
+    config.port = defaultPorts[protocol];
+  }
+
   query = querystring.stringify(config.query);
 
   switch (protocol) {
     case 'mysql':
     case 'postgres':
     case 'redshift':
+    case 'questdb':
     case 'mongodb':
       if (common.isCI()) {
         if (protocol == 'redshift') protocol = 'postgres';
@@ -121,15 +138,17 @@ common.getConnectionString = function (opts) {
           auth = `:${config.password}`;
         }
 
-        const authority = auth.length > 0 ? `${auth}@${config.host}` : config.host;
+  const hostWithPort = typeof config.port === 'number' ? `${config.host}:${config.port}` : config.host;
+        const authority = auth.length > 0 ? `${auth}@${hostWithPort}` : hostWithPort;
 
         return util.format("%s://%s/%s?%s",
           protocol, authority, config.database, query
         );
       } else {
+        const hostWithPort = typeof config.port === 'number' ? `${config.host}:${config.port}` : config.host;
         return util.format("%s://%s:%s@%s/%s?%s",
           protocol, config.user, config.password,
-          config.host, config.database, query
+          hostWithPort, config.database, query
         ).replace(':@','@');
       }
     case 'sqlite':

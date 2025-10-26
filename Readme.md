@@ -2,7 +2,7 @@
 
 A batteries-included Object-Relational Mapper for Node.js with first-class async/await support, rich associations, and solid TypeScript types.
 
-- **Why ORM3?** Multi-database support (MySQL/MariaDB, PostgreSQL, Amazon Redshift, SQLite), composable query chains, hookable lifecycle events, and identities cached out of the box.
+- **Why ORM3?** Multi-database support (MySQL/MariaDB, PostgreSQL, Amazon Redshift, SQLite, QuestDB), composable query chains, hookable lifecycle events, and identities cached out of the box.
 - **API style:** Promise-only. Every operation can be `await`ed and plays nicely with modern JavaScript.
 - **Works great with TypeScript:** Ship-shape `.d.ts` files, generics for models and instances, and expressive helper utilities.
 
@@ -44,7 +44,7 @@ ORM3 lets you model relational data using plain JavaScript or TypeScript while k
 
 - **Promise-only API:** Every public method resolves a `Promise`, making async code deterministic, testable, and easy to compose—no callback shims or `Async`-suffixed helpers required.
 - **Typed from the core:** Rich `.d.ts` files expose generics for models, instances, query chains, and helper utilities so your editor can follow along.
-- **Cross-database drivers:** Connect to MySQL/MariaDB, PostgreSQL, Amazon Redshift, or SQLite with a consistent API and per-driver tuning hooks.
+- **Cross-database drivers:** Connect to MySQL/MariaDB, PostgreSQL, Amazon Redshift, SQLite, or QuestDB with a consistent API and per-driver tuning hooks.
 - **Powerful query builder:** Chain filters, ordering, eager-loading, aggregates, and raw SQL snippets without sacrificing readability.
 - **Associations that stay out of your way:** Mix `hasOne`, `hasMany`, and `extendsTo` relationships, including polymorphic extensions and cascading rules.
 - **Lifecycle hooks & validation:** Ship with `enforce` validators, before/after hooks, and lazy-loading helpers for modeling real-world workflows.
@@ -61,6 +61,7 @@ ORM3 lets you model relational data using plain JavaScript or TypeScript while k
 | MySQL / MariaDB    | `mysql@~2.18`         | Supports SSL and connection pools. |
 | PostgreSQL         | `pg@~8`               | Requires Node.js ≥ 18 and `pg` ≥ 8.1. |
 | Amazon Redshift    | `pg@~8`               | Uses the PostgreSQL driver with Redshift tweaks. |
+| QuestDB            | `pg@~8`               | QuestDB 7.4+ with the PostgreSQL wire protocol enabled. |
 | SQLite             | `sqlite3@~5`          | Bundled with dev dependencies for quick local runs. |
 
 Runtime requirements:
@@ -347,7 +348,7 @@ Integration suites read configuration from `test/config.js`. Check that file if 
 
 Environment variables worth knowing:
 
-- `ORM_PROTOCOL` – set to `mysql`, `postgres`, `redshift`, or `sqlite` to pick the driver for local runs (the scripts above set this automatically).
+- `ORM_PROTOCOL` – set to `mysql`, `postgres`, `redshift`, `sqlite`, or `questdb` to pick the driver for local runs (the scripts above set this automatically).
 - `DEBUG=orm` – enable verbose SQL logging when troubleshooting.
 - `ORM_DEBUG=1` – flip on internal logging for fine-grained diagnostics.
 
@@ -357,8 +358,8 @@ Environment variables worth knowing:
 
 1. **Install dependencies:** `npm install` bootstraps TypeScript, test harnesses, and database client libraries.
 2. **Iterate with automatic builds:** run `npm run build:watch` in a background terminal while you develop. It keeps `dist/` synchronized with your TypeScript edits.
-3. **Exercise targeted drivers:** during feature work, reach for `npm run test:<driver>` to validate a specific adapter before running the heavier Docker suites.
-4. **Use Docker for parity:** `npm run test:docker:<driver>` mirrors CI by provisioning clean containers. Pair it with `SKIP_DOCKER_CLEANUP=1` when you need to inspect failing services.
+3. **Exercise targeted drivers:** during feature work, reach for `npm run test:<driver>` (mysql, postgres, redshift, sqlite, questdb) to validate a specific adapter before running the heavier Docker suites.
+4. **Use Docker for parity:** `npm run test:docker:<driver>` mirrors CI by provisioning clean containers—including the QuestDB image with its PostgreSQL wire protocol enabled. Pair it with `SKIP_DOCKER_CLEANUP=1` when you need to inspect failing services.
 5. **Keep containers tidy:** `docker compose -f docker-compose.test.yml down` tears everything down if you stop the run manually.
 6. **Watch emitted typings:** check the generated files under `dist/*.d.ts` when you touch public APIs to ensure consumers get the right contracts.
 

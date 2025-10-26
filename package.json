@@ -27,9 +27,11 @@
     "test:mysql": "npm run build && ORM_PROTOCOL=mysql node test/run",
     "test:postgres": "npm run build && ORM_PROTOCOL=postgres node test/run",
     "test:redshift": "npm run build && ORM_PROTOCOL=redshift node test/run",
+    "test:questdb": "npm run build && ORM_PROTOCOL=questdb node test/run",
     "test:docker:mysql": "docker compose -f docker-compose.test.yml run --rm -e ORM_PROTOCOL=mysql test-runner bash -c 'npm ci && npm run build && ORM_PROTOCOL=mysql node test/run'",
     "test:docker:postgres": "docker compose -f docker-compose.test.yml run --rm -e ORM_PROTOCOL=postgres test-runner bash -c 'npm ci && npm run build && ORM_PROTOCOL=postgres node test/run'",
     "test:docker:redshift": "docker compose -f docker-compose.test.yml run --rm -e ORM_PROTOCOL=redshift test-runner bash -c 'npm ci && npm run build && ORM_PROTOCOL=redshift node test/run'",
+    "test:docker:questdb": "docker compose -f docker-compose.test.yml run --rm -e ORM_PROTOCOL=questdb test-runner bash -c 'npm ci && npm run build && ORM_PROTOCOL=questdb node test/run'",
     "test:full": "npm run build && node test/run"
   },
   "engines": {

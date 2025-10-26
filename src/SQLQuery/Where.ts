@@ -5,16 +5,13 @@ export interface WhereExistsClause {
   t: string;
   tl: string;
   l: any[];
+  a?: string;
 }
 
 export interface WhereCondition {
   t: string | null;
   w: Record<string, any>;
-  e?: {
-    t: string;
-    tl: string;
-    l: any[];
-  };
+  e?: WhereExistsClause;
 }
 
 export function build(dialect: Dialect, where: WhereCondition[], opts?: QueryOptions): string | string[] {
@@ -54,12 +51,14 @@ function buildOrGroup(dialect: Dialect, where: WhereCondition, opts: QueryOption
     const wheres: string[] = [];
     const link = where.e.l;
 
+    const existsAlias = where.e.a || where.e.t;
+
     if (Array.isArray(link[0]) && Array.isArray(link[1])) {
       for (let i = 0; i < link[0].length; i += 1) {
-        wheres.push(`${dialect.escapeId(link[0][i])} = ${dialect.escapeId(where.e.tl, link[1][i])}`);
+        wheres.push(`${dialect.escapeId(existsAlias, link[0][i])} = ${dialect.escapeId(where.e.tl, link[1][i])}`);
       }
     } else {
-      wheres.push(`${dialect.escapeId(link[0])} = ${dialect.escapeId(where.e.tl, link[1])}`);
+      wheres.push(`${dialect.escapeId(existsAlias, link[0])} = ${dialect.escapeId(where.e.tl, link[1])}`);
     }
 
     const nested = buildOrGroup(dialect, { t: null, w: where.w }, options);
@@ -68,7 +67,7 @@ function buildOrGroup(dialect: Dialect, where: WhereCondition, opts: QueryOption
     }
 
     return [
-      `EXISTS (SELECT * FROM ${dialect.escapeId(where.e.t)} ` +
+      `EXISTS (SELECT 1 FROM ${dialect.escapeId(where.e.t)} ${dialect.escapeId(existsAlias)} ` +
         `WHERE ${wheres.join(' AND ')} AND ${nested})`
     ];
   }
