@@ -604,6 +604,27 @@ class ORM extends EventEmitter implements ORMInterface {
         property.key = true;
       }
 
+      const columnMeta = {
+        name: column.getName(),
+        dataType: column.getDataType(),
+        notNull: !column.isNullable(),
+        maxLength: column.getMaxLength() ?? null,
+        primaryKey: column.isPrimaryKey(),
+        defaultValue: column.getDefaultValue(),
+        unique: column.isUnique(),
+        autoIncrement: column.isAutoIncrementing(),
+        referencedTableName: column.getReferencedTableName(),
+        referencedColumnName: column.getReferencedColumnName(),
+        onUpdate: column.getUpdateRule(),
+        onDelete: column.getDeleteRule(),
+      };
+      Object.defineProperty(property, 'meta', {
+        value: columnMeta,
+        enumerable: false,
+        configurable: true,
+        writable: false,
+      });
+
       properties[propertyName] = property;
 
       if (property.key === true) {
